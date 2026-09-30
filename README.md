@@ -88,6 +88,10 @@ Budget roughly **0.5 MB per song** for the full seven-step reveal ladder.
 
 ### Troubleshooting
 
+**`NameError: name 'detect_os' is not defined`** — fixed; update to the latest
+commit. A refactor deleted a block of functions. `tools/test_ingest.py` now runs
+`main()` end to end, which catches exactly this.
+
 **`UnicodeEncodeError: 'charmap' codec can't encode character`** — fixed; update
 to the latest commit. Python on Windows defaults file writes and subprocess
 decoding to cp1252, which cannot represent Vietnamese. Every such call now
@@ -175,9 +179,13 @@ not redistributed.** If it ever goes public, the licensing analysis in
 ```sh
 npm install
 npm run dev          # http://localhost:3000
-npm test             # 54 tests, no dependencies
+npm test             # 74 tests (web + ingest), no dependencies
 npm run build        # static export to out/
 ```
+
+`npm test` runs both suites: `test:web` (Node's built-in runner over the
+TypeScript modules) and `test:ingest` (Python's unittest over
+`tools/ingest.py`). Neither needs anything installed beyond Node and Python.
 
 Next.js App Router with `output: 'export'` — there is no server, so deploying is
 "copy `out/` and `public/clips/` somewhere private". The catalogue is fetched at

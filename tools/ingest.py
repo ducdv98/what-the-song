@@ -225,6 +225,114 @@ def cut_clips(
     return manifest, warnings
 
 
+def detect_os() -> str:
+    """'windows' | 'macos' | 'linux'."""
+    if sys.platform.startswith("win"):
+        return "windows"
+    if sys.platform == "darwin":
+        return "macos"
+    return "linux"
+
+
+# Where each browser keeps its profile, per OS. Presence of the directory is a
+# good enough proxy for "this browser is installed and has been run".
+_BROWSER_PROFILES: dict[str, dict[str, list[str]]] = {
+    "windows": {
+        "firefox": ["APPDATA/Mozilla/Firefox/Profiles"],
+        "chrome": ["LOCALAPPDATA/Google/Chrome/User Data"],
+        "edge": ["LOCALAPPDATA/Microsoft/Edge/User Data"],
+    },
+    "macos": {
+        "firefox": ["~/Library/Application Support/Firefox/Profiles"],
+        "chrome": ["~/Library/Application Support/Google/Chrome"],
+        "brave": ["~/Library/Application Support/BraveSoftware/Brave-Browser"],
+    },
+    "linux": {
+        "firefox": ["~/.mozilla/firefox", "~/snap/firefox/common/.mozilla/firefox"],
+        "chrome": ["~/.config/google-chrome", "~/.config/chromium"],
+        "brave": ["~/.config/BraveSoftware/Brave-Browser"],
+    },
+}
+
+
+def _profile_exists(spec: str) -> bool:
+    """Resolve a profile path spec, which may lead with a Windows env var."""
+    if spec.startswith("~"):
+        return Path(spec).expanduser().is_dir()
+    var, _, rest = spec.partition("/")
+    root = os.environ.get(var)
+    return bool(root) and (Path(root) / rest).is_dir()
+
+
+def installed_browsers(host_os: str) -> list[str]:
+    return [
+        name
+        for name, specs in _BROWSER_PROFILES.get(host_os, {}).items()
+        if any(_profile_exists(spec) for spec in specs)
+    ]
+
+
+def auto_cookie_browser(host_os: str) -> tuple[str | None, str]:
+    """
+    Pick a browser yt-dlp can actually read cookies from. Returns
+    (browser or None, explanation to print).
+
+    Firefox is preferred everywhere: it stores cookies in plain SQLite, so no
+    platform gets in the way.
+
+    On Windows, Chromium browsers are not merely awkward but impossible —
+    Chrome 127+ encrypts cookies with app-bound encryption that ties the key to
+    the Chrome process. No external tool can read them and there is no local
+    workaround. Edge, Brave, Opera and Vivaldi all inherit it. So on Windows we
+    only ever offer Firefox.
+    """
+    found = installed_browsers(host_os)
+
+    if "firefox" in found:
+        return "firefox", "cookies: using Firefox"
+
+    if host_os == "windows":
+        blocked = [b for b in found if b != "firefox"]
+        detail = f" Found {', '.join(blocked)}, but" if blocked else ""
+        return None, (
+            f"cookies: none available.{detail} Chrome 127+ on Windows encrypts"
+            " cookies with app-bound encryption that no external tool can read."
+            "\ncookies: install Firefox and sign in to YouTube, or export a"
+            " cookies.txt and pass --cookies FILE."
+            "\ncookies: if downloads succeed anyway, you do not need any of this."
+        )
+
+    for candidate in ("chrome", "brave"):
+        if candidate in found:
+            return candidate, f"cookies: using {candidate.title()}"
+
+    return None, "cookies: no supported browser profile found; continuing without"
+
+
+def install_hint(host_os: str) -> list[str]:
+    if host_os == "windows":
+        return [
+            "  py -m pip install -U yt-dlp",
+            "  winget install ffmpeg      (or: scoop install ffmpeg)",
+            "  then reopen your terminal so PATH is picked up.",
+        ]
+    if host_os == "macos":
+        return ["  pip install -U yt-dlp", "  brew install ffmpeg"]
+    return [
+        "  pip install -U yt-dlp",
+        "  sudo apt install ffmpeg      (or your distro's equivalent)",
+    ]
+
+
+def cookie_args(browser: str | None, cookie_file: Path | None) -> list[str]:
+    """Build yt-dlp's cookie flags."""
+    if cookie_file:
+        return ["--cookies", str(cookie_file)]
+    if browser:
+        return ["--cookies-from-browser", browser]
+    return []
+
+
 def download_audio(
     url: str,
     work: Path,
@@ -398,6 +506,11 @@ def main() -> int:
             built.append(rec)
             if rec.get("needs_review"):
                 review.append(rec)
+
+    # cut_clips creates per-song dirs as a side effect, but if every song
+    # failed nothing has made --out yet and the write below would crash —
+    # losing the failure report, which is the one useful thing left.
+    args.out.mkdir(parents=True, exist_ok=True)
 
     catalogue = args.out / "catalogue.json"
     catalogue.write_text(

@@ -8,11 +8,13 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test lib/vietnamese.test.ts lib/catalogue.test.ts lib/game/round.test.ts",
+    "test": "npm run test:web && npm run test:ingest",
     "docker:build": "docker compose build",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
-    "docker:logs": "docker compose logs -f"
+    "docker:logs": "docker compose logs -f",
+    "test:web": "node --experimental-strip-types --test lib/vietnamese.test.ts lib/catalogue.test.ts lib/game/round.test.ts",
+    "test:ingest": "python tools/test_ingest.py"
   },
   "dependencies": {
     "next": "^15.5.4",
