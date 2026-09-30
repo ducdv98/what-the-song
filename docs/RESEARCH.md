@@ -678,8 +678,13 @@ of which are sharper for a Vietnamese catalogue:
   one ffprobe call and a wrong length silently changes difficulty.
   Still unexecuted: the yt-dlp download itself, which needs network access
   this environment does not have.
-- **Web Audio playback** per §4.2 — the client side is not written yet.
-- **The game loop**, per the build order in §8.
+- ~~**Web Audio playback**~~ — done, `lib/audio/engine.ts`.
+- ~~**The game loop**~~ — done, `lib/game/round.ts` and `app/`.
+- **An auth gate.** Still the one genuinely unfinished piece, and the one that
+  keeps §10.1 true. Needed before any URL is shared; `AUTH_USER`/`AUTH_PASSWORD`
+  in the Docker setup covers it, but nothing enforces it yet.
+- **Vocal-onset anchoring via source separation** (§11.2 option 4) — agreed as
+  future work, deliberately not started.
 
 
 
@@ -709,7 +714,7 @@ signature often lands in the first bar.
 | Fraction of duration ("hook") | good enough | none | **shipped, default** |
 | Loudness step ("body") | unknown | 1 extra ffmpeg pass | shipped, **unvalidated** |
 | Per-song `start_at` | perfect | your ears, once per song | shipped |
-| Source separation (Demucs) | high | a model + minutes/song | **recommended next** |
+| Source separation (Demucs) | high | a model + minutes/song | **deferred — future work** |
 
 **1. Fraction of duration — the default.** Anchor at a deterministic point
 between **30% and 45%** into the track. On a 4-minute song that is 72–108s:
@@ -735,14 +740,20 @@ catalogue of a few hundred songs, listening once and writing an offset is a few
 hours of work and beats every heuristic. It is also how you fix the songs the
 default gets wrong, so it is needed regardless.
 
-**4. Source separation — the real automated answer.** Run a separator
-(Demucs is the usual choice) to isolate the vocal stem, then take the first
-point of sustained energy *in that stem*. Because it looks at the vocal alone,
-a quiet vocal over a loud arrangement no longer confuses it, and the instrumental
-intro contributes nothing. Costs a model download and roughly a minute or two of
-CPU per song — irrelevant for an offline batch run over a few hundred songs done
-once. **This is what I would build next** if the anchor is still wrong often
-enough to annoy.
+**4. Source separation — the real automated answer. Deferred by decision.**
+Run a separator (Demucs is the usual choice) to isolate the vocal stem, then take
+the first point of sustained energy *in that stem*. Because it looks at the vocal
+alone, a quiet vocal over a loud arrangement no longer confuses it, and the
+instrumental intro contributes nothing. Costs a model download and roughly a
+minute or two of CPU per song — irrelevant for an offline batch over a few
+hundred songs run once.
+
+**Status: agreed as future work, not in progress.** The plan is options 1 and 2
+— the `hook` default, with `start_at` for the songs it gets wrong. Revisit this
+only if hand-correcting anchors becomes tedious enough to be worth the
+dependency. Nothing in the current code needs to change to adopt it later: it
+would be another `anchor` mode feeding `choose_anchor`, alongside the existing
+three.
 
 ### 11.3 Flexible ladders
 
