@@ -45,8 +45,11 @@ CLIP_LADDER = [0.1, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0]
 # tools/test_ingest.py parses that file and asserts the two agree, because a
 # silent mismatch would quietly file songs under "Khác" in the picker.
 KNOWN_GENRES = [
-    "nhac-tre", "rap-viet", "indie", "bolero", "nhac-vang",
-    "nhac-do", "dan-ca", "vong-co", "nhac-phim", "khac",
+    "nhac-tre", "ballad", "rap-viet", "indie", "rock-viet",
+    "rnb-soul", "dance-edm", "acoustic",
+    "bolero", "nhac-vang", "tien-chien", "nhac-do", "hai-ngoai", "nhac-trinh",
+    "dan-ca", "cai-luong", "co-truyen",
+    "nhac-phim", "thieu-nhi", "khac",
 ]
 
 

@@ -45,6 +45,28 @@ yt-dlp from a VPS means constant "confirm you're not a bot" failures. Keeping
 ingest local sidesteps that entirely — and leaves the server holding nothing
 but short, metadata-stripped clips. See `docs/RESEARCH.md` §10.3.
 
+## Growing the library
+
+[`docs/CATALOGUE.md`](docs/CATALOGUE.md) is the instruction for adding songs —
+written to be handed to an agent, and equally usable by hand. It covers the row
+format, the ordered genre rules, how to pick a YouTube URL, which songs are
+worth adding, and a distribution target for 1000 songs.
+
+Validate every batch before ingesting:
+
+```sh
+python tools/validate_seed.py seed.jsonl
+```
+
+It catches what nobody re-reading a thousand-line file would: duplicate ids
+(which silently overwrite another song's clips), the same song added twice under
+different spellings, unknown genres (which file a song under "Khác" with no
+error), and titles still carrying `(Official MV)` — which make a round
+unwinnable, because the answer no longer matches what a player types. It also
+prints genre coverage against the targets so you can see what to fill next.
+
+Exit code is 1 on errors, 0 on warnings only.
+
 ## Building the clip library
 
 **macOS / Linux:**
@@ -246,12 +268,21 @@ tables declare the same `{placeholders}`.
 
 ### Genres
 
-The taxonomy is Vietnamese, not Songspot's Pop / Hip-Hop / Rock / R&B / Country /
-K-Pop — forcing this repertoire into Anglophone labels loses most of what
-distinguishes it (`docs/RESEARCH.md` §5):
+Twenty genres, researched against how Vietnamese listeners and catalogues
+actually divide the repertoire rather than translated from an Anglophone list
+(`docs/RESEARCH.md` §5, §13):
 
-`nhac-tre` · `rap-viet` · `indie` · `bolero` · `nhac-vang` · `nhac-do` ·
-`dan-ca` · `vong-co` · `nhac-phim` · `khac`
+- **Contemporary** — `nhac-tre` `ballad` `rap-viet` `indie` `rock-viet`
+  `rnb-soul` `dance-edm` `acoustic`
+- **Era & movement** — `bolero` `nhac-vang` `tien-chien` `nhac-do` `hai-ngoai`
+  `nhac-trinh`
+- **Traditional** — `dan-ca` `cai-luong` `co-truyen`
+- **Provenance** — `nhac-phim` `thieu-nhi` `khac`
+
+Several of these overlap on purpose, so **[`docs/CATALOGUE.md`](docs/CATALOGUE.md)
+holds an ordered decision procedure** — apply the rules in order and take the
+first match. Consistency across a thousand rows matters more than any single
+judgement call, and there is no cheap way to re-audit tags later.
 
 Tag songs with the slug in the seed file's `genre` field. The picker only offers
 genres that actually have songs, with counts — with a few hundred hand-curated

@@ -818,3 +818,64 @@ were correct, their durations exact, the URLs resolved, and the manifest keys
 matched. Nothing short of loading the page in a browser and pressing play could
 have caught it — a reminder that for anything with a rendered, audible surface,
 "the tests pass" and "it works" are different claims.
+
+
+---
+
+## 13. Genre taxonomy
+
+**[verified via research]** §5 said the taxonomy had to be Vietnamese rather
+than a translation of Songspot's Pop / Hip-Hop / Rock / R&B / Country / K-Pop.
+This is that list, researched rather than extrapolated.
+
+### What the sources show
+
+Vietnamese sources divide the repertoire along **two different axes at once**,
+which is why a naive flat list goes wrong:
+
+- **Era and movement:** *nhạc tiền chiến* (romantic tân nhạc from the late
+  1930s), *nhạc vàng* (the pre-1975 Southern romantic repertoire), *nhạc đỏ* /
+  *nhạc cách mạng* (revolutionary song), *nhạc trẻ* (youth/contemporary), and
+  *nhạc hải ngoại* (post-1975 diaspora production through Thúy Nga, Asia, Vân
+  Sơn, Làng Văn).
+- **Musical style:** bolero, ballad, pop, rock, rap, indie, R&B, EDM, acoustic.
+
+Two further categories fit neither axis but are real in Vietnamese catalogues:
+*nhạc Trịnh*, an **auteur** category for Trịnh Công Sơn's songbook, and the
+traditional forms — *dân ca*, *cải lương* / *vọng cổ* / *đờn ca tài tử*, and the
+classical and ceremonial repertoire (*ca trù*, *chèo*, *chầu văn*, *hát xẩm*,
+*hát xoan*, *nhã nhạc*, *ca Huế*, *bài chòi*, *tuồng*), eight of which UNESCO
+recognises as intangible heritage.
+
+### Decisions
+
+**One axis, twenty slugs.** Era and style were kept in a single list rather than
+split into two fields. A second field would be more correct musicologically and
+was considered, but it doubles the tagging decision on every one of a thousand
+rows and the game only ever filters on one thing.
+
+**The rare classical forms are pooled** under `co-truyen`. This is a guessing
+game: a genre pill holding three ca trù pieces that nobody can name is a dead
+end, however culturally important the form is. `dan-ca` and `cai-luong` stay
+separate because both have widely known, nameable repertoire.
+
+**The overlaps are resolved by rule, not by judgement.** `bolero` and
+`nhac-vang` are used almost interchangeably in conversation, so an ordered
+decision procedure lives in `docs/CATALOGUE.md` §3: era decides, and the song's
+identity rather than the recording's date. Applied consistently a coarse rule
+beats a thousand individually reasonable but incompatible calls.
+
+**`nhac-phim` is provenance, not style**, so it ranks below the style rules: a
+pop single that happens to appear in a film is `nhac-tre`.
+
+### Guardrails
+
+The slug list exists in TypeScript and Python, and a test parses `genres.ts` to
+assert `ingest.py` agrees — a silent drift would file songs under "Khác" with no
+error, which is the same class of bug that broke clip keys twice.
+`tools/validate_seed.py` enforces the rest mechanically, because at a thousand
+rows nobody re-reads the file.
+
+⚠️ Open question: with twenty genres the picker will eventually show twenty
+pills. They wrap, and empty genres are hidden, so it is tolerable now — but
+once the library is full this may want grouping or a scrollable row.
