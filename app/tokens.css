@@ -1,0 +1,79 @@
+/*
+ * Design tokens — see DESIGN.md.
+ *
+ * Values are transcribed from that spec rather than eyeballed, so a component
+ * can be checked against it. Font families are the one documented deviation:
+ * SpotifyMixUI/CircularSp are proprietary and cannot ship here, so the stack
+ * leads with Inter (free, metrically close, and renders stacked Vietnamese
+ * tone marks cleanly, which matters a lot for this app).
+ */
+
+:root {
+  /* Surfaces — depth comes from shade variation, not colour (DESIGN.md §6) */
+  --bg-base: #121212;
+  --surface: #181818;
+  --surface-mid: #1f1f1f;
+  --surface-card: #252525;
+  --surface-card-alt: #272727;
+
+  /* Text */
+  --text-base: #ffffff;
+  --text-light: #fdfdfd;
+  --text-near-white: #cbcbcb;
+  --text-muted: #b3b3b3;
+
+  /* Accent — functional only: play, active, primary CTA (§7) */
+  --accent: #1ed760;
+  --accent-border: #1db954;
+
+  /* Semantic */
+  --text-negative: #f3727f;
+  --text-warning: #ffa42b;
+  --text-announcement: #539df5;
+
+  /* Borders */
+  --border: #4d4d4d;
+  --border-light: #7c7c7c;
+  --separator: #b3b3b3;
+
+  /* Shadows — heavy, because subtle shadows are invisible on near-black */
+  --shadow-heavy: rgba(0, 0, 0, 0.5) 0px 8px 24px;
+  --shadow-medium: rgba(0, 0, 0, 0.3) 0px 8px 8px;
+  --shadow-inset-border: rgb(18, 18, 18) 0px 1px 0px,
+    rgb(124, 124, 124) 0px 0px 0px 1px inset;
+
+  /* Radii (§5) */
+  --r-badge: 2px;
+  --r-subtle: 4px;
+  --r-standard: 6px;
+  --r-comfortable: 8px;
+  --r-panel: 16px;
+  --r-pill: 500px;
+  --r-full-pill: 9999px;
+
+  /* Spacing — 8px base */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-8: 32px;
+  --s-10: 40px;
+
+  /* Type */
+  --font-ui: Inter, 'Helvetica Neue', Helvetica, Arial, 'Hiragino Sans',
+    'Hiragino Kaku Gothic ProN', Meiryo, 'MS Gothic', sans-serif;
+  --font-title: var(--font-ui);
+
+  --t-section-title: 700 24px/1.2 var(--font-title);
+  --t-feature: 600 18px/1.3 var(--font-ui);
+  --t-body-bold: 700 16px/1.4 var(--font-ui);
+  --t-body: 400 16px/1.4 var(--font-ui);
+  --t-button: 700 14px/1 var(--font-ui);
+  --t-caption-bold: 700 14px/1.5 var(--font-ui);
+  --t-caption: 400 14px/1.5 var(--font-ui);
+  --t-small-bold: 700 12px/1.5 var(--font-ui);
+  --t-small: 400 12px/1.4 var(--font-ui);
+  --t-micro: 400 10px/1.3 var(--font-ui);
+}

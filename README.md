@@ -14,8 +14,13 @@ commercial, not public.
 | Technical research | done — [`docs/RESEARCH.md`](docs/RESEARCH.md) |
 | Vietnamese answer matching | done, tested — `lib/vietnamese.ts` |
 | Clip ingest pipeline | written, **not yet run against real audio** — `tools/ingest.py` |
-| Web Audio playback | not started |
-| Game loop / UI | not started |
+| Web Audio playback | done — `lib/audio/engine.ts` |
+| Round rules | done, tested — `lib/game/round.ts` |
+| Autocomplete search | done, tested — `lib/catalogue.ts` |
+| Game UI | done — Next.js + [`DESIGN.md`](DESIGN.md) |
+| Auth gate | **not started** — needed before anyone else plays (see below) |
+
+54 tests pass (`npm test`); `npm run build` produces a static export.
 
 Read [`docs/RESEARCH.md`](docs/RESEARCH.md) before changing anything in
 `lib/vietnamese.ts` or `tools/ingest.py`. Both exist in the shape they do for
@@ -44,8 +49,10 @@ pip install -U yt-dlp      # not youtube-dl, which is unmaintained
                            # also needs ffmpeg + ffprobe on PATH
 
 cp tools/seed.example.jsonl seed.jsonl   # then add your songs
-./tools/ingest.py seed.jsonl --out ./clips
+./tools/ingest.py seed.jsonl --out public/clips
 ```
+
+Output goes in `public/clips/` so the app can serve it. It is gitignored.
 
 The seed file holds **your** canonical title, artist and aliases; the YouTube
 URL is only an audio source and its title is never read. That is deliberate —
@@ -81,10 +88,9 @@ npm test
 Requires Node 22+ (uses the built-in test runner and type stripping — no
 dependencies).
 
-**Recommended:** constrain guesses to an **autocomplete** over the catalogue.
-That turns scoring from a fuzzy-matching problem into an ID comparison, and
-leaves this module doing search ranking, where being slightly wrong is
-survivable.
+Guessing is **autocomplete-constrained**: the player picks a real catalogue
+entry, so a win is an ID comparison rather than a fuzzy match, and this module
+does search *ranking* instead — where being slightly wrong is survivable.
 
 ## A note on scope
 
@@ -93,3 +99,53 @@ Downloading audio from YouTube is contrary to its Terms of Service, and
 territory is that it stays private: **auth-gated, not publicly indexed, audio
 not redistributed.** If it ever goes public, the licensing analysis in
 `docs/RESEARCH.md` §2.8 and §6 becomes live and needs real answers first.
+
+## Running the app
+
+```sh
+npm install
+npm run dev          # http://localhost:3000
+npm test             # 54 tests, no dependencies
+npm run build        # static export to out/
+```
+
+Next.js App Router with `output: 'export'` — there is no server, so deploying is
+"copy `out/` and `public/clips/` somewhere private". The catalogue is fetched at
+runtime from `/clips/catalogue.json`, so the build does not depend on what is in
+your clip library; without one, the app says so and tells you what to run.
+
+### Audio
+
+`lib/audio/engine.ts` uses the **Web Audio API**, not an `<audio>` element.
+Seeking `<audio>` lands on a codec frame boundary and `setTimeout` pausing
+carries tens of milliseconds of jitter — at a 0.1s target that is a 20–50%
+error, which would make the shortest clue meaningless.
+`AudioBufferSourceNode.start(when, offset, duration)` is sample-accurate.
+
+Three details worth knowing before changing it:
+
+- **The context is created on first click, not on mount.** Mobile Safari starts
+  contexts suspended and will not autoplay, so construction has to originate in
+  a real user gesture. One context per session, never one per round.
+- **Playback duration is clamped to the ladder step, not the file length.** The
+  ingest pipeline seeks with `-ss` before `-i`, which can overshoot to a
+  keyframe, so a clip may be longer than nominal. Trusting the file would leak
+  extra audio and quietly make an early clue easier.
+- **Each rung is its own file**, so a player can only hold the audio they have
+  actually unlocked. `decodeAudioData` needs a whole buffer, so this is the only
+  real enforcement — see `docs/RESEARCH.md` §4.2.
+
+### Design
+
+[`DESIGN.md`](DESIGN.md) is the spec; `app/tokens.css` is its implementation.
+Two documented deviations: the proprietary Spotify fonts are replaced with an
+Inter-led stack (also better for stacked Vietnamese tone marks), and the app
+uses its own wordmark rather than any Spotify branding.
+
+## Before anyone else plays it
+
+There is **no auth yet**, and the privacy of this thing is what keeps it in
+personal-use territory (`docs/RESEARCH.md` §10.1). Before sharing a URL with
+colleagues, put it behind a gate — a shared passphrase, basic auth at the
+reverse proxy, or a private network is plenty. `robots` is already set to
+`noindex, nofollow`, but that is a request to crawlers, not access control.

@@ -1,8 +1,13 @@
 # Clip library — built locally by tools/ingest.py, never committed.
+/public/clips/
 /clips/
 seed.jsonl
 
 node_modules/
+.next/
+out/
+next-env.d.ts
+*.tsbuildinfo
 *.log
 .DS_Store
 __pycache__/
