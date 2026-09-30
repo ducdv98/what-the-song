@@ -18,9 +18,15 @@ const vi = {
   'stats.played': 'Đã chơi',
   'stats.winRate': 'Thắng',
 
-  'stats.guestNote': 'Bạn đang chơi với tư cách khách — thống kê sẽ mất khi đóng tab. Đăng nhập để lưu lại.',
+  'stats.guestNote': 'Khách — thống kê chỉ giữ đến khi đóng tab.',
   'stats.savedNote': 'Đã lưu vào tài khoản {name}.',
   'stats.syncFailed': 'Không lưu được ván vừa rồi.',
+
+  'guest.title': 'Bạn đang chơi với tư cách khách',
+  'guest.body':
+    'Cứ chơi thoải mái, không cần tài khoản. Nhưng chuỗi thắng và điểm của khách sẽ mất khi bạn đóng tab. Đăng nhập hoặc tạo tài khoản để lưu lại thành tích của bạn — và góp mặt trên bảng xếp hạng sau này.',
+  'guest.offline': 'Hiện không kết nối được máy chủ tài khoản — bạn vẫn chơi được với tư cách khách.',
+  'guest.later': 'Để sau',
 
   'auth.signIn': 'Đăng nhập',
   'auth.register': 'Đăng ký',
@@ -97,9 +103,15 @@ const en: Record<MessageKey, string> = {
   'stats.played': 'Played',
   'stats.winRate': 'Win rate',
 
-  'stats.guestNote': 'Playing as a guest — these stats are gone when you close the tab. Sign in to keep them.',
+  'stats.guestNote': 'Guest — these stats last until you close the tab.',
   'stats.savedNote': 'Saved to {name}’s account.',
   'stats.syncFailed': 'Could not save the last round.',
+
+  'guest.title': "You're playing as a guest",
+  'guest.body':
+    "Play freely — no account needed. But a guest's streaks and scores are lost when you close this tab. Sign in or create an account to keep your record, and to be on the leaderboard later.",
+  'guest.offline': "The account server can't be reached right now — you can still play as a guest.",
+  'guest.later': 'Not now',
 
   'auth.signIn': 'Sign in',
   'auth.register': 'Register',

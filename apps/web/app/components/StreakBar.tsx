@@ -16,7 +16,7 @@ import { useI18n } from './I18nProvider';
  */
 export function StreakBar({ stats, syncFailed }: { stats: Stats; syncFailed?: boolean }) {
   const { t } = useI18n();
-  const { status, user, available } = useAuth();
+  const { status, user } = useAuth();
   const items: { label: string; value: string; accent?: boolean }[] = [
     { label: t('stats.streak'), value: String(stats.currentStreak), accent: stats.currentStreak > 0 },
     { label: t('stats.best'), value: String(stats.bestStreak) },
@@ -27,8 +27,7 @@ export function StreakBar({ stats, syncFailed }: { stats: Stats; syncFailed?: bo
   let note: { text: string; tone: string } | null = null;
   if (syncFailed) note = { text: t('stats.syncFailed'), tone: 'var(--text-negative)' };
   else if (user) note = { text: t('stats.savedNote', { name: user.username }), tone: 'var(--text-muted)' };
-  // Without an account API there is nothing to sign in to, so no nudge either.
-  else if (status === 'guest' && available) note = { text: t('stats.guestNote'), tone: 'var(--text-muted)' };
+  else if (status === 'guest') note = { text: t('stats.guestNote'), tone: 'var(--text-muted)' };
 
   return (
     <div className="card" style={{ display: 'grid', gap: 'var(--s-3)', padding: 'var(--s-4)' }}>

@@ -32,6 +32,8 @@ export type { RoundReport };
 
 const url = (route: keyof typeof API_ROUTES) => API_PREFIX + API_ROUTES[route];
 
+const SESSION_TIMEOUT_MS = 5000;
+
 /** What the UI can report. Server codes outside this set become server_error. */
 export type AuthErrorCode =
   | 'invalid_username'
@@ -69,11 +71,17 @@ function toCode(body: Partial<ApiError>): AuthErrorCode {
   return 'server_error';
 }
 
-async function send<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
+async function send<T>(
+  method: 'GET' | 'POST',
+  path: string,
+  body?: unknown,
+  signal?: AbortSignal,
+): Promise<T> {
   let res: Response;
   try {
     res = await fetch(path, {
       method,
+      signal,
       credentials: 'same-origin',
       headers: method === 'POST' ? { 'Content-Type': 'application/json' } : undefined,
       body: method === 'POST' ? JSON.stringify(body ?? {}) : undefined,
@@ -117,8 +125,15 @@ async function authed<T>(method: 'GET' | 'POST', path: string, body?: unknown): 
 }
 
 export const authApi = {
-  /** Restore on page load: the user, silently refreshed if needed, or null. */
-  session: () => send<SessionResponse>('GET', url('session')).then((r) => r.user),
+  /**
+   * Restore on page load: the user, silently refreshed if needed, or null.
+   * Bounded, so a hung API reads as "unavailable" instead of leaving the
+   * account controls stuck in their loading state.
+   */
+  session: () =>
+    send<SessionResponse>('GET', url('session'), undefined, AbortSignal.timeout(SESSION_TIMEOUT_MS)).then(
+      (r) => r.user,
+    ),
   login: (identifier: string, password: string) =>
     send<UserResponse>('POST', url('login'), { identifier, password } satisfies LoginRequest).then(
       (r) => r.user,

@@ -8,10 +8,13 @@ import { clearStats } from '@/lib/storage/guest-stats';
  * Who is playing: a guest, or a signed-in player.
  *
  * Guest is the default and a first-class state — the game never waits on the
- * account API, and if the API is missing (a static-only deployment, or it is
- * down) the game simply stays in guest mode with the sign-in button hidden.
+ * account API. If the API is missing or down, the game stays playable as a
+ * guest, and the sign-in controls stay visible and say so when used.
  */
 export type AuthStatus = 'loading' | 'guest' | 'user';
+
+/** Which form the sign-in dialog shows; null when it is closed. */
+export type AuthDialogMode = 'login' | 'register' | null;
 
 interface AuthCtx {
   status: AuthStatus;
@@ -25,6 +28,13 @@ interface AuthCtx {
   sessionLost: () => void;
   /** Set by sessionLost, so the UI can say why the player is a guest again. */
   expired: boolean;
+  /**
+   * The one sign-in dialog, shared by every button that opens it (the header
+   * and the guest notice), so they cannot drift into two different forms.
+   */
+  dialog: AuthDialogMode;
+  openDialog: (mode: 'login' | 'register') => void;
+  closeDialog: () => void;
 }
 
 const Ctx = createContext<AuthCtx | null>(null);
@@ -34,6 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [available, setAvailable] = useState(true);
   const [expired, setExpired] = useState(false);
+  const [dialog, setDialog] = useState<AuthDialogMode>(null);
 
   useEffect(() => {
     authApi
@@ -86,9 +97,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setExpired(true);
   }, [become]);
 
+  const openDialog = useCallback((mode: 'login' | 'register') => setDialog(mode), []);
+  const closeDialog = useCallback(() => setDialog(null), []);
+
   const value = useMemo(
-    () => ({ status, user, available, login, register, logout, sessionLost, expired }),
-    [status, user, available, login, register, logout, sessionLost, expired],
+    () => ({
+      status, user, available, login, register, logout, sessionLost, expired,
+      dialog, openDialog, closeDialog,
+    }),
+    [status, user, available, login, register, logout, sessionLost, expired, dialog, openDialog, closeDialog],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

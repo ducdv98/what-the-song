@@ -1,32 +1,42 @@
 'use client';
 
-import { useState } from 'react';
 import { useAuth } from './AuthProvider';
-import { AuthDialog, type AuthMode } from './AuthDialog';
+import { AuthDialog } from './AuthDialog';
 import { useI18n } from './I18nProvider';
 
 /**
- * Who is playing, top right: "Guest · Sign in · Register", or the username
- * with a sign-out. Hidden entirely when there is no account API to talk to, so
- * a static-only deployment shows a plain guest game rather than broken buttons.
+ * Who is playing, top right: Sign in / Register for a guest, or the username
+ * with Sign out. Always rendered and always usable — even while the session
+ * check is still running, since opening the dialog does not depend on it. If
+ * the API is down the buttons stay: signing in then says the server is
+ * unreachable, which is honest, instead of the controls silently vanishing.
+ *
+ * Also hosts the one sign-in dialog, which the guest notice opens too.
  */
 export function AccountBar() {
   const { t } = useI18n();
-  const { status, user, available, logout, expired } = useAuth();
-  const [dialog, setDialog] = useState<AuthMode | null>(null);
-
-  if (status === 'loading' || !available) return null;
+  const { status, user, logout, expired, dialog, openDialog, closeDialog } = useAuth();
 
   const small = { padding: '6px 12px' };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-2)', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 'var(--s-2)',
+        flexWrap: 'wrap',
+        justifyContent: 'flex-end',
+        minHeight: 32,
+      }}
+      aria-busy={status === 'loading'}
+    >
       {expired && (
         <span role="status" style={{ font: 'var(--t-small)', color: 'var(--text-warning)' }}>
           {t('auth.error.unauthenticated')}
         </span>
       )}
-      {user ? (
+      {status === 'user' && user ? (
         <>
           <span style={{ font: 'var(--t-caption-bold)', color: 'var(--text-base)' }}>{user.username}</span>
           <button className="pill pill--outlined pill--muted" style={small} onClick={() => void logout()}>
@@ -35,10 +45,18 @@ export function AccountBar() {
         </>
       ) : (
         <>
-          <button className="pill pill--muted" style={small} onClick={() => setDialog('login')}>
+          <button
+            className="pill pill--muted"
+            style={small}
+            onClick={() => openDialog('login')}
+          >
             {t('auth.signIn')}
           </button>
-          <button className="pill pill--accent" style={small} onClick={() => setDialog('register')}>
+          <button
+            className="pill pill--accent"
+            style={small}
+            onClick={() => openDialog('register')}
+          >
             {t('auth.register')}
           </button>
         </>
@@ -46,8 +64,8 @@ export function AccountBar() {
       <AuthDialog
         open={dialog !== null}
         mode={dialog ?? 'login'}
-        onMode={setDialog}
-        onClose={() => setDialog(null)}
+        onMode={openDialog}
+        onClose={closeDialog}
       />
     </div>
   );

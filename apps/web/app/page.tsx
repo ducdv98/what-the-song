@@ -5,6 +5,7 @@ import type { Song } from '@wts/game';
 import { Game } from './components/Game';
 import { useI18n } from './components/I18nProvider';
 import { AccountBar } from './components/AccountBar';
+import { GuestNotice } from './components/GuestNotice';
 
 /**
  * The catalogue is fetched at runtime rather than imported, because
@@ -65,6 +66,8 @@ export default function Page() {
         {/* Outside <Game>, so signing in works even with no clip library. */}
         <AccountBar />
       </div>
+
+      <GuestNotice />
 
       {error && (
         <div className="card" style={{ maxWidth: 560 }}>
