@@ -21,8 +21,8 @@ It depends on two workspace packages:
   browser tab (`sessionStorage`) and are gone when the tab closes.
 - **Players** register with a username, email and password, sign in with
   either username or email, and every round they finish is stored. Streaks and
-  totals are computed on the server, and the `rounds` table is kept for a
-  leaderboard later.
+  totals are computed on the server, and the `rounds` table feeds the weekly
+  and monthly leaderboard.
 
 ## Endpoints
 
@@ -39,6 +39,7 @@ All under `/api`. Errors are `{ statusCode, code, message?, fields? }`, where
 | GET | `/auth/me` | access | the signed-in user |
 | GET | `/stats/me` | access | `{ played, won, currentStreak, bestStreak, totalScore }` |
 | POST | `/rounds` | access | `{ songId, won, score, difficulty, genre }` → updated stats. `difficulty` is the song's tier (`easy` … `impossible`). |
+| GET | `/leaderboard` | — | `?period=week\|month&back=0\|1` (defaults: this week) → `{ period, back, from, to, utcOffset, rows: [{ rank, username, points, rounds, wins }] }`, top 100 |
 | GET | `/health` | — | database ping, for container healthchecks |
 
 Error codes: `validation_failed` (+ `fields`), `username_taken`, `email_taken`,
@@ -162,3 +163,4 @@ stops the process with a message naming it.
 | `COOKIE_SECURE` | false | force `Secure`; otherwise it follows the request scheme |
 | `DB_MIGRATIONS_RUN` | true | |
 | `AUTH_RATE_LIMIT` | 10 | sign-in/register attempts per minute per client |
+| `LEADERBOARD_UTC_OFFSET` | 7 | hours from UTC at which leaderboard weeks (Monday) and months (the 1st) start |

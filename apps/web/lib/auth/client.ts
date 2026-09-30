@@ -16,6 +16,8 @@ import {
   API_PREFIX,
   API_ROUTES,
   type ApiError,
+  type LeaderboardPeriod,
+  type LeaderboardResponse,
   type LoginRequest,
   type PlayerStats,
   type PublicUser,
@@ -28,7 +30,7 @@ import {
 
 export type User = PublicUser;
 export type AccountStats = PlayerStats;
-export type { RoundReport };
+export type { RoundReport, LeaderboardPeriod, LeaderboardResponse };
 
 const url = (route: keyof typeof API_ROUTES) => API_PREFIX + API_ROUTES[route];
 
@@ -148,4 +150,7 @@ export const authApi = {
   stats: () => authed<StatsResponse>('GET', url('myStats')).then((r) => r.stats),
   recordRound: (round: RoundReport) =>
     authed<StatsResponse>('POST', url('rounds'), round).then((r) => r.stats),
+  /** Public: guests can read the board too, they are just not on it. */
+  leaderboard: (period: LeaderboardPeriod, back: 0 | 1) =>
+    send<LeaderboardResponse>('GET', `${url('leaderboard')}?period=${period}&back=${back}`),
 };

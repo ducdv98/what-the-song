@@ -18,6 +18,7 @@ import { PillRow } from './PillRow';
 import { LangToggle } from './LangToggle';
 import { useI18n } from './I18nProvider';
 import { StreakBar } from './StreakBar';
+import { Leaderboard } from './Leaderboard';
 import { useStats } from './useStats';
 
 /** Pick a song at random, avoiding an immediate repeat. */
@@ -45,7 +46,7 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
   const [round, setRound] = useState<Round<Song> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { stats, record, syncFailed } = useStats();
+  const { stats, record, syncFailed, synced } = useStats();
   const { engine, state } = useAudioEngine();
   const { lang, t } = useI18n();
   const progress = useCallback(() => engine.progress(), [engine]);
@@ -247,6 +248,7 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
           ]}
         />
         <StreakBar stats={stats} syncFailed={syncFailed} />
+        <Leaderboard version={synced} />
         <section style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ font: 'var(--t-small-bold)', letterSpacing: '1.4px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
             {t('app.language')}

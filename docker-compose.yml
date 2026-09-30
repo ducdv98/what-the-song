@@ -37,6 +37,9 @@ services:
       TRUST_PROXY: "true"
       # Set to true once the site is served over https.
       COOKIE_SECURE: "${COOKIE_SECURE:-false}"
+      # Leaderboard weeks start Monday 00:00 and months on the 1st, at this
+      # many hours from UTC. 7 is Vietnam.
+      LEADERBOARD_UTC_OFFSET: "${LEADERBOARD_UTC_OFFSET:-7}"
     expose:
       - "4000"
     depends_on:

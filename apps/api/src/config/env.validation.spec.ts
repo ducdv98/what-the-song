@@ -37,4 +37,18 @@ describe('validateEnv', () => {
       /JWT_ACCESS_SECRET/,
     );
   });
+
+  it('leaderboard periods default to Vietnam time and accept only real offsets', () => {
+    expect(validateEnv(base).LEADERBOARD_UTC_OFFSET).toBe(7);
+    expect(
+      validateEnv({ ...base, LEADERBOARD_UTC_OFFSET: '0' })
+        .LEADERBOARD_UTC_OFFSET,
+    ).toBe(0);
+    expect(() =>
+      validateEnv({ ...base, LEADERBOARD_UTC_OFFSET: '15' }),
+    ).toThrow(/LEADERBOARD_UTC_OFFSET/);
+    expect(() =>
+      validateEnv({ ...base, LEADERBOARD_UTC_OFFSET: 'hanoi' }),
+    ).toThrow(/LEADERBOARD_UTC_OFFSET/);
+  });
 });

@@ -8,6 +8,7 @@ import { SameOriginMiddleware } from './common/same-origin.middleware.js';
 import { validateEnv, type Env } from './config/env.validation.js';
 import { typeormOptions } from './database/typeorm.options.js';
 import { HealthModule } from './health/health.module.js';
+import { LeaderboardModule } from './leaderboard/leaderboard.module.js';
 import { StatsModule } from './stats/stats.module.js';
 import { UsersModule } from './users/users.module.js';
 
@@ -33,6 +34,7 @@ import { UsersModule } from './users/users.module.js';
     UsersModule,
     AuthModule,
     StatsModule,
+    LeaderboardModule,
     HealthModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],

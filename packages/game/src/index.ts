@@ -7,6 +7,7 @@ export * from './catalogue.ts';
 export * from './difficulty.ts';
 export * from './genres.ts';
 export * from './ladder.ts';
+export * from './leaderboard.ts';
 export * from './round.ts';
 export * from './stats.ts';
 export * from './vietnamese.ts';

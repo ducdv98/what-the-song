@@ -19,6 +19,9 @@ export function useStats() {
   const userId = user?.id ?? null;
   const [stats, setStats] = useState<Stats>(EMPTY_STATS);
   const [syncFailed, setSyncFailed] = useState(false);
+  // Counts rounds the server has confirmed, so the leaderboard knows when to
+  // refetch — after the round is stored, not when it is merely reported.
+  const [synced, setSynced] = useState(0);
 
   // Bumped on every identity change and every report, so a response that
   // arrives late — for a previous player, or overtaken by a newer round —
@@ -58,6 +61,7 @@ export function useStats() {
       authApi
         .recordRound(report)
         .then((s) => {
+          setSynced((n) => n + 1);
           if (seq.current !== mine) return;
           setStats(s);
           setSyncFailed(false);
@@ -71,5 +75,5 @@ export function useStats() {
     [stats, userId, sessionLost],
   );
 
-  return { stats, record, syncFailed };
+  return { stats, record, syncFailed, synced };
 }

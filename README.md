@@ -24,6 +24,7 @@ commercial, not public.
 | Streaks | done, tested |
 | Vietnamese / English UI | done, tested in-browser |
 | Accounts (guest / register / sign in) | done, tested — NestJS + Postgres, [`apps/api/`](apps/api/README.md) |
+| Weekly / monthly leaderboard | done, tested against Postgres and in a browser — see [Leaderboard](#leaderboard) |
 | Deployment | done — Docker + Caddy + Postgres, optional basic auth |
 
 `npm test` runs every workspace's tests plus ingest; `npm run test:e2e` runs
@@ -463,7 +464,8 @@ Two ways to play, and the game never waits for either:
 - **Account** — register with a username, email and password, then sign in with
   either the username or the email. Every finished round is sent to the API and
   stored, and the streak bar shows the server's numbers, so they follow the
-  player to any device. The per-round history is kept for a leaderboard later.
+  player to any device. The per-round history is what the
+  [leaderboard](#leaderboard) ranks.
 
 Signing in or out starts the stats fresh: a guest's session record is not
 carried into an account, and signing out does not bring back the stats from
@@ -480,6 +482,33 @@ UI: `apps/web/app/components/AccountBar.tsx` (top right), `AuthDialog.tsx`
 (where the numbers go). The client wrapper, including refresh-and-retry when
 the access token expires, is `apps/web/lib/auth/client.ts`; a guest's
 tab-scoped stats are `apps/web/lib/storage/guest-stats.ts`.
+
+## Leaderboard
+
+Total points per player for **this week or this month**, and the one before
+each, so Monday morning is not an empty page. There is no all-time board on
+purpose: a fresh week gives someone who joined late a real chance. It is in the
+menu, under the stats.
+
+- **Weeks run Monday 00:00 to Monday 00:00, months from the 1st**, at UTC+7
+  (Vietnam, no daylight saving) — so a round at 00:30 on Monday counts for the
+  new week even though UTC still says Sunday. `LEADERBOARD_UTC_OFFSET` on the
+  API changes it. The period arithmetic is `packages/game/src/leaderboard.ts`,
+  shared by the API and the browser.
+- **Ranked by points**: the sum of every round's score in the period. A loss or
+  a give-up adds 0 but counts as a round played. Equal points share a rank
+  (1, 1, 3); wins, then fewer rounds, order players within a tie.
+- **Signed-in players only.** Only their rounds are recorded, so only they are
+  on it. Guests can read the board, and it offers them the sign-up buttons.
+- **Straight from `rounds`**, the table every recorded round already lands in —
+  one grouped query over the `played_at` index, so the board cannot disagree
+  with what was played. `GET /api/leaderboard?period=week|month&back=0|1`, public,
+  top 100.
+
+The board refetches once the server has stored a finished round, so a result
+shows up without a reload. Like the rest of the game, it trusts the browser
+(`docs/RESEARCH.md` §10.5): the API refuses impossible rounds, not dishonest
+ones.
 
 ## Running the app
 

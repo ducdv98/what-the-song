@@ -85,6 +85,37 @@ export interface StatsResponse {
   stats: PlayerStats;
 }
 
+/** Leaderboards cover a week or a month — there is no all-time board. */
+export type LeaderboardPeriod = 'week' | 'month';
+
+/** GET /leaderboard query: `back` is 0 for the current period, 1 for the one before. */
+export interface LeaderboardQuery {
+  period: LeaderboardPeriod;
+  back: 0 | 1;
+}
+
+export interface LeaderboardRow {
+  /** Equal points share a rank: 1, 1, 3. */
+  rank: number;
+  username: string;
+  /** Sum of round scores in the period; a loss adds 0. */
+  points: number;
+  rounds: number;
+  wins: number;
+}
+
+export interface LeaderboardResponse {
+  period: LeaderboardPeriod;
+  back: 0 | 1;
+  /** ISO 8601, inclusive. */
+  from: string;
+  /** ISO 8601, exclusive. */
+  to: string;
+  /** Hours from UTC at which periods start, so the client can label the dates. */
+  utcOffset: number;
+  rows: LeaderboardRow[];
+}
+
 // ── Errors ───────────────────────────────────────────────────────────────────
 
 /** Stable, machine-readable; the client maps each to translated copy. */
@@ -125,5 +156,6 @@ export const API_ROUTES = {
   me: '/auth/me',
   myStats: '/stats/me',
   rounds: '/rounds',
+  leaderboard: '/leaderboard',
   health: '/health',
 } as const;

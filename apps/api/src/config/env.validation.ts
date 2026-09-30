@@ -81,6 +81,16 @@ export class Env {
   @Min(1)
   @Transform(({ value }) => Number(value))
   AUTH_RATE_LIMIT = 10;
+
+  /**
+   * Leaderboard weeks start Monday 00:00 and months on the 1st, at this many
+   * hours from UTC. 7 is Vietnam, which has no daylight saving.
+   */
+  @IsInt()
+  @Min(-12)
+  @Max(14)
+  @Transform(({ value }) => Number(value))
+  LEADERBOARD_UTC_OFFSET = 7;
 }
 
 export function validateEnv(raw: Record<string, unknown>): Env {

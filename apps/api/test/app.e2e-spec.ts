@@ -2,6 +2,7 @@ import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import type { Server } from 'node:http';
+import { periodRange } from '@wts/game';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module.js';
 import { configureApp } from '../src/app.setup.js';
@@ -369,6 +370,132 @@ describe('rounds and stats', () => {
         .set('Cookie', cookieHeader(jar))
         .send(body);
       expect(res.status, JSON.stringify(body)).toBe(400);
+    }
+  });
+});
+
+describe('leaderboard', () => {
+  const HOUR = 60 * 60 * 1000;
+  let bob: Record<string, string>;
+  let carol: Record<string, string>;
+
+  const register = async (username: string) =>
+    cookies(
+      await http()
+        .post('/api/auth/register')
+        .send({
+          username,
+          email: `${username}@example.com`,
+          password: 'hunter2hunter2',
+        })
+        .expect(201),
+    );
+  const play = (who: Record<string, string>, score: number) =>
+    http()
+      .post('/api/rounds')
+      .set('Cookie', cookieHeader(who))
+      .send({
+        songId: 'noi-nay-co-anh',
+        won: score > 0,
+        score,
+        difficulty: 'medium',
+        genre: null,
+      })
+      .expect(201);
+  /** Rounds in an earlier period can only be written directly: the API stamps now(). */
+  const playedAt = async (username: string, score: number, at: number) => {
+    await db.query(
+      `INSERT INTO rounds (user_id, song_id, won, score, difficulty, played_at)
+       SELECT id, 'noi-nay-co-anh', $2, $3, 'medium', $4 FROM users WHERE username = $1`,
+      [username, score > 0, score, new Date(at)],
+    );
+  };
+  const board = async (query = '') =>
+    (await http().get(`/api/leaderboard${query}`).expect(200)).body;
+  const names = async (query: string) =>
+    (await board(query)).rows.map((r: { username: string }) => r.username);
+
+  beforeAll(async () => {
+    // Earlier suites left rounds behind; start the board from nothing.
+    await db.query('TRUNCATE rounds, player_stats');
+    bob = await register('Bob');
+    carol = await register('carol');
+  });
+
+  it('guests can read it, and it defaults to this week', async () => {
+    const res = await board();
+    const week = periodRange('week', Date.now(), 7, 0);
+    expect(res).toEqual({
+      period: 'week',
+      back: 0,
+      from: new Date(week.from).toISOString(),
+      to: new Date(week.to).toISOString(),
+      utcOffset: 7,
+      rows: [],
+    });
+  });
+
+  it('totals points per player; equal points share a rank', async () => {
+    await play(jar, 800); // alice
+    await play(jar, 0);
+    await play(bob, 800);
+    await play(carol, 300);
+
+    const { rows } = await board('?period=week&back=0');
+    expect(rows).toEqual([
+      // Tied on points and wins; Bob took fewer rounds, so he is listed first.
+      { rank: 1, username: 'Bob', points: 800, rounds: 1, wins: 1 },
+      { rank: 1, username: 'alice', points: 800, rounds: 2, wins: 1 },
+      { rank: 3, username: 'carol', points: 300, rounds: 1, wins: 1 },
+    ]);
+  });
+
+  it('keeps each period to its own rounds', async () => {
+    const now = Date.now();
+    const lastWeek = periodRange('week', now, 7, 1).from + HOUR;
+    const lastMonth = periodRange('month', now, 7, 1).from + HOUR;
+    await playedAt('carol', 1000, lastWeek);
+    await playedAt('Bob', 500, lastMonth);
+
+    expect(await names('?period=week&back=1')).toEqual(['carol']);
+
+    // Last week can fall in this month or the previous one, depending on today.
+    const thisMonth = periodRange('month', now, 7, 0);
+    const lastWeekIsThisMonth = lastWeek >= thisMonth.from;
+    const month0 = (await board('?period=month')).rows;
+    const month1 = (await board('?period=month&back=1')).rows;
+    const carolNow = month0.find(
+      (r: { username: string }) => r.username === 'carol',
+    );
+    expect(carolNow.points).toBe(lastWeekIsThisMonth ? 1300 : 300);
+    const bobBefore = month1.find(
+      (r: { username: string }) => r.username === 'Bob',
+    );
+    expect(bobBefore.points).toBe(500);
+    expect(
+      month1.some((r: { username: string }) => r.username === 'carol'),
+    ).toBe(!lastWeekIsThisMonth);
+  });
+
+  it('a round at the very start of the week counts; the instant before does not', async () => {
+    const week = periodRange('week', Date.now(), 7, 0);
+    await db.query('TRUNCATE rounds, player_stats');
+    await playedAt('carol', 100, week.from);
+    await playedAt('Bob', 100, week.from - 1);
+    expect(await names('?period=week')).toEqual(['carol']);
+    expect(await names('?period=week&back=1')).toEqual(['Bob']);
+  });
+
+  it('refuses anything but week or month, this one or the last', async () => {
+    for (const q of [
+      '?period=year',
+      '?period=week&back=2',
+      '?back=abc',
+      '?back=-1',
+      '?extra=1',
+    ]) {
+      const res = await http().get(`/api/leaderboard${q}`).expect(400);
+      expect(res.body.code, q).toBe('validation_failed');
     }
   });
 });
