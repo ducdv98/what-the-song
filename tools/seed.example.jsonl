@@ -1,0 +1,10 @@
+// One JSON object per line. Blank lines and // comments are ignored.
+// The title/artist/aliases here are YOURS — canonical, correctly accented.
+// The YouTube URL is only an audio source; its title is never read.
+//
+// anchor: "intro" = just after the music starts (default, easier)
+//         "hook"  = deterministic mid-track point (harder, dodges MV intros)
+// start_at: override in seconds, when the automatic choice lands badly.
+{"id":"nnca","title":"Nơi Này Có Anh","artist":"Sơn Tùng M-TP","url":"https://www.youtube.com/watch?v=EXAMPLE1","genre":"nhac-tre"}
+{"id":"htca","title":"Hãy Trao Cho Anh","artist":"Sơn Tùng M-TP","url":"https://www.youtube.com/watch?v=EXAMPLE2","aliases":["Give It To Me"],"genre":"nhac-tre","start_at":42.0}
+{"id":"bcb","title":"Bigcityboi","artist":"Binz","url":"https://www.youtube.com/watch?v=EXAMPLE3","genre":"rap-viet","anchor":"hook"}

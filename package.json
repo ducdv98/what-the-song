@@ -1,0 +1,13 @@
+{
+  "name": "what-the-song",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "A private Vietnamese guess-the-song game",
+  "scripts": {
+    "test": "node --experimental-strip-types --test lib/*.test.ts"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

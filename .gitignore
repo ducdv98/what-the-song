@@ -1,0 +1,8 @@
+# Clip library — built locally by tools/ingest.py, never committed.
+/clips/
+seed.jsonl
+
+node_modules/
+*.log
+.DS_Store
+__pycache__/

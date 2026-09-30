@@ -1,8 +1,15 @@
 # Vietnamese "guess the song" game — pre-build technical research
 
-**Status:** research only, no implementation yet.
+**Status:** research; foundation code landed (see §10).
 **Date:** 2026-09-30
 **Goal:** replicate the songspot.net format, restricted to Vietnamese songs.
+
+> ⚠️ **Read §10 before acting on §2 or §6.** The project was scoped after this
+> was written: it is a **private, non-commercial game for friends and
+> colleagues**, sourced from **YouTube via yt-dlp**. That supersedes the
+> sourcing analysis in §2, retires the Phase 0 coverage gate in §7, and puts
+> most of §6 out of scope. §3 (Vietnamese matching) and §4 (clip delivery and
+> timing) survive intact and are the parts now implemented.
 
 ---
 
@@ -494,3 +501,144 @@ Vietnamese text handling:
 - https://github.com/undertheseanlp/underthesea/wiki/Chuẩn-hóa-text-tiếng-Việt
 - https://docs.rs/vn-nlp-normalize/latest/vn_nlp_normalize/
 - https://unicodefyi.com/guide/unicode-normalization-guide/
+
+
+---
+
+## 10. Addendum — decision: private game, YouTube source
+
+**Scope as decided:** a hobby project, played by the author with friends and
+colleagues. Internal, non-commercial, not a product.
+
+**Source as decided:** YouTube, via yt-dlp.
+
+### 10.1 What this changes, and why it is a better architecture
+
+The coverage problem that dominated §2 **goes away**. Vietnamese repertoire
+lives on YouTube — it is the country's largest music-discovery channel — so the
+catalogue constraint that made the preview-API route untenable simply does not
+apply. Better still, you get the **full track** rather than a 30-second
+preview, which means *you* choose the clip offset instead of inheriting
+whatever 30 seconds Apple decided to expose. §4's random-offset and
+anti-memorisation ideas become possible rather than aspirational.
+
+**On the legal position, once and plainly:** downloading audio is contrary to
+YouTube's ToS, and "non-commercial" does not technically cure that. What it
+does change is the practical risk profile, which for a private invite-only
+instance is very different from a public product. The operative control is
+**keep it actually private**: auth-gated, not publicly indexed, audio files not
+redistributed. That is the thing that keeps this in personal-use territory, and
+it is a one-line deployment decision rather than a legal project. §2.8
+(licensing) and most of §6 (VCPMC, data localisation, regulatory) are **out of
+scope** at this scope — revisit only if this ever goes public.
+
+### 10.2 Use yt-dlp, not youtube-dl
+
+**[verified]** `youtube-dl` is effectively unmaintained; its release cadence
+slowed from 2020 and it breaks whenever YouTube changes its player. **`yt-dlp`**
+is the actively maintained fork: ~12M PyPI downloads/month as of May 2026,
+releases roughly fortnightly, >100k stars, packaged in Ubuntu since 22.04.
+
+Use `yt-dlp`. The tool named in the original brief is the wrong one.
+
+### 10.3 The bot wall — and the architecture it forces (most important finding)
+
+**[verified]** YouTube scores each extraction request on IP reputation, whether
+a valid **Proof-of-Origin (PO) token** minted by its BotGuard JavaScript is
+present, session cookies, and recent request volume from that address.
+**Datacenter ranges — every VPS, cloud instance and CI runner — are scored far
+below residential connections.** One report measured roughly **1 in 4 fresh
+datacenter exit IPs hitting the bot wall on first contact**, with IPv6 worse
+still because a whole /64 is scored as one unit. Since 2024, cookies alone are
+no longer sufficient for the web client without a PO token.
+
+**[assessment]** There is no flag that fixes this, and it is an arms race, not
+a one-time fix — flags that work today can fail in a fortnight. So do not fight
+it. **Split the pipeline:**
+
+```
+  your laptop (residential IP, browser cookies)      the server
+  ─────────────────────────────────────────────      ──────────────────────
+  yt-dlp  →  ffmpeg: level, cut, strip metadata  →   short opaque clips only
+                                                     never talks to YouTube
+```
+
+This falls out of the constraint but is genuinely the better design:
+
+- **Ingest is offline and re-runnable.** No runtime dependency on YouTube, no
+  rate limits, no mid-game extraction failures, nothing to break during a game
+  night.
+- **The server holds only short, metadata-stripped clips.** Smaller, simpler,
+  cheaper — and a cleaner posture than a server that hoards a music library.
+- **Cookies stay on your machine**, where they belong.
+
+Operationally: pin `yt-dlp` and expect to bump it every few weeks. When ingest
+starts failing across the board, **update yt-dlp first** before debugging
+anything else.
+
+### 10.4 Vietnamese-specific YouTube pitfalls
+
+**[assessment]** YouTube solves coverage and introduces its own problems, most
+of which are sharper for a Vietnamese catalogue:
+
+1. **Long cinematic and dialogue intros.** Vietnamese official MVs frequently
+   open with a skit, dialogue, or a cinematic cold open before any music. A
+   clip anchored at 0:00 gets you spoken words or ambience — unguessable and
+   unfair. ⚠️ `silencedetect` **will not catch this**, because dialogue is not
+   silence. Handled two ways in `tools/ingest.py`: an `anchor: "hook"` mode
+   that picks a deterministic mid-track point, and a per-song `start_at`
+   override. The ingest run prints a **review list** of tracks whose detected
+   onset looks suspicious so you can ear-check them.
+2. **Hour-long compilations.** `Tuyển tập nhạc trẻ ... 1 tiếng` playlists-as-
+   videos are ubiquitous on Vietnamese YouTube and will silently poison a
+   catalogue. Rejected by a duration sanity filter (60s–600s), which also
+   catches Shorts.
+3. **Karaoke, beat, lyric-video and cover reuploads** frequently outrank the
+   official audio in search. The mitigation is structural: **never read
+   metadata from YouTube.** The seed file carries *your* canonical title,
+   artist and aliases, and the video URL is treated as nothing but an audio
+   source. This decouples catalogue quality from YouTube's mess, and it is also
+   the answer to §5's metadata problem.
+4. **Wildly inconsistent loudness.** Uploads vary by many LU. A game where one
+   clip is inaudible and the next is blaring is unplayable, and loudness is
+   itself a recognition cue you do not want leaking. Fixed with a two-pass
+   **EBU R128** `loudnorm` to −14 LUFS.
+5. **Cover culture (§3.1.9) is still unresolved** and is now a *sourcing*
+   decision too: whichever video you seed *is* the canonical recording for your
+   game. Choosing official audio over MVs sidesteps both this and pitfall 1.
+
+### 10.5 Simplifications this scope allows
+
+**[assessment]** Being private and small removes real work — take all of it:
+
+- **No Postgres.** At a few hundred songs, a JSON catalogue plus in-process
+  normalisation is entirely sufficient. This **sidesteps §3.2's `unaccent`
+  trap** (custom rules for `đ`, no NFD handling) by keeping the logic in
+  application code where it is testable. `lib/vietnamese.ts` does this, with a
+  test suite.
+- **Trivial auth.** A shared passphrase or an invite link is enough, and it is
+  also the control that keeps §10.1 true.
+- **Anti-cheat can relax.** Colleagues will absolutely open devtools, so keep
+  the cheap structural wins — opaque hashed filenames, `-map_metadata -1`, no
+  answer in the autocomplete payload before the round resolves — but do not
+  degrade audio to defeat Shazam. Among friends, the leaderboard is not worth
+  cheating for.
+- **Storage is a non-issue.** The seven-step reveal ladder totals ~31.6s of
+  audio per song; at 128 kbps AAC that is **~0.5 MB per song**, so a 500-song
+  catalogue is **~250 MB**. This fits anywhere, which is why the pipeline
+  pre-cuts every step rather than trying to be clever.
+- **§4.2's honest trade-off gets easy.** One request per reveal step is the
+  only real enforcement, but among friends, client-side enforcement is fine.
+  Ship the clip ladder, enforce in the UI, move on.
+
+### 10.6 What still needs doing
+
+- **`ffmpeg` timing verification.** The clip pipeline is **written but not
+  executed** — this environment has no `ffmpeg` and YouTube is egress-blocked,
+  so it has never processed a real file. The first real run should verify that
+  a nominal 0.1s clip *is* ~0.1s, since `-ss` before `-i` is fast but seeks to
+  a keyframe. If the short clips come out long or empty, that is the cause, and
+  the fix is a decode-accurate seek (`-ss` after `-i`, or `-accurate_seek`).
+- **Web Audio playback** per §4.2 — the client side is not written yet.
+- **The game loop**, per the build order in §8.
+
