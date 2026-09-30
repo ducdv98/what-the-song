@@ -196,7 +196,7 @@ to review and to undo.
 7. Only then ingest:
 
    ```sh
-   ./tools/ingest.py seed.jsonl --out public/clips
+   ./tools/ingest.py seed.jsonl --out apps/web/public/clips
    ```
 
    Ingest skips songs already built, so re-running is cheap.

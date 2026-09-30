@@ -1,0 +1,26 @@
+{
+  "name": "@wts/web",
+  "version": "0.0.1",
+  "private": true,
+  "description": "The game: a Next.js static export",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test \"lib/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@wts/contracts": "*",
+    "@wts/game": "*",
+    "next": "^15.5.4",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.9",
+    "typescript": "^6.0.2"
+  }
+}

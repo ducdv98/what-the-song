@@ -21,7 +21,7 @@ fi
 if [ ! -f /srv/clips/catalogue.json ]; then
 	echo "clips: no catalogue.json found at /srv/clips"
 	echo "clips: build one on the host first:"
-	echo "clips:   ./tools/ingest.py seed.jsonl --out public/clips"
+	echo "clips:   ./tools/ingest.py seed.jsonl --out apps/web/public/clips"
 fi
 
 exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile

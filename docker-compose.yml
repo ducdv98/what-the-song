@@ -3,14 +3,16 @@ name: what-the-song
 services:
   # Caddy: the static game, the clip library, and /api proxied to the API.
   web:
-    build: .
+    build:
+      context: .
+      dockerfile: docker/web.Dockerfile
     image: what-the-song:local
     ports:
       - "${PORT:-3000}:80"
     volumes:
       # The clip library stays on the host. Add songs with tools/ingest.py and
       # reload the page — no image rebuild needed.
-      - ./public/clips:/srv/clips:ro
+      - ./apps/web/public/clips:/srv/clips:ro
     environment:
       # Optional site-wide gate, separate from player accounts. Leave both unset
       # for a localhost-only game; set them before sharing the URL (see README).
@@ -24,7 +26,9 @@ services:
   # NestJS: accounts and player records. Stateless — scale with
   # `docker compose up -d --scale api=3`; Caddy balances across replicas.
   api:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: docker/api.Dockerfile
     image: what-the-song-api:local
     environment:
       DATABASE_URL: "postgres://wts:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/wts"

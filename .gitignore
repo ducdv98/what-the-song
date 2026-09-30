@@ -1,10 +1,13 @@
 # Clip library — built locally by tools/ingest.py, never committed.
-/public/clips/
+/apps/web/public/clips/
 /clips/
 seed.jsonl
 
 node_modules/
+dist/
+coverage/
 .next/
+.turbo/
 out/
 next-env.d.ts
 *.tsbuildinfo
@@ -12,5 +15,5 @@ next-env.d.ts
 .DS_Store
 __pycache__/
 
-# Local environment (copy from .env.example).
+# Local environment (copy from .env.example). apps/api/.env holds the API's.
 .env

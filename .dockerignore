@@ -1,20 +1,25 @@
-# Build artefacts and deps — the image builds its own.
-node_modules
-.next
-out
-*.tsbuildinfo
+# Both images build from the repo root (docker/*.Dockerfile) and install their
+# own dependencies from the pruned lockfile. Patterns need **/ to reach into
+# apps/ and packages/ — .dockerignore matches from the context root only.
 
-# The clip library is mounted at runtime, never copied into the image.
-public/clips
+# Build artefacts and deps.
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+apps/web/out
+**/*.tsbuildinfo
+
+# The clip library is mounted at runtime, never copied into an image.
+apps/web/public/clips
 clips
 seed.jsonl
 
-# The API has its own image and build context (backend/Dockerfile).
-backend
+# Secrets and local settings.
+**/.env
 
 # Not needed to build or serve.
 .git
-.gitignore
 docs
 tools
-*.md
+**/*.md

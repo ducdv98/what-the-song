@@ -12,25 +12,65 @@ commercial, not public.
 | Piece | Status |
 |---|---|
 | Technical research | done — [`docs/RESEARCH.md`](docs/RESEARCH.md) |
-| Vietnamese answer matching | done, tested — `lib/vietnamese.ts` |
+| Vietnamese answer matching | done, tested — `packages/game/src/vietnamese.ts` |
 | Clip ingest pipeline | written, **not yet run against real audio** — `tools/ingest.py` |
-| Web Audio playback | done — `lib/audio/engine.ts` |
-| Round rules | done, tested — `lib/game/round.ts` |
-| Autocomplete search | done, tested — `lib/catalogue.ts` |
+| Web Audio playback | done — `apps/web/lib/audio/engine.ts` |
+| Round rules | done, tested — `packages/game/src/round.ts` |
+| Autocomplete search | done, tested — `packages/game/src/catalogue.ts` |
 | Game UI | done — Next.js + [`DESIGN.md`](DESIGN.md) |
 | Genre + difficulty pickers | done, tested |
 | Streaks | done, tested |
 | Vietnamese / English UI | done, tested in-browser |
-| Accounts (guest / register / sign in) | done, tested — NestJS + Postgres, [`backend/`](backend/README.md) |
+| Accounts (guest / register / sign in) | done, tested — NestJS + Postgres, [`apps/api/`](apps/api/README.md) |
 | Deployment | done — Docker + Caddy + Postgres, optional basic auth |
 
-`npm test` covers the web modules and ingest; `npm run test:api` covers the
-account service, including end-to-end tests against a real Postgres.
-`npm run build` still produces a static export.
+`npm test` runs every workspace's tests plus ingest; `npm run test:e2e` runs
+the account service end to end against a real Postgres. The game still builds
+to a static export.
 
 Read [`docs/RESEARCH.md`](docs/RESEARCH.md) before changing anything in
-`lib/vietnamese.ts` or `tools/ingest.py`. Both exist in the shape they do for
-specific reasons, and §10 records the decisions that got them here.
+`packages/game/src/vietnamese.ts` or `tools/ingest.py`. Both exist in the shape
+they do for specific reasons, and §10 records the decisions that got them here.
+
+## Repository layout
+
+A monorepo: npm workspaces, with [Turborepo](https://turborepo.com) running
+tasks in dependency order and caching their results.
+
+```
+apps/
+  web/          @wts/web        the game — Next.js static export: UI, Web Audio,
+                                i18n, browser storage, the API client
+  api/          @wts/api        accounts and player records — NestJS + Postgres
+packages/
+  game/         @wts/game       the rules, with no DOM, audio, storage or network:
+                                Vietnamese matching, catalogue search, rounds,
+                                scoring, difficulty, genres, streaks
+  contracts/    @wts/contracts  the API's wire format: request/response shapes,
+                                error codes, account input rules
+tools/                          clip ingest and seed validation (Python)
+docker/                         web + api Dockerfiles, Caddyfile
+docs/                           research and the catalogue guide
+```
+
+Dependencies only point one way: apps depend on packages, never the reverse,
+and the two packages do not depend on each other.
+
+- **`@wts/game` is shared by both apps.** The browser plays with it and the
+  API judges reported rounds with the same code — the difficulty list and score
+  bounds the server validates against are the ones the game used, not a copy.
+- **`@wts/contracts` is the API's wire format.** The NestJS DTOs implement its
+  request types and the web client is typed against its response types, so a
+  renamed field or a new error code breaks the build on both sides at once.
+  The registration form's `pattern`/`minLength` come from it too, so browser
+  validation and server validation cannot disagree.
+
+Packages compile to `dist/` (ESM + declarations) and apps consume that, so each
+app keeps its own toolchain (Next's bundler, Nest's `tsc`). Package sources use
+`.ts` import specifiers, which lets their tests run straight from source under
+`node --experimental-strip-types`; `rewriteRelativeImportExtensions` turns them
+into `.js` in the build. Turborepo builds packages before anything that needs
+them (`dependsOn: ["^build"]`), so there is no manual ordering to remember.
 
 ## How it fits together
 
@@ -79,7 +119,7 @@ pip install -U yt-dlp      # not youtube-dl, which is unmaintained
 brew install ffmpeg        # or: sudo apt install ffmpeg
 
 cp tools/seed.example.jsonl seed.jsonl   # then add your songs
-./tools/ingest.py seed.jsonl --out public/clips
+./tools/ingest.py seed.jsonl --out apps/web/public/clips
 ```
 
 **Windows** (PowerShell) — `./tools/ingest.py` does not work there, since
@@ -92,14 +132,14 @@ winget install ffmpeg        # or: scoop install ffmpeg
 ffmpeg -version; yt-dlp --version
 
 copy tools\seed.example.jsonl seed.jsonl   # then add your songs
-py tools\ingest.py seed.jsonl --out public/clips
+py tools\ingest.py seed.jsonl --out apps/web/public/clips
 ```
 
 The script detects your OS and picks a cookie source itself, printing what it
 chose. See [Cookies and the bot wall](#cookies-and-the-bot-wall) if downloads
 start failing — on Windows there is one specific trap.
 
-Output goes in `public/clips/` so the app can serve it. It is gitignored.
+Output goes in `apps/web/public/clips/` so the app can serve it. It is gitignored.
 
 The seed file holds **your** canonical title, artist and aliases; the YouTube
 URL is only an audio source and its title is never read. That is deliberate —
@@ -191,13 +231,13 @@ So on Windows, pick one:
 
 ```powershell
 # Easiest: install Firefox, sign in to YouTube once, then just run it.
-py tools\ingest.py seed.jsonl --out public/clips
+py tools\ingest.py seed.jsonl --out apps/web/public/clips
 
 # Or export a cookies.txt from any browser and pass it:
-py tools\ingest.py seed.jsonl --out public/clips --cookies cookies.txt
+py tools\ingest.py seed.jsonl --out apps/web/public/clips --cookies cookies.txt
 
 # Or skip cookies — often fine from a home connection:
-py tools\ingest.py seed.jsonl --out public/clips --no-cookies
+py tools\ingest.py seed.jsonl --out apps/web/public/clips --no-cookies
 ```
 
 Firefox stores cookies in plain SQLite, which is why it works everywhere.
@@ -216,7 +256,7 @@ the fix is usually just a newer version.
 ## Answer matching
 
 Vietnamese input breaks naive string comparison in about ten different ways, so
-`lib/vietnamese.ts` handles them explicitly and the tests are numbered against
+`packages/game/src/vietnamese.ts` handles them explicitly and the tests are numbered against
 `docs/RESEARCH.md` §3.1:
 
 - players type with no diacritics at all (`em cua ngay hom qua` must count)
@@ -249,7 +289,7 @@ not redistributed.** If it ever goes public, the licensing analysis in
 ## Language
 
 The UI is Vietnamese and English. The game itself is a static export (the
-account API in `backend/` does not render pages), so there is no
+account API in `apps/api/` does not render pages), so there is no
 `Accept-Language` header to read and no IP geolocation. Two
 client-side signals are used instead, neither of which costs a permission prompt
 or a network call:
@@ -263,7 +303,7 @@ Vietnam gets English — a deliberate choice: someone who set their browser to
 English asked for English. A manual `VI`/`EN` toggle overrides detection and is
 remembered.
 
-Copy lives in `lib/i18n/messages.ts`. The English table is typed against the
+Copy lives in `apps/web/lib/i18n/messages.ts`. The English table is typed against the
 Vietnamese keys, so a missing translation is a compile error rather than a
 Vietnamese string leaking into the English UI. Tests also assert that both
 tables declare the same `{placeholders}`.
@@ -295,7 +335,7 @@ worse than a short one. Unknown or missing tags fall under **Khác**, so no song
 becomes unreachable, and ingest warns about an unrecognised slug because it is
 almost always a typo.
 
-The slug list exists in both `tools/ingest.py` and `lib/game/genres.ts`; a test
+The slug list exists in both `tools/ingest.py` and `packages/game/src/genres.ts`; a test
 parses the TypeScript and asserts they agree, since a silent drift would file
 songs under Khác with no error.
 
@@ -346,16 +386,17 @@ Signing in or out starts the stats fresh: a guest's session record is not
 carried into an account, and signing out does not bring back the stats from
 before signing in. A round finished as a guest is not recorded to an account.
 
-The account service is a NestJS app in [`backend/`](backend/README.md) — its
+The account service is a NestJS app in [`apps/api/`](apps/api/README.md) — its
 README covers the endpoints, the token design (short-lived access token plus
 rotating refresh token, both HttpOnly cookies), password hashing, and how to
 scale it. If the API cannot be reached — a static-only deployment, or it is down
 — the game quietly stays in guest mode and hides the sign-in buttons.
 
-UI: `app/components/AccountBar.tsx` (top right), `AuthDialog.tsx` (sign in /
-register), `AuthProvider.tsx` (who is playing) and `useStats.ts` (where the
-numbers go). The client wrapper, including refresh-and-retry when the access
-token expires, is `lib/auth/client.ts`.
+UI: `apps/web/app/components/AccountBar.tsx` (top right), `AuthDialog.tsx`
+(sign in / register), `AuthProvider.tsx` (who is playing) and `useStats.ts`
+(where the numbers go). The client wrapper, including refresh-and-retry when
+the access token expires, is `apps/web/lib/auth/client.ts`; a guest's
+tab-scoped stats are `apps/web/lib/storage/guest-stats.ts`.
 
 ## Running the app
 
@@ -369,33 +410,45 @@ psql -U postgres -c "CREATE DATABASE wts_test OWNER wts"
 ```
 
 ```sh
-npm install
-npm install --prefix backend
-cp backend/.env.example backend/.env   # set DATABASE_URL and JWT_ACCESS_SECRET
+npm install                                    # every workspace, one lockfile
+cp apps/api/.env.example apps/api/.env         # set DATABASE_URL and JWT_ACCESS_SECRET
 
 npm run dev          # web on http://localhost:3000, API on :4000 behind /api
-npm test             # web + ingest, no dependencies
-npm run test:api     # account service: unit + e2e (needs Postgres)
-npm run build        # static export to out/
+npm test             # every workspace's unit tests, then ingest
+npm run test:e2e     # the API end to end (needs Postgres; wipes wts_test)
+npm run typecheck
+npm run lint
+npm run build        # packages, the static export (apps/web/out), the API (apps/api/dist)
 ```
 
-`npm run dev` starts the Next dev server and the NestJS API together; Ctrl+C
-stops both. The dev server proxies `/api` to the API, so the browser sees one
-origin exactly as it does behind Caddy. Without `backend/node_modules` it
-starts the web app alone, as a guest-only game.
+`npm run dev` builds the packages once, then runs four processes together:
+`tsc --watch` for each package, `next dev`, and `nest start --watch`. Ctrl+C
+stops all of them. Editing a package rebuilds its `dist/`, which both apps pick
+up. The Next dev server proxies `/api` to the API, so the browser sees one
+origin exactly as it does behind Caddy; if the API is not running, the game
+simply stays in guest mode.
 
-`npm test` runs `test:web` (Node's built-in runner over the TypeScript modules)
-and `test:ingest` (Python's unittest over `tools/ingest.py`). Neither needs
-anything installed beyond Node and Python.
+To work on one app, filter: `npx turbo run dev --filter=@wts/web` (plus the
+packages it needs, which turbo builds first). Running a single workspace's
+script directly also works: `npm run test --workspace @wts/game`.
+
+The TypeScript tests use Node's built-in runner (`packages/*`, `apps/web`) and
+Vitest (`apps/api`); `test:ingest` is Python's unittest over `tools/`. Nothing
+beyond Node and Python is needed for `npm test`.
+
+**Moving from the pre-monorepo layout:** the clip library now lives in
+`apps/web/public/clips` (Next serves it in development from there). If you
+built one before, move it: `mv public/clips apps/web/public/clips`. The API's
+local settings moved from `backend/.env` to `apps/api/.env`.
 
 Next.js App Router with `output: 'export'` — the game is still a folder of
-static files. The catalogue is fetched at runtime from `/clips/catalogue.json`,
+static files in `apps/web/out`. The catalogue is fetched at runtime from `/clips/catalogue.json`,
 so the build does not depend on what is in your clip library; without one, the
 app says so and tells you what to run.
 
 ### Audio
 
-`lib/audio/engine.ts` uses the **Web Audio API**, not an `<audio>` element.
+`apps/web/lib/audio/engine.ts` uses the **Web Audio API**, not an `<audio>` element.
 Seeking `<audio>` lands on a codec frame boundary and `setTimeout` pausing
 carries tens of milliseconds of jitter — at a 0.1s target that is a 20–50%
 error, which would make the shortest clue meaningless.
@@ -416,7 +469,7 @@ Three details worth knowing before changing it:
 
 ### Design
 
-[`DESIGN.md`](DESIGN.md) is the spec; `app/tokens.css` is its implementation.
+[`DESIGN.md`](DESIGN.md) is the spec; `apps/web/app/tokens.css` is its implementation.
 Two documented deviations: the proprietary Spotify fonts are replaced with an
 Inter-led stack (also better for stacked Vietnamese tone marks), and the app
 uses its own wordmark rather than any Spotify branding.
@@ -424,25 +477,31 @@ uses its own wordmark rather than any Spotify branding.
 ## Running it with Docker
 
 ```sh
-./tools/ingest.py seed.jsonl --out public/clips   # build clips first (host)
-cp .env.example .env                              # set POSTGRES_PASSWORD and JWT_ACCESS_SECRET
-docker compose up -d --build                      # http://localhost:3000
+./tools/ingest.py seed.jsonl --out apps/web/public/clips   # build clips first (host)
+cp .env.example .env                  # set POSTGRES_PASSWORD and JWT_ACCESS_SECRET
+docker compose up -d --build          # http://localhost:3000
 ```
 
 Three services:
 
 | Service | Image | Role |
 |---|---|---|
-| `web` | `caddy:2-alpine` + the static export | serves the game and clips, proxies `/api/*` to `api` |
-| `api` | `backend/Dockerfile` (Node 22) | accounts and player records; stateless |
+| `web` | `docker/web.Dockerfile` → `caddy:2-alpine` + the static export | serves the game and clips, proxies `/api/*` to `api` |
+| `api` | `docker/api.Dockerfile` (Node 22) | accounts and player records; stateless |
 | `db` | `postgres:16-alpine` | the `pgdata` volume holds every account and round |
+
+Both images build from the repo root and start with `turbo prune`, which cuts
+the monorepo down to one app plus the packages it uses, with a matching
+lockfile — so the web image never installs NestJS and the API image never
+installs Next. The API image then drops dev dependencies and runs as the
+unprivileged `node` user.
 
 Only `web` publishes a port; the API and database are reachable only inside the
 compose network. Compose refuses to start without `POSTGRES_PASSWORD` and
 `JWT_ACCESS_SECRET` rather than running with a guessable default.
 
 The API scales horizontally — `docker compose up -d --scale api=3` — and Caddy
-spreads requests across the replicas; see `backend/README.md` for the two
+spreads requests across the replicas; see `apps/api/README.md` for the two
 things to change before relying on that (shared rate-limit storage, migrations
 as a release step).
 
@@ -453,11 +512,11 @@ docker compose exec -T db pg_dump -U wts wts > backup.sql
 docker compose exec -T db psql -U wts wts < backup.sql      # restore
 ```
 
-**The clip library is a bind mount, not part of the image.** `public/clips` on
+**The clip library is a bind mount, not part of the image.** `apps/web/public/clips` on
 the host is mounted read-only at `/srv/clips`. So adding songs is:
 
 ```sh
-./tools/ingest.py seed.jsonl --out public/clips   # add more rows first
+./tools/ingest.py seed.jsonl --out apps/web/public/clips   # add more rows first
 # reload the page — no rebuild, no restart
 ```
 
@@ -470,7 +529,7 @@ Change the port in `.env`, or `PORT=8080 docker compose up -d` on a shell that
 supports it.
 
 On **Windows**, this needs Docker Desktop with the WSL2 backend; the
-`./public/clips` bind mount works as-is.
+`./apps/web/public/clips` bind mount works as-is.
 
 ### Putting it behind a password
 
@@ -508,8 +567,10 @@ access control.
 > on every route returns 401 without credentials and 200 with them.
 > **Not verified:** the images themselves have never been built — this container
 > has the Docker CLI but no daemon. `docker compose build` is the one step still
-> untested. What was verified for accounts: the API image's steps (`npm ci` on
-> npm 10, build, prune, argon2 loading) run cleanly; `docker compose config`
+> untested. What was verified: both images' steps run cleanly outside Docker —
+> `turbo prune`, `npm ci` on the npm 10 that `node:22-alpine` ships, the
+> filtered builds, and `npm prune --omit=dev`, after which the API starts and
+> passes its health check against Postgres; `docker compose config`
 > validates; and the production build served by a real Caddy with this
 > Caddyfile's `/api` route registered, signed in, recorded rounds and refused
 > cross-origin writes in a real browser.

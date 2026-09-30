@@ -1,0 +1,10 @@
+{
+  // `npm run typecheck`: the app's own sources only. Next's generated route
+  // types (.next/types) are rewritten by `next build`, which also checks them —
+  // reading them here would race a build running alongside under turbo.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false
+  },
+  "include": ["next-env.d.ts", "app/**/*.ts", "app/**/*.tsx", "lib/**/*.ts"]
+}

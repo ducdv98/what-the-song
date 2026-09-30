@@ -1,0 +1,26 @@
+{
+  "name": "@wts/contracts",
+  "version": "0.0.1",
+  "private": true,
+  "description": "The account API's wire format: request and response shapes, error codes, input rules",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test \"src/**/*.test.ts\""
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "typescript": "^6.0.2"
+  }
+}

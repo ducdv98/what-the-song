@@ -649,7 +649,7 @@ of which are sharper for a Vietnamese catalogue:
 - **No Postgres.** At a few hundred songs, a JSON catalogue plus in-process
   normalisation is entirely sufficient. This **sidesteps §3.2's `unaccent`
   trap** (custom rules for `đ`, no NFD handling) by keeping the logic in
-  application code where it is testable. `lib/vietnamese.ts` does this, with a
+  application code where it is testable. `packages/game/src/vietnamese.ts` does this, with a
   test suite.
 - **Trivial auth.** A shared passphrase or an invite link is enough, and it is
   also the control that keeps §10.1 true.
@@ -678,8 +678,8 @@ of which are sharper for a Vietnamese catalogue:
   one ffprobe call and a wrong length silently changes difficulty.
   Still unexecuted: the yt-dlp download itself, which needs network access
   this environment does not have.
-- ~~**Web Audio playback**~~ — done, `lib/audio/engine.ts`.
-- ~~**The game loop**~~ — done, `lib/game/round.ts` and `app/`.
+- ~~**Web Audio playback**~~ — done, `apps/web/lib/audio/engine.ts`.
+- ~~**The game loop**~~ — done, `packages/game/src/round.ts` and `apps/web/`.
 - **An auth gate.** Still the one genuinely unfinished piece, and the one that
   keeps §10.1 true. Needed before any URL is shared; `AUTH_USER`/`AUTH_PASSWORD`
   in the Docker setup covers it, but nothing enforces it yet.

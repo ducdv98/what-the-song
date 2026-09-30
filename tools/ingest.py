@@ -41,7 +41,7 @@ from pathlib import Path
 CLIP_LADDER = [0.1, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0]
 
 
-# Genre slugs accepted in the seed file. Mirrors GENRES in lib/game/genres.ts —
+# Genre slugs accepted in the seed file. Mirrors GENRES in packages/game/src/genres.ts —
 # tools/test_ingest.py parses that file and asserts the two agree, because a
 # silent mismatch would quietly file songs under "Khác" in the picker.
 KNOWN_GENRES = [
@@ -60,7 +60,7 @@ def clip_key(seconds: float) -> str:
     Must not be str(seconds): Python renders 1.0 as "1.0" while JavaScript's
     String(1.0) is "1", so the client would miss every whole-second rung.
     Milliseconds are integers in both languages, so there is nothing to
-    disagree about. lib/catalogue.ts clipKey() is the other half of this.
+    disagree about. packages/game/src/catalogue.ts clipKey() is the other half of this.
     """
     return str(round(seconds * 1000))
 

@@ -41,13 +41,13 @@ class TestModuleSurface(unittest.TestCase):
             self.assertTrue(hasattr(ingest, name), f"missing: {name}")
 
     def test_ladder_matches_the_client(self):
-        # lib/audio/engine.ts REVEAL_LADDER must agree or clip lookups 404.
+        # packages/game/src/ladder.ts DEFAULT_LADDER must agree or clip lookups 404.
         self.assertEqual(ingest.CLIP_LADDER, [0.1, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0])
 
     def test_clip_keys_match_javascript(self):
         # str(1.0) is "1.0" in Python but String(1.0) is "1" in JS, which
         # silently broke every rung from 1s up. Milliseconds are integers in
-        # both. The mirror of this lives in lib/catalogue.test.ts.
+        # both. The mirror of this lives in packages/game/src/catalogue.test.ts.
         self.assertEqual(
             [ingest.clip_key(s) for s in ingest.CLIP_LADDER],
             ["100", "500", "1000", "2000", "4000", "8000", "16000"],
@@ -74,7 +74,7 @@ class TestGenreTaxonomy(unittest.TestCase):
     """
 
     def test_slugs_match_the_client(self):
-        ts = (ROOT / "lib" / "game" / "genres.ts").read_text(encoding="utf-8")
+        ts = (ROOT / "packages" / "game" / "src" / "genres.ts").read_text(encoding="utf-8")
         # Only the GENRES array literal, so unrelated strings cannot match.
         body = ts[ts.index("export const GENRES"):ts.index("] as const;")]
         from_ts = re.findall(r"slug: '([a-z-]+)'", body)

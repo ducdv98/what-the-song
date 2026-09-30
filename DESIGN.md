@@ -15,7 +15,7 @@
 >    marks are not.
 >
 > Everything else below is implemented as specified. Tokens live in
-> `app/tokens.css`; see §9 for the quick reference the components were built
+> `apps/web/app/tokens.css`; see §9 for the quick reference the components were built
 > against.
 
 ## 1. Visual Theme & Atmosphere

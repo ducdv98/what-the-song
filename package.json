@@ -3,33 +3,27 @@
   "version": "0.0.1",
   "private": true,
   "description": "A private Vietnamese guess-the-song game",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "packageManager": "npm@11.6.2",
   "scripts": {
-    "dev": "node scripts/dev.mjs",
-    "dev:web": "next dev",
-    "dev:api": "npm --prefix backend run start:dev",
-    "build": "next build",
-    "start": "next start",
-    "typecheck": "tsc --noEmit",
-    "test": "npm run test:web && npm run test:ingest",
-    "test:web": "node --experimental-strip-types --test lib/vietnamese.test.ts lib/catalogue.test.ts lib/game/round.test.ts lib/game/meta.test.ts lib/i18n/i18n.test.ts",
-    "test:api": "npm --prefix backend test && npm --prefix backend run test:e2e",
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "turbo run lint",
+    "test": "turbo run test && npm run test:ingest",
+    "test:e2e": "turbo run test:e2e",
     "test:ingest": "python tools/test_ingest.py && python tools/test_validate_seed.py",
+    "validate": "python tools/validate_seed.py seed.jsonl",
     "docker:build": "docker compose build",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
-    "docker:logs": "docker compose logs -f",
-    "validate": "python tools/validate_seed.py seed.jsonl"
-  },
-  "dependencies": {
-    "next": "^15.5.4",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "docker:logs": "docker compose logs -f"
   },
   "devDependencies": {
-    "@types/node": "^22.18.0",
-    "@types/react": "^19.1.13",
-    "@types/react-dom": "^19.1.9",
-    "typescript": "^5.9.2"
+    "turbo": "^2.11.5"
   },
   "engines": {
     "node": ">=22"
