@@ -54,6 +54,23 @@ class TestModuleSurface(unittest.TestCase):
         )
 
 
+class TestClipLibraryLocation(unittest.TestCase):
+    # The clip library path appears in three places that must agree: where
+    # ingest writes by default, what git ignores, and what docker-compose
+    # mounts into Caddy. A mismatch means clips that never load, or audio
+    # committed to the repo.
+    def test_default_out_is_the_web_apps_library(self):
+        self.assertEqual(ingest.DEFAULT_OUT, ROOT / "apps" / "web" / "public" / "clips")
+
+    def test_library_is_gitignored(self):
+        ignored = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+        self.assertIn("/apps/web/public/clips/", ignored)
+
+    def test_compose_mounts_the_same_directory(self):
+        compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
+        self.assertIn("./apps/web/public/clips:/srv/clips:ro", compose)
+
+
 class TestClipFormat(unittest.TestCase):
     """
     Clips must be MP3. AAC cannot be decoded by decodeAudioData in Chromium

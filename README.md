@@ -139,7 +139,9 @@ The script detects your OS and picks a cookie source itself, printing what it
 chose. See [Cookies and the bot wall](#cookies-and-the-bot-wall) if downloads
 start failing — on Windows there is one specific trap.
 
-Output goes in `apps/web/public/clips/` so the app can serve it. It is gitignored.
+Output goes in `apps/web/public/clips/` so the app can serve it — that is the
+default, so `--out` can be left off, and it works from any directory. It is
+gitignored.
 
 The seed file holds **your** canonical title, artist and aliases; the YouTube
 URL is only an audio source and its title is never read. That is deliberate —
