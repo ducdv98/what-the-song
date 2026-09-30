@@ -186,19 +186,19 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
         {round && <Lives livesLeft={round.livesLeft} maxLives={round.maxLives} />}
       </header>
 
-      <StreakBar stats={stats} />
-      {pickers}
-
       {!round && (
         <p style={{ font: 'var(--t-caption)', color: 'var(--text-muted)', margin: 0 }}>
-          No songs in this genre yet — pick another.
+          Chưa có bài nào trong thể loại này — chọn thể loại khác.
         </p>
       )}
 
       {round && song && (
         <>
           <div className="card card--elevated" style={{ display: 'grid', gap: 'var(--s-5)' }}>
-            <PlayButton state={state} seconds={seconds} onPlay={play} disabled={over} />
+            {/* Stays enabled after the round: hearing the clue again is the
+                natural next thing, and it makes a separate replay button
+                redundant. */}
+            <PlayButton state={state} seconds={seconds} onPlay={play} />
             <RevealLadder stepIndex={round.stepIndex} ladder={round.ladder} />
           </div>
 
@@ -217,14 +217,14 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
               <div style={{ display: 'flex', gap: 'var(--s-2)', flexWrap: 'wrap' }}>
                 {round.allowSkip && (
                   <button className="pill" onClick={() => apply(skip(round))}>
-                    Reveal more
+                    Mở thêm
                   </button>
                 )}
                 <button
                   className="pill pill--outlined pill--muted"
                   onClick={() => apply(giveUp(round))}
                 >
-                  Give up
+                  Chịu thua
                 </button>
               </div>
             </>
@@ -252,22 +252,24 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
 
               <p style={{ font: 'var(--t-small)', color: 'var(--text-muted)', margin: 0 }}>
                 {round.status === 'won'
-                  ? `${round.score} points — guessed at ${formatSeconds(seconds)}`
-                  : `Revealed up to ${formatSeconds(seconds)}`}
+                  ? `${round.score} điểm — đoán ra ở ${formatSeconds(seconds)}`
+                  : `Đã mở tới ${formatSeconds(seconds)}`}
               </p>
 
               <div style={{ display: 'flex', gap: 'var(--s-2)' }}>
                 <button className="pill pill--accent" onClick={() => startRound(song.id)}>
-                  Next song
-                </button>
-                <button className="pill pill--outlined" onClick={play}>
-                  Replay clip
+                  Bài tiếp theo
                 </button>
               </div>
             </div>
           )}
         </>
       )}
+
+      {/* Settings and stats sit below the game: they are touched once a
+          session, while the card above is used every round. */}
+      <StreakBar stats={stats} />
+      {pickers}
     </div>
   );
 }

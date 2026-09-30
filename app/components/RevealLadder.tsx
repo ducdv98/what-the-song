@@ -3,8 +3,14 @@
 import { formatSeconds } from './PlayButton';
 
 /**
- * The reveal ladder as a row of segments. Unlocked rungs take the accent;
- * locked ones stay achromatic, per DESIGN.md §7 (accent is functional only).
+ * Progress through the reveal ladder.
+ *
+ * Segments are EQUAL width, not proportional to clip length. Proportional
+ * widths were the first attempt and they read terribly: at a 0.1s-to-16s range
+ * the early rungs collapse to invisible dots, so you cannot see how many clues
+ * remain or which one you are on — which is the only thing this control is for.
+ * Equal segments answer "where am I" at a glance; the seconds are stated in
+ * words underneath, where they are actually readable.
  */
 export function RevealLadder({
   stepIndex,
@@ -13,38 +19,49 @@ export function RevealLadder({
   stepIndex: number;
   ladder: readonly number[];
 }) {
+  const total = ladder.length;
+  const remaining = total - stepIndex - 1;
+
   return (
     <div>
-      <div style={{ display: 'flex', gap: 4 }}>
-        {ladder.map((seconds: number, i: number) => {
-          const unlocked = i <= stepIndex;
-          return (
-            <div
-              key={seconds}
-              title={formatSeconds(seconds)}
-              style={{
-                flex: seconds,
-                minWidth: 6,
-                height: 6,
-                borderRadius: 'var(--r-full-pill)',
-                background: unlocked ? 'var(--accent)' : 'var(--surface-card)',
-                transition: 'background 200ms ease',
-              }}
-            />
-          );
-        })}
+      <div style={{ display: 'flex', gap: 4 }} aria-hidden="true">
+        {ladder.map((seconds, i) => (
+          <div
+            key={seconds}
+            title={formatSeconds(seconds)}
+            style={{
+              flex: 1,
+              height: 8,
+              borderRadius: 'var(--r-full-pill)',
+              background:
+                i < stepIndex
+                  ? 'var(--accent-border)'
+                  : i === stepIndex
+                    ? 'var(--accent)'
+                    : 'var(--surface-card)',
+              transition: 'background 200ms ease',
+            }}
+          />
+        ))}
       </div>
+
       <p
         style={{
           font: 'var(--t-small)',
           color: 'var(--text-muted)',
           margin: 'var(--s-2) 0 0',
+          display: 'flex',
+          justifyContent: 'space-between',
         }}
       >
-        {/* Segment widths are proportional to clip length, so the ladder reads
-            as a real timeline rather than equal steps. */}
-        Unlocked: {formatSeconds(ladder[stepIndex])} of{' '}
-        {formatSeconds(ladder[ladder.length - 1])}
+        <span>
+          Đoạn {stepIndex + 1}/{total}
+        </span>
+        <span>
+          {remaining > 0
+            ? `còn ${remaining} lần mở`
+            : 'đoạn cuối cùng'}
+        </span>
       </p>
     </div>
   );

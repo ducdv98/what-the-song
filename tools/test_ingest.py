@@ -54,6 +54,19 @@ class TestModuleSurface(unittest.TestCase):
         )
 
 
+class TestClipFormat(unittest.TestCase):
+    """
+    Clips must be MP3. AAC cannot be decoded by decodeAudioData in Chromium
+    builds without proprietary codecs, which made the game unplayable there.
+    """
+
+    def test_cut_clips_emits_mp3(self):
+        src = (ROOT / "tools" / "ingest.py").read_text(encoding="utf-8")
+        self.assertIn("libmp3lame", src)
+        self.assertIn('+ ".mp3"', src)
+        self.assertNotIn('"-c:a", "aac"', src)
+
+
 class TestGenreTaxonomy(unittest.TestCase):
     """
     The slug list exists in both languages. A drift would file songs under
@@ -161,9 +174,19 @@ class TestEncoding(unittest.TestCase):
 
 class TestSeeds(unittest.TestCase):
     def test_example_seed_parses(self):
-        seeds = ingest.load_seeds(ROOT / "tools" / "seed.example.jsonl")
-        self.assertEqual(len(seeds), 3)
+        path = ROOT / "tools" / "seed.example.jsonl"
+        # Counted from the file, not hardcoded, so adding an example row to the
+        # seed file cannot fail the suite.
+        expected = sum(
+            1 for ln in path.read_text(encoding="utf-8").splitlines()
+            if ln.strip() and not ln.strip().startswith("//")
+        )
+        seeds = ingest.load_seeds(path)
+        self.assertEqual(len(seeds), expected)
         self.assertEqual(seeds[0].title, "Nơi Này Có Anh")
+        # Every example row must carry the fields Seed requires.
+        for sd in seeds:
+            self.assertTrue(sd.id and sd.title and sd.artist and sd.url)
 
     def test_malformed_lines_are_skipped_not_fatal(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -228,7 +251,7 @@ class TestLadder(unittest.TestCase):
         def fake_cut(src, anchor, out_dir, salt, ladder=None):
             captured["ladder"] = ladder
             out_dir.mkdir(parents=True, exist_ok=True)
-            return ({ingest.clip_key(s): f"{s}.m4a" for s in ladder}, [])
+            return ({ingest.clip_key(s): f"{s}.mp3" for s in ladder}, [])
 
         with tempfile.TemporaryDirectory() as tmp, \
              mock.patch.object(ingest, "download_audio", return_value=Path("x.wav")), \
@@ -289,7 +312,7 @@ class TestOutputLayout(unittest.TestCase):
                      ingest, "cut_clips",
                      side_effect=lambda src, anchor, out_dir, salt, ladder=None: (
                          out_dir.mkdir(parents=True, exist_ok=True),
-                         ({"100": "deadbeef.m4a"}, []),
+                         ({"100": "deadbeef.mp3"}, []),
                      )[1],
                  ):
                 rec = ingest.process(seed, out)
@@ -315,7 +338,7 @@ class TestMainWiring(unittest.TestCase):
                 "id": "a", "title": "T", "artist": "A",
                 "anchor_seconds": 12.5, "anchor_mode": "body",
                 "detected_onset": 0.0, "detected_body_onset": 12.5,
-                "ladder": [0.1, 0.5], "clips": {"100": "x.m4a"},
+                "ladder": [0.1, 0.5], "clips": {"100": "x.mp3"},
                 "clip_warnings": [], "needs_review": False,
             }
             with mock.patch.object(sys, "argv", argv), \
@@ -324,7 +347,10 @@ class TestMainWiring(unittest.TestCase):
                 self.assertEqual(ingest.main(), 0)
             self.assertTrue((out / "catalogue.json").exists())
             written = json.loads((out / "catalogue.json").read_text(encoding="utf-8"))
-            self.assertEqual(len(written), 3)
+            self.assertEqual(
+                len(written),
+                len(ingest.load_seeds(ROOT / "tools" / "seed.example.jsonl")),
+            )
 
     def test_main_reports_missing_tools(self):
         argv = ["ingest.py", str(ROOT / "tools" / "seed.example.jsonl")]

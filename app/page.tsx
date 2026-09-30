@@ -32,8 +32,10 @@ export default function Page() {
         padding: 'var(--s-6) var(--s-4) var(--s-10)',
         display: 'grid',
         justifyContent: 'center',
-        alignContent: 'start',
-        gap: 'var(--s-6)',
+        // Centre the column when it fits, fall back to top-aligned when it
+        // does not, so a short viewport still scrolls normally.
+        alignContent: 'safe center',
+        gap: 'var(--s-5)',
       }}
     >
       <p

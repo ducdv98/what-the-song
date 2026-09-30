@@ -36,7 +36,7 @@
 	handle @clips {
 		root * /srv
 		header Cache-Control "public, max-age=31536000, immutable"
-		header Content-Type "audio/mp4"
+		header Content-Type "audio/mpeg"
 		file_server
 	}
 

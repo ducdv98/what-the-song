@@ -133,6 +133,14 @@ decoding to cp1252, which cannot represent Vietnamese. Every such call now
 passes `encoding="utf-8"` explicitly. Re-running is safe: songs that crashed
 before their `done.json` was written are simply rebuilt.
 
+**No sound, or "Unable to decode audio data"** — clips must be MP3. An earlier
+version cut them as AAC, which cannot be decoded by `decodeAudioData` in
+Chromium builds without proprietary codecs, making the game silently unplayable
+there. Re-run ingest to regenerate; `libmp3lame` is now used and a test enforces
+it. Opus in WebM is half the size and also royalty-free, but `decodeAudioData`
+for WebM has been unreliable in Safari, which rules it out when players are on
+iPhones.
+
 **Clip length problems reported at the end of a run** — the ffmpeg cut did not
 match the ladder. Each clip is measured with ffprobe after cutting, so this
 surfaces instead of producing a silently broken catalogue. It should not happen:

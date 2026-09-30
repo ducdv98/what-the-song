@@ -308,14 +308,22 @@ def cut_clips(
     warnings: list[str] = []
 
     for seconds in (ladder or CLIP_LADDER):
-        name = hashlib.sha256(f"{salt}:{seconds}".encode()).hexdigest()[:24] + ".m4a"
+        name = hashlib.sha256(f"{salt}:{seconds}".encode()).hexdigest()[:24] + ".mp3"
         dest = out_dir / name
         run([
             "ffmpeg", "-y",
             "-ss", f"{anchor:.3f}", "-t", f"{seconds:.3f}",
             "-i", str(src),
             "-map_metadata", "-1", "-map_chapters", "-1",
-            "-c:a", "aac", "-b:a", "128k",
+            # MP3, not AAC. Chromium builds without proprietary codecs cannot
+            # decodeAudioData an AAC stream at all — it fails outright with
+            # "Unable to decode audio data", which made the game unplayable in
+            # those browsers. MP3's patents have expired so every browser ships
+            # it, and it measured 0ms of leading silence even on a 0.1s clip.
+            # Opus in WebM is half the size and also royalty-free, but
+            # decodeAudioData for WebM has been unreliable in Safari, which
+            # rules it out when players are on iPhones.
+            "-c:a", "libmp3lame", "-b:a", "128k",
             str(dest),
         ])
 

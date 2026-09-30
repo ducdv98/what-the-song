@@ -776,3 +776,45 @@ Rather than one window that grows from a single anchor, give the round a
 The intro is poor for identification but good for *confirmation*, so it works
 well as a hint rather than as the opening clue. One more clip per song, no new
 machinery, and it turns the intro problem into a feature.
+
+
+---
+
+## 12. Clip format: MP3, and why not AAC
+
+**[verified]** Found by driving the built app in a real browser rather than by
+reading the code.
+
+Clips were cut as **AAC in m4a**, and the game was **completely silent**:
+`decodeAudioData` rejected every clip with "Unable to decode audio data". AAC is
+patent-encumbered, so Chromium builds without proprietary codecs — which
+includes Playwright's bundled Chromium and several Linux distribution builds of
+Chromium — ship no AAC decoder at all. The failure is total, not degraded.
+
+Measured in that browser, cutting the same 0.5s source four ways:
+
+| Format | `decodeAudioData` | 0.1s clip size | Lead silence at 0.1s |
+|---|---|---|---|
+| AAC / m4a | **fails outright** | 9.4 KB | — |
+| Opus / WebM | OK | 4.9 KB | 0 ms |
+| MP3 | OK | 9.2 KB | 0 ms |
+| Vorbis / Ogg | OK (0.106s, overshoots) | 6.1 KB | 0 ms |
+
+**Chose MP3.** Its patents have expired, so every browser ships a decoder,
+including the codec-stripped Chromium builds that broke AAC. Opus is half the
+size and also royalty-free, but `decodeAudioData` for WebM has a poor history in
+Safari, and players will be on iPhones — reach beats bytes here, and §10.5
+already established that storage is a non-issue.
+
+⚠️ I had expected MP3 encoder delay (~25 ms of priming) to ruin a 0.1s clue.
+**Measured: 0 ms of leading silence** in all three working formats — ffmpeg
+writes gapless metadata and browsers honour it. The concern was unfounded, and
+worth recording so it does not get "fixed" again.
+
+### What this says about testing
+
+Every unit test passed while the app made no sound whatsoever. The clip files
+were correct, their durations exact, the URLs resolved, and the manifest keys
+matched. Nothing short of loading the page in a browser and pressing play could
+have caught it — a reminder that for anything with a rendered, audible surface,
+"the tests pass" and "it works" are different claims.

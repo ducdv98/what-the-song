@@ -6,11 +6,11 @@ import {
 } from './catalogue.ts';
 
 const songs: Song[] = [
-  { id: 'nnca', title: 'Nơi Này Có Anh', artist: 'Sơn Tùng M-TP', clips: { '100': 'aaa.m4a' } },
-  { id: 'cnd', title: 'Chạy Ngay Đi', artist: 'Sơn Tùng M-TP', clips: { '100': 'bbb.m4a' } },
-  { id: 'htca', title: 'Hãy Trao Cho Anh', artist: 'Sơn Tùng M-TP', aliases: ['Give It To Me'], clips: { '100': 'ccc.m4a' } },
-  { id: 'bcb', title: 'Bigcityboi', artist: 'Binz', clips: { '100': 'ddd.m4a' } },
-  { id: 'dv', title: 'Đường Về', artist: 'Đen Vâu', clips: { '100': 'eee.m4a' } },
+  { id: 'nnca', title: 'Nơi Này Có Anh', artist: 'Sơn Tùng M-TP', clips: { '100': 'aaa.mp3' } },
+  { id: 'cnd', title: 'Chạy Ngay Đi', artist: 'Sơn Tùng M-TP', clips: { '100': 'bbb.mp3' } },
+  { id: 'htca', title: 'Hãy Trao Cho Anh', artist: 'Sơn Tùng M-TP', aliases: ['Give It To Me'], clips: { '100': 'ccc.mp3' } },
+  { id: 'bcb', title: 'Bigcityboi', artist: 'Binz', clips: { '100': 'ddd.mp3' } },
+  { id: 'dv', title: 'Đường Về', artist: 'Đen Vâu', clips: { '100': 'eee.mp3' } },
 ];
 const index = indexCatalogue(songs);
 
@@ -80,7 +80,7 @@ describe('spelling feedback', () => {
 describe('clip URLs', () => {
   test('built from the opaque filename, never the title', () => {
     const url = clipUrl(songs[0], 0.1);
-    assert.equal(url, '/clips/nnca/aaa.m4a');
+    assert.equal(url, '/clips/nnca/aaa.mp3');
     assert.ok(!/noi|nay|anh/i.test(url), 'URL must not leak the answer');
   });
 
@@ -103,11 +103,11 @@ describe('clip keys agree with tools/ingest.py', () => {
     const song: Song = {
       id: 'x', title: 'T', artist: 'A',
       clips: Object.fromEntries(
-        [0.1, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0].map((s) => [clipKey(s), `${clipKey(s)}.m4a`]),
+        [0.1, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0].map((s) => [clipKey(s), `${clipKey(s)}.mp3`]),
       ),
     };
     for (const s of [0.1, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0]) {
-      assert.equal(clipUrl(song, s), `/clips/x/${clipKey(s)}.m4a`);
+      assert.equal(clipUrl(song, s), `/clips/x/${clipKey(s)}.mp3`);
     }
   });
 });
@@ -115,7 +115,7 @@ describe('clip keys agree with tools/ingest.py', () => {
 describe('per-song ladders derived from the manifest', () => {
   const full: Song = {
     id: 'full', title: 'Full', artist: 'A',
-    clips: { '100': 'a.m4a', '500': 'b.m4a', '1000': 'c.m4a' },
+    clips: { '100': 'a.mp3', '500': 'b.mp3', '1000': 'c.mp3' },
   };
 
   test('ladder comes back in seconds, ascending', () => {
@@ -125,7 +125,7 @@ describe('per-song ladders derived from the manifest', () => {
   test('manifest key order does not matter', () => {
     const jumbled: Song = {
       id: 'j', title: 'J', artist: 'A',
-      clips: { '2000': 'd.m4a', '100': 'a.m4a', '16000': 'e.m4a', '500': 'b.m4a' },
+      clips: { '2000': 'd.mp3', '100': 'a.mp3', '16000': 'e.mp3', '500': 'b.mp3' },
     };
     assert.deepEqual(ladderFor(jumbled), [0.1, 0.5, 2.0, 16.0]);
   });
@@ -134,7 +134,7 @@ describe('per-song ladders derived from the manifest', () => {
     // A track with a long generic intro can start at 2s instead of 0.1s.
     const late: Song = {
       id: 'late', title: 'Late', artist: 'A',
-      clips: { '2000': 'a.m4a', '4000': 'b.m4a', '8000': 'c.m4a' },
+      clips: { '2000': 'a.mp3', '4000': 'b.mp3', '8000': 'c.mp3' },
     };
     assert.deepEqual(ladderFor(late), [2.0, 4.0, 8.0]);
     const [ok, bad] = playableSongs([late]);
@@ -146,7 +146,7 @@ describe('per-song ladders derived from the manifest', () => {
     const [ok, bad] = playableSongs([
       full,
       { id: 'empty', title: 'E', artist: 'A', clips: {} },
-      { id: 'junk', title: 'J', artist: 'A', clips: { notanumber: 'x.m4a' } },
+      { id: 'junk', title: 'J', artist: 'A', clips: { notanumber: 'x.mp3' } },
     ]);
     assert.deepEqual(ok.map((s) => s.id), ['full']);
     assert.deepEqual(bad.map((s) => s.id), ['empty', 'junk']);
