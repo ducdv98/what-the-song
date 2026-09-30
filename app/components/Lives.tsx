@@ -1,16 +1,21 @@
 'use client';
 
-import { MAX_LIVES } from '@/lib/game/round';
-
 /** Lives as dots. Spent lives use the documented negative red. */
-export function Lives({ livesLeft }: { livesLeft: number }) {
+export function Lives({
+  livesLeft,
+  maxLives,
+}: {
+  livesLeft: number;
+  /** From the round, not a constant — difficulty changes how many you get. */
+  maxLives: number;
+}) {
   return (
     <div
       style={{ display: 'flex', gap: 'var(--s-2)', alignItems: 'center' }}
       role="status"
-      aria-label={`${livesLeft} of ${MAX_LIVES} lives remaining`}
+      aria-label={`${livesLeft} of ${maxLives} lives remaining`}
     >
-      {Array.from({ length: MAX_LIVES }, (_, i) => {
+      {Array.from({ length: maxLives }, (_, i) => {
         const alive = i < livesLeft;
         return (
           <span

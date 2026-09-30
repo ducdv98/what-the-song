@@ -12,6 +12,7 @@ would have caught it, so that is what test_main_wiring does.
 
 import importlib.util
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -51,6 +52,32 @@ class TestModuleSurface(unittest.TestCase):
             [ingest.clip_key(s) for s in ingest.CLIP_LADDER],
             ["100", "500", "1000", "2000", "4000", "8000", "16000"],
         )
+
+
+class TestGenreTaxonomy(unittest.TestCase):
+    """
+    The slug list exists in both languages. A drift would file songs under
+    "Khác" with no error, so assert they agree by reading the TypeScript.
+    """
+
+    def test_slugs_match_the_client(self):
+        ts = (ROOT / "lib" / "game" / "genres.ts").read_text(encoding="utf-8")
+        # Only the GENRES array literal, so unrelated strings cannot match.
+        body = ts[ts.index("export const GENRES"):ts.index("] as const;")]
+        from_ts = re.findall(r"slug: '([a-z-]+)'", body)
+        self.assertEqual(from_ts, ingest.KNOWN_GENRES)
+
+    def test_unknown_genre_is_reported_but_not_fatal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "s.jsonl"
+            p.write_text(
+                '{"id":"a","title":"T","artist":"A","url":"u","genre":"k-pop"}\n'
+                '{"id":"b","title":"T2","artist":"A","url":"u","genre":"bolero"}\n',
+                encoding="utf-8",
+            )
+            seeds = ingest.load_seeds(p)
+        # Both load; the bad one is only warned about.
+        self.assertEqual([x.id for x in seeds], ["a", "b"])
 
 
 class TestOsDetection(unittest.TestCase):

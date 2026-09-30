@@ -8,8 +8,28 @@
 
 import { DEFAULT_LADDER } from '../audio/engine.ts';
 import { matchGuess, type MatchQuality, type SongLike } from '../vietnamese.ts';
+import { type Difficulty } from './difficulty.ts';
 
+/** Default lives, used when no difficulty is supplied. */
 export const MAX_LIVES = 3;
+
+/**
+ * The rules with no difficulty modifier applied: shortest clue, three lives,
+ * skipping allowed.
+ *
+ * createRound defaults to this rather than to DEFAULT_DIFFICULTY, so the
+ * unparameterised round is the plain game. Difficulty is a player-facing choice
+ * the UI passes in explicitly — it should not quietly redefine what "a round"
+ * means for every other caller and test.
+ */
+const BASELINE: Difficulty = {
+  slug: 'baseline',
+  label: '',
+  gloss: '',
+  startStep: 0,
+  lives: MAX_LIVES,
+  allowSkip: true,
+};
 
 /** Minimum shape a round needs from a song. */
 type AnySong = SongLike & { id: string };
@@ -44,6 +64,10 @@ export interface Round<S extends AnySong = AnySong> {
   readonly song: S;
   /** This song's reveal ladder, in seconds, ascending. */
   readonly ladder: readonly number[];
+  /** Lives this round started with — varies by difficulty. */
+  readonly maxLives: number;
+  /** Whether "reveal more" is permitted. Off on expert. */
+  readonly allowSkip: boolean;
   /** Index into REVEAL_LADDER — how much audio is unlocked. */
   stepIndex: number;
   livesLeft: number;
@@ -55,12 +79,18 @@ export interface Round<S extends AnySong = AnySong> {
 export function createRound<S extends AnySong>(
   song: S,
   ladder: readonly number[] = DEFAULT_LADDER,
+  difficulty: Difficulty = BASELINE,
 ): Round<S> {
+  const rungs = ladder.length > 0 ? ladder : DEFAULT_LADDER;
   return {
     song,
-    ladder: ladder.length > 0 ? ladder : DEFAULT_LADDER,
-    stepIndex: 0,
-    livesLeft: MAX_LIVES,
+    ladder: rungs,
+    maxLives: difficulty.lives,
+    allowSkip: difficulty.allowSkip,
+    // Clamped: an easy start of rung 2 must still work on a song whose own
+    // ladder only has two rungs.
+    stepIndex: Math.min(Math.max(difficulty.startStep, 0), rungs.length - 1),
+    livesLeft: difficulty.lives,
     status: 'playing',
     attempts: [],
     score: 0,
@@ -121,9 +151,14 @@ export function submitGuess<S extends AnySong>(round: Round<S>, text: string): R
   return { ...advance(round), livesLeft, attempts };
 }
 
-/** Skip: reveals more audio, costs no life. */
+/**
+ * Skip: reveals more audio, costs no life.
+ *
+ * A no-op when the difficulty forbids it, so expert mode cannot be skipped
+ * through even if a stale button somehow calls this.
+ */
 export function skip<S extends AnySong>(round: Round<S>): Round<S> {
-  if (round.status !== 'playing') return round;
+  if (round.status !== 'playing' || !round.allowSkip) return round;
   return {
     ...advance(round),
     attempts: [...round.attempts, { text: '', kind: 'skip' }],

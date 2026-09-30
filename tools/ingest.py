@@ -41,6 +41,15 @@ from pathlib import Path
 CLIP_LADDER = [0.1, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0]
 
 
+# Genre slugs accepted in the seed file. Mirrors GENRES in lib/game/genres.ts —
+# tools/test_ingest.py parses that file and asserts the two agree, because a
+# silent mismatch would quietly file songs under "Khác" in the picker.
+KNOWN_GENRES = [
+    "nhac-tre", "rap-viet", "indie", "bolero", "nhac-vang",
+    "nhac-do", "dan-ca", "vong-co", "nhac-phim", "khac",
+]
+
+
 def clip_key(seconds: float) -> str:
     """
     Manifest key for a reveal rung, as integer milliseconds.
@@ -571,9 +580,21 @@ def load_seeds(path: Path) -> list[Seed]:
         if not line or line.startswith("//"):
             continue
         try:
-            seeds.append(Seed(**json.loads(line)))
+            seed = Seed(**json.loads(line))
         except (json.JSONDecodeError, TypeError) as e:
             print(f"seed line {n}: {e}", file=sys.stderr)
+            continue
+
+        if seed.genre is not None and seed.genre not in KNOWN_GENRES:
+            # Not fatal: the app files unknown tags under "Khác" so the song is
+            # still reachable. But it is almost always a typo, and saying so
+            # here is far cheaper than noticing a missing genre pill later.
+            print(
+                f"seed line {n}: unknown genre {seed.genre!r} for {seed.title!r}"
+                f" — will show under 'Khác'. Known: {', '.join(KNOWN_GENRES)}",
+                file=sys.stderr,
+            )
+        seeds.append(seed)
     return seeds
 
 

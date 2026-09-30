@@ -18,6 +18,8 @@ commercial, not public.
 | Round rules | done, tested — `lib/game/round.ts` |
 | Autocomplete search | done, tested — `lib/catalogue.ts` |
 | Game UI | done — Next.js + [`DESIGN.md`](DESIGN.md) |
+| Genre + difficulty pickers | done, tested |
+| Streaks | done, tested |
 | Deployment | done — Docker + Caddy, optional basic auth |
 
 54 tests pass (`npm test`); `npm run build` produces a static export.
@@ -209,6 +211,57 @@ Downloading audio from YouTube is contrary to its Terms of Service, and
 territory is that it stays private: **auth-gated, not publicly indexed, audio
 not redistributed.** If it ever goes public, the licensing analysis in
 `docs/RESEARCH.md` §2.8 and §6 becomes live and needs real answers first.
+
+## Genres, difficulty and streaks
+
+### Genres
+
+The taxonomy is Vietnamese, not Songspot's Pop / Hip-Hop / Rock / R&B / Country /
+K-Pop — forcing this repertoire into Anglophone labels loses most of what
+distinguishes it (`docs/RESEARCH.md` §5):
+
+`nhac-tre` · `rap-viet` · `indie` · `bolero` · `nhac-vang` · `nhac-do` ·
+`dan-ca` · `vong-co` · `nhac-phim` · `khac`
+
+Tag songs with the slug in the seed file's `genre` field. The picker only offers
+genres that actually have songs, with counts — with a few hundred hand-curated
+tracks most slugs stay empty for a long time, and a picker full of dead ends is
+worse than a short one. Unknown or missing tags fall under **Khác**, so no song
+becomes unreachable, and ingest warns about an unrecognised slug because it is
+almost always a typo.
+
+The slug list exists in both `tools/ingest.py` and `lib/game/genres.ts`; a test
+parses the TypeScript and asserts they agree, since a silent drift would file
+songs under Khác with no error.
+
+### Difficulty
+
+Difficulty is a **game mode**, not a per-song rating. Per-song difficulty should
+come from real play data seeded with a popularity proxy (`docs/RESEARCH.md` §1),
+and we have neither — inventing a rating would be a guess dressed up as data. So
+it adjusts the rules instead, which needs no metadata:
+
+| Mode | First clue | Lives | Skips |
+|---|---|---|---|
+| Dễ | 3rd rung (1s) | 5 | yes |
+| Thường | 2nd rung (0.5s) | 3 | yes |
+| Khó | 1st rung (0.1s) | 3 | yes |
+| Cực khó | 1st rung (0.1s) | 1 | **no** |
+
+0.1s is genuinely brutal, so it sits under *Khó* rather than being the default.
+Starting later caps the achievable score, so easier honestly means fewer points.
+A start rung beyond a song's own (shorter) ladder is clamped.
+
+### Streaks
+
+Current streak, best streak, games played and win rate, in `localStorage`. A loss
+resets the current streak and never the best.
+
+Storage is per-viewer and best-effort: in a private window, with site data
+blocked, or during a thumbnail capture the accessor itself can throw. Every
+access is guarded and anything read back is coerced, so a corrupt or stale value
+yields zeroes rather than `NaN` in the UI. A static export has no better option —
+losing a streak is a far better outcome than a blank page.
 
 ## Running the app
 

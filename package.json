@@ -13,7 +13,7 @@
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
-    "test:web": "node --experimental-strip-types --test lib/vietnamese.test.ts lib/catalogue.test.ts lib/game/round.test.ts",
+    "test:web": "node --experimental-strip-types --test lib/vietnamese.test.ts lib/catalogue.test.ts lib/game/round.test.ts lib/game/meta.test.ts",
     "test:ingest": "python tools/test_ingest.py"
   },
   "dependencies": {

@@ -15,3 +15,4 @@
 {"id":"nnca","title":"Nơi Này Có Anh","artist":"Sơn Tùng M-TP","url":"https://www.youtube.com/watch?v=EXAMPLE1","genre":"nhac-tre"}
 {"id":"htca","title":"Hãy Trao Cho Anh","artist":"Sơn Tùng M-TP","url":"https://www.youtube.com/watch?v=EXAMPLE2","aliases":["Give It To Me"],"genre":"nhac-tre","start_at":42.0}
 {"id":"bcb","title":"Bigcityboi","artist":"Binz","url":"https://www.youtube.com/watch?v=EXAMPLE3","genre":"rap-viet","ladder":[0.5,1,2,4,8,16]}
+{"id":"lhkn","title":"Lòng Mẹ","artist":"Y Vân","url":"https://www.youtube.com/watch?v=EXAMPLE4","genre":"bolero","anchor":"intro"}
