@@ -22,6 +22,26 @@
 		-Server
 	}
 
+	# Accounts and player records: the NestJS service. Caddy passes the
+	# original Host through and sets X-Forwarded-For/-Proto, which the API
+	# trusts (TRUST_PROXY) for rate limiting and Secure cookies.
+	#
+	# `dynamic a` re-resolves the service name, so after
+	# `docker compose up -d --scale api=3` every replica gets traffic; a replica
+	# that fails is skipped for a while (passive health checking).
+	handle /api/* {
+		reverse_proxy {
+			dynamic a {
+				name api
+				port 4000
+				refresh 10s
+			}
+			lb_policy round_robin
+			lb_try_duration 5s
+			fail_duration 30s
+		}
+	}
+
 	# The catalogue changes every time you ingest more songs, so it must never
 	# be cached — otherwise new songs silently fail to appear.
 	@catalogue path /clips/catalogue.json

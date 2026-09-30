@@ -1,11 +1,24 @@
 import type { NextConfig } from 'next';
+import { PHASE_DEVELOPMENT_SERVER } from 'next/constants';
 
-const config: NextConfig = {
+const base: NextConfig = {
   reactStrictMode: true,
-  // The clip library and catalogue are produced locally by tools/ingest.py and
-  // served as static files, so there is nothing to build server-side.
-  // `output: 'export'` keeps deployment to "copy a folder somewhere private".
-  output: 'export',
 };
 
-export default config;
+export default function config(phase: string): NextConfig {
+  if (phase === PHASE_DEVELOPMENT_SERVER) {
+    // In development the account API (backend/, NestJS) runs as its own process;
+    // proxy /api to it so the browser sees one origin, exactly as it does
+    // behind Caddy in production. `npm run dev` starts both.
+    const api = process.env.API_URL ?? 'http://127.0.0.1:4000';
+    return {
+      ...base,
+      rewrites: async () => [{ source: '/api/:path*', destination: `${api}/api/:path*` }],
+    };
+  }
+  // The clip library and catalogue are produced locally by tools/ingest.py and
+  // served as static files, and accounts live in a separate service (backend/), so
+  // the web app itself still builds to plain files. `output: 'export'` keeps
+  // that part of deployment to "copy a folder somewhere private".
+  return { ...base, output: 'export' };
+}

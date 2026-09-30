@@ -1,6 +1,7 @@
 name: what-the-song
 
 services:
+  # Caddy: the static game, the clip library, and /api proxied to the API.
   web:
     build: .
     image: what-the-song:local
@@ -11,8 +12,49 @@ services:
       # reload the page — no image rebuild needed.
       - ./public/clips:/srv/clips:ro
     environment:
-      # Leave both unset for a localhost-only game. Set them to put the site
-      # behind basic auth before sharing the URL (see README).
+      # Optional site-wide gate, separate from player accounts. Leave both unset
+      # for a localhost-only game; set them before sharing the URL (see README).
       AUTH_USER: "${AUTH_USER:-}"
       AUTH_PASSWORD: "${AUTH_PASSWORD:-}"
+    depends_on:
+      api:
+        condition: service_healthy
     restart: unless-stopped
+
+  # NestJS: accounts and player records. Stateless — scale with
+  # `docker compose up -d --scale api=3`; Caddy balances across replicas.
+  api:
+    build: ./backend
+    image: what-the-song-api:local
+    environment:
+      DATABASE_URL: "postgres://wts:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/wts"
+      JWT_ACCESS_SECRET: "${JWT_ACCESS_SECRET:?set JWT_ACCESS_SECRET in .env}"
+      # Only Caddy can reach this container, so its forwarded headers are true.
+      TRUST_PROXY: "true"
+      # Set to true once the site is served over https.
+      COOKIE_SECURE: "${COOKIE_SECURE:-false}"
+    expose:
+      - "4000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: wts
+      POSTGRES_DB: wts
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wts -d wts"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  # Player accounts and records. Back it up — see README.
+  pgdata:

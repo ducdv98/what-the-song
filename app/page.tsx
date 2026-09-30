@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import type { Song } from '@/lib/catalogue';
 import { Game } from './components/Game';
 import { useI18n } from './components/I18nProvider';
+import { AccountBar } from './components/AccountBar';
 
 /**
  * The catalogue is fetched at runtime rather than imported, because
@@ -40,17 +41,30 @@ export default function Page() {
         gap: 'var(--s-5)',
       }}
     >
-      <p
+      <div
         style={{
-          font: 'var(--t-caption-bold)',
-          letterSpacing: '1.4px',
-          textTransform: 'uppercase',
-          color: 'var(--accent)',
-          margin: 0,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: 'var(--s-3)',
+          flexWrap: 'wrap',
+          maxWidth: 560,
         }}
       >
-        what the song
-      </p>
+        <p
+          style={{
+            font: 'var(--t-caption-bold)',
+            letterSpacing: '1.4px',
+            textTransform: 'uppercase',
+            color: 'var(--accent)',
+            margin: 0,
+          }}
+        >
+          what the song
+        </p>
+        {/* Outside <Game>, so signing in works even with no clip library. */}
+        <AccountBar />
+      </div>
 
       {error && (
         <div className="card" style={{ maxWidth: 560 }}>

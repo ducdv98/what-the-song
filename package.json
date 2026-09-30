@@ -4,17 +4,20 @@
   "private": true,
   "description": "A private Vietnamese guess-the-song game",
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/dev.mjs",
+    "dev:web": "next dev",
+    "dev:api": "npm --prefix backend run start:dev",
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "npm run test:web && npm run test:ingest",
+    "test:web": "node --experimental-strip-types --test lib/vietnamese.test.ts lib/catalogue.test.ts lib/game/round.test.ts lib/game/meta.test.ts lib/i18n/i18n.test.ts",
+    "test:api": "npm --prefix backend test && npm --prefix backend run test:e2e",
+    "test:ingest": "python tools/test_ingest.py && python tools/test_validate_seed.py",
     "docker:build": "docker compose build",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
     "docker:logs": "docker compose logs -f",
-    "test:web": "node --experimental-strip-types --test lib/vietnamese.test.ts lib/catalogue.test.ts lib/game/round.test.ts lib/game/meta.test.ts lib/i18n/i18n.test.ts",
-    "test:ingest": "python tools/test_ingest.py && python tools/test_validate_seed.py",
     "validate": "python tools/validate_seed.py seed.jsonl"
   },
   "dependencies": {

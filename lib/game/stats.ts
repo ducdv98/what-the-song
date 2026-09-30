@@ -37,7 +37,19 @@ export function winRate(stats: Stats): number {
   return stats.played === 0 ? 0 : Math.round((stats.won / stats.played) * 100);
 }
 
-const STORAGE_KEY = 'what-the-song:stats:v1';
+/**
+ * Guests keep their stats in sessionStorage: they survive a reload but end with
+ * the tab, which is the deal a guest gets — play freely, keep nothing. Signed-in
+ * players' stats live on the server instead (server/db.ts) and are never
+ * written here.
+ */
+const STORAGE_KEY = 'what-the-song:guest-stats:v1';
+
+/**
+ * Before accounts existed, stats persisted forever in localStorage. Guests no
+ * longer get that, so the old key is removed rather than left orphaned.
+ */
+const LEGACY_KEY = 'what-the-song:stats:v1';
 
 /**
  * Coerce unknown JSON into Stats.
@@ -46,7 +58,7 @@ const STORAGE_KEY = 'what-the-song:stats:v1';
  * a different shape, so nothing read back can be trusted. Anything missing or
  * nonsensical falls back to zero rather than propagating NaN through the UI.
  */
-function coerce(raw: unknown): Stats {
+export function coerceStats(raw: unknown): Stats {
   if (typeof raw !== 'object' || raw === null) return EMPTY_STATS;
   const r = raw as Record<string, unknown>;
   const num = (v: unknown): number =>
@@ -64,7 +76,7 @@ function coerce(raw: unknown): Stats {
 }
 
 /**
- * Read stats from localStorage.
+ * Read a guest's stats.
  *
  * Every access is guarded: in a private window, with site data blocked, or
  * during a thumbnail capture, the accessor itself can throw. Returning empty
@@ -73,8 +85,13 @@ function coerce(raw: unknown): Stats {
  */
 export function loadStats(): Stats {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? coerce(JSON.parse(raw)) : EMPTY_STATS;
+    localStorage.removeItem(LEGACY_KEY);
+  } catch {
+    // Nothing to clean up, or no storage at all.
+  }
+  try {
+    const raw = sessionStorage.getItem(STORAGE_KEY);
+    return raw ? coerceStats(JSON.parse(raw)) : EMPTY_STATS;
   } catch {
     return EMPTY_STATS;
   }
@@ -82,7 +99,7 @@ export function loadStats(): Stats {
 
 export function saveStats(stats: Stats): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
   } catch {
     // Storage unavailable or full. Counting still works for this session.
   }
@@ -90,7 +107,7 @@ export function saveStats(stats: Stats): void {
 
 export function clearStats(): void {
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    sessionStorage.removeItem(STORAGE_KEY);
   } catch {
     // Nothing to do.
   }

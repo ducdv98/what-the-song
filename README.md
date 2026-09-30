@@ -21,9 +21,12 @@ commercial, not public.
 | Genre + difficulty pickers | done, tested |
 | Streaks | done, tested |
 | Vietnamese / English UI | done, tested in-browser |
-| Deployment | done — Docker + Caddy, optional basic auth |
+| Accounts (guest / register / sign in) | done, tested — NestJS + Postgres, [`backend/`](backend/README.md) |
+| Deployment | done — Docker + Caddy + Postgres, optional basic auth |
 
-54 tests pass (`npm test`); `npm run build` produces a static export.
+`npm test` covers the web modules and ingest; `npm run test:api` covers the
+account service, including end-to-end tests against a real Postgres.
+`npm run build` still produces a static export.
 
 Read [`docs/RESEARCH.md`](docs/RESEARCH.md) before changing anything in
 `lib/vietnamese.ts` or `tools/ingest.py`. Both exist in the shape they do for
@@ -245,8 +248,9 @@ not redistributed.** If it ever goes public, the licensing analysis in
 
 ## Language
 
-The UI is Vietnamese and English. There is no server — this is a static export —
-so there is no `Accept-Language` header to read and no IP geolocation. Two
+The UI is Vietnamese and English. The game itself is a static export (the
+account API in `backend/` does not render pages), so there is no
+`Accept-Language` header to read and no IP geolocation. Two
 client-side signals are used instead, neither of which costs a permission prompt
 or a network call:
 
@@ -315,32 +319,79 @@ A start rung beyond a song's own (shorter) ladder is clamped.
 
 ### Streaks
 
-Current streak, best streak, games played and win rate, in `localStorage`. A loss
-resets the current streak and never the best.
+Current streak, best streak, games played and win rate. A loss resets the
+current streak and never the best. Where they live depends on who is playing —
+see [Guests and accounts](#guests-and-accounts).
 
-Storage is per-viewer and best-effort: in a private window, with site data
+For guests, storage is best-effort: in a private window, with site data
 blocked, or during a thumbnail capture the accessor itself can throw. Every
 access is guarded and anything read back is coerced, so a corrupt or stale value
-yields zeroes rather than `NaN` in the UI. A static export has no better option —
-losing a streak is a far better outcome than a blank page.
+yields zeroes rather than `NaN` in the UI — losing a streak is a far better
+outcome than a blank page.
+
+## Guests and accounts
+
+Two ways to play, and the game never waits for either:
+
+- **Guest** — the default. Play freely, no sign-up. Stats are counted in the
+  browser and kept in `sessionStorage`, so they survive a reload but are **gone
+  when the tab closes**. The stats bar says so. (Before accounts existed, stats
+  were kept forever in `localStorage`; that old key is now deleted on load.)
+- **Account** — register with a username, email and password, then sign in with
+  either the username or the email. Every finished round is sent to the API and
+  stored, and the streak bar shows the server's numbers, so they follow the
+  player to any device. The per-round history is kept for a leaderboard later.
+
+Signing in or out starts the stats fresh: a guest's session record is not
+carried into an account, and signing out does not bring back the stats from
+before signing in. A round finished as a guest is not recorded to an account.
+
+The account service is a NestJS app in [`backend/`](backend/README.md) — its
+README covers the endpoints, the token design (short-lived access token plus
+rotating refresh token, both HttpOnly cookies), password hashing, and how to
+scale it. If the API cannot be reached — a static-only deployment, or it is down
+— the game quietly stays in guest mode and hides the sign-in buttons.
+
+UI: `app/components/AccountBar.tsx` (top right), `AuthDialog.tsx` (sign in /
+register), `AuthProvider.tsx` (who is playing) and `useStats.ts` (where the
+numbers go). The client wrapper, including refresh-and-retry when the access
+token expires, is `lib/auth/client.ts`.
 
 ## Running the app
 
+Accounts need a Postgres 14+ you can reach locally. Create a role and two
+databases — one for development, one the e2e tests are allowed to wipe:
+
+```sh
+psql -U postgres -c "CREATE USER wts WITH PASSWORD 'wts'"
+psql -U postgres -c "CREATE DATABASE wts OWNER wts"
+psql -U postgres -c "CREATE DATABASE wts_test OWNER wts"
+```
+
 ```sh
 npm install
-npm run dev          # http://localhost:3000
-npm test             # 74 tests (web + ingest), no dependencies
+npm install --prefix backend
+cp backend/.env.example backend/.env   # set DATABASE_URL and JWT_ACCESS_SECRET
+
+npm run dev          # web on http://localhost:3000, API on :4000 behind /api
+npm test             # web + ingest, no dependencies
+npm run test:api     # account service: unit + e2e (needs Postgres)
 npm run build        # static export to out/
 ```
 
-`npm test` runs both suites: `test:web` (Node's built-in runner over the
-TypeScript modules) and `test:ingest` (Python's unittest over
-`tools/ingest.py`). Neither needs anything installed beyond Node and Python.
+`npm run dev` starts the Next dev server and the NestJS API together; Ctrl+C
+stops both. The dev server proxies `/api` to the API, so the browser sees one
+origin exactly as it does behind Caddy. Without `backend/node_modules` it
+starts the web app alone, as a guest-only game.
 
-Next.js App Router with `output: 'export'` — there is no server, so deploying is
-"copy `out/` and `public/clips/` somewhere private". The catalogue is fetched at
-runtime from `/clips/catalogue.json`, so the build does not depend on what is in
-your clip library; without one, the app says so and tells you what to run.
+`npm test` runs `test:web` (Node's built-in runner over the TypeScript modules)
+and `test:ingest` (Python's unittest over `tools/ingest.py`). Neither needs
+anything installed beyond Node and Python.
+
+Next.js App Router with `output: 'export'` — the game is still a folder of
+static files. The catalogue is fetched at runtime from `/clips/catalogue.json`,
+so the build does not depend on what is in your clip library; without one, the
+app says so and tells you what to run.
 
 ### Audio
 
@@ -374,12 +425,33 @@ uses its own wordmark rather than any Spotify branding.
 
 ```sh
 ./tools/ingest.py seed.jsonl --out public/clips   # build clips first (host)
+cp .env.example .env                              # set POSTGRES_PASSWORD and JWT_ACCESS_SECRET
 docker compose up -d --build                      # http://localhost:3000
 ```
 
-Two stages: `node:22-alpine` runs `next build`, and the static export is served
-by `caddy:2-alpine`. The runtime image carries no Node process — there is no
-server to run.
+Three services:
+
+| Service | Image | Role |
+|---|---|---|
+| `web` | `caddy:2-alpine` + the static export | serves the game and clips, proxies `/api/*` to `api` |
+| `api` | `backend/Dockerfile` (Node 22) | accounts and player records; stateless |
+| `db` | `postgres:16-alpine` | the `pgdata` volume holds every account and round |
+
+Only `web` publishes a port; the API and database are reachable only inside the
+compose network. Compose refuses to start without `POSTGRES_PASSWORD` and
+`JWT_ACCESS_SECRET` rather than running with a guessable default.
+
+The API scales horizontally — `docker compose up -d --scale api=3` — and Caddy
+spreads requests across the replicas; see `backend/README.md` for the two
+things to change before relying on that (shared rate-limit storage, migrations
+as a release step).
+
+**Back up the database** — it is the only state that cannot be rebuilt:
+
+```sh
+docker compose exec -T db pg_dump -U wts wts > backup.sql
+docker compose exec -T db psql -U wts wts < backup.sql      # restore
+```
 
 **The clip library is a bind mount, not part of the image.** `public/clips` on
 the host is mounted read-only at `/srv/clips`. So adding songs is:
@@ -402,7 +474,9 @@ On **Windows**, this needs Docker Desktop with the WSL2 backend; the
 
 ### Putting it behind a password
 
-No auth is fine while it is only on your machine. Before you give anyone a URL,
+This is a site-wide gate, separate from player accounts: accounts decide whose
+record a round goes into, basic auth decides who can reach the site at all. No
+gate is fine while it is only on your machine. Before you give anyone a URL,
 set both variables — privacy is what keeps this in personal-use territory
 (`docs/RESEARCH.md` §10.1):
 
@@ -432,6 +506,10 @@ access control.
 > against a real build: app serves 200, `catalogue.json` comes back `no-store`,
 > clips come back `audio/mp4` + `immutable`, a missing clip 404s, and with auth
 > on every route returns 401 without credentials and 200 with them.
-> **Not verified:** the image itself has never been built — this container has
-> the Docker CLI but no daemon. `docker compose build` is the one step still
-> untested.
+> **Not verified:** the images themselves have never been built — this container
+> has the Docker CLI but no daemon. `docker compose build` is the one step still
+> untested. What was verified for accounts: the API image's steps (`npm ci` on
+> npm 10, build, prune, argon2 loading) run cleanly; `docker compose config`
+> validates; and the production build served by a real Caddy with this
+> Caddyfile's `/api` route registered, signed in, recorded rounds and refused
+> cross-origin writes in a real browser.

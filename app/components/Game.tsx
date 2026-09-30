@@ -9,7 +9,6 @@ import {
 import { availableGenres, filterByGenre } from '@/lib/game/genres';
 import { DIFFICULTIES, findDifficulty } from '@/lib/game/difficulty';
 import type { MessageKey } from '@/lib/i18n/messages';
-import { loadStats, recordResult, saveStats, EMPTY_STATS, type Stats } from '@/lib/game/stats';
 import { loadPrefs, savePrefs } from '@/lib/game/prefs';
 import { useAudioEngine } from './useAudioEngine';
 import { PlayButton, formatSeconds } from './PlayButton';
@@ -20,6 +19,7 @@ import { PillRow } from './PillRow';
 import { LangToggle } from './LangToggle';
 import { useI18n } from './I18nProvider';
 import { StreakBar } from './StreakBar';
+import { useStats } from './useStats';
 
 /** Pick a song at random, avoiding an immediate repeat. */
 function pickRandom(items: Song[], excludeId?: string): Song | undefined {
@@ -36,21 +36,21 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
 
   const [genre, setGenre] = useState<string | null>(null);
   const [difficultySlug, setDifficultySlug] = useState('normal');
-  const [stats, setStats] = useState<Stats>(EMPTY_STATS);
   const [round, setRound] = useState<Round<Song> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const { stats, record, syncFailed } = useStats();
   const { engine, state } = useAudioEngine();
   const { lang, t } = useI18n();
   const difficulty = findDifficulty(difficultySlug);
 
-  // Restore remembered choices and streak on mount. Client-only: localStorage
-  // does not exist during the static export's prerender.
+  // Restore remembered choices on mount. Client-only: localStorage does not
+  // exist during the static export's prerender. Stats come from useStats,
+  // which knows whether this is a guest or a signed-in player.
   useEffect(() => {
     const prefs = loadPrefs();
     setGenre(prefs.genre);
     setDifficultySlug(prefs.difficulty);
-    setStats(loadStats());
   }, []);
 
   const genreOptions = useMemo(() => availableGenres(allSongs), [allSongs]);
@@ -81,10 +81,11 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
   }, [songs, difficulty, engine]);
 
   /**
-   * Apply a transition, folding a newly-finished round into the streak once.
+   * Apply a transition, recording a newly-finished round exactly once.
    *
    * Deliberately NOT done inside a setRound updater: React calls updaters twice
-   * under StrictMode to surface impurity, which would double-count every win.
+   * under StrictMode to surface impurity, which would double-count every win —
+   * and, for a signed-in player, post every round to the server twice.
    * Updaters stay pure; the side effect lives here, in the event handler, where
    * `round` from the closure is already current.
    */
@@ -93,12 +94,16 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
       const before = round;
       setRound(next);
       if (before && before.status === 'playing' && next.status !== 'playing') {
-        const updated = recordResult(stats, next.status === 'won');
-        setStats(updated);
-        saveStats(updated);
+        record({
+          songId: next.song.id,
+          won: next.status === 'won',
+          score: next.status === 'won' ? next.score : 0,
+          difficulty: difficulty.slug,
+          genre,
+        });
       }
     },
-    [round, stats],
+    [round, record, difficulty, genre],
   );
 
   const seconds = round ? revealedSeconds(round) : DEFAULT_LADDER[0];
@@ -277,7 +282,7 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
 
       {/* Settings and stats sit below the game: they are touched once a
           session, while the card above is used every round. */}
-      <StreakBar stats={stats} />
+      <StreakBar stats={stats} syncFailed={syncFailed} />
       {pickers}
     </div>
   );

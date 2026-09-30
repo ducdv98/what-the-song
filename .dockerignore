@@ -9,6 +9,9 @@ public/clips
 clips
 seed.jsonl
 
+# The API has its own image and build context (backend/Dockerfile).
+backend
+
 # Not needed to build or serve.
 .git
 .gitignore
