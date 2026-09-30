@@ -42,6 +42,15 @@ class TestModuleSurface(unittest.TestCase):
         # lib/audio/engine.ts REVEAL_LADDER must agree or clip lookups 404.
         self.assertEqual(ingest.CLIP_LADDER, [0.1, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0])
 
+    def test_clip_keys_match_javascript(self):
+        # str(1.0) is "1.0" in Python but String(1.0) is "1" in JS, which
+        # silently broke every rung from 1s up. Milliseconds are integers in
+        # both. The mirror of this lives in lib/catalogue.test.ts.
+        self.assertEqual(
+            [ingest.clip_key(s) for s in ingest.CLIP_LADDER],
+            ["100", "500", "1000", "2000", "4000", "8000", "16000"],
+        )
+
 
 class TestOsDetection(unittest.TestCase):
     def test_detect_os_is_a_known_value(self):
@@ -156,6 +165,38 @@ class TestAnchor(unittest.TestCase):
         self.assertEqual(a, ingest.choose_anchor(seed, 240.0, 0.0))
         self.assertGreaterEqual(a, 240.0 * 0.25)
         self.assertLessEqual(a, 240.0 * 0.60)
+
+
+class TestOutputLayout(unittest.TestCase):
+    """
+    The app fetches /clips/catalogue.json and /clips/<id>/<hash>.m4a from one
+    base, so catalogue.json and the per-song dirs must be siblings under --out.
+    A stray path segment 404s every clip while the catalogue still loads, which
+    reads like a server misconfiguration instead of a path bug.
+    """
+
+    def test_clips_are_siblings_of_the_catalogue(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "clips"
+            seed = ingest.Seed(id="abc", title="T", artist="A", url="u")
+
+            with mock.patch.object(ingest, "download_audio", return_value=Path("x.wav")), \
+                 mock.patch.object(ingest, "probe_duration", return_value=120.0), \
+                 mock.patch.object(ingest, "detect_music_onset", return_value=0.0), \
+                 mock.patch.object(ingest, "normalise"), \
+                 mock.patch.object(
+                     ingest, "cut_clips",
+                     side_effect=lambda src, anchor, out_dir, salt: (
+                         out_dir.mkdir(parents=True, exist_ok=True),
+                         ({"100": "deadbeef.m4a"}, []),
+                     )[1],
+                 ):
+                rec = ingest.process(seed, out)
+
+            self.assertIsNotNone(rec)
+            # <out>/abc/, NOT <out>/clips/abc/
+            self.assertTrue((out / "abc").is_dir(), sorted(p.name for p in out.iterdir()))
+            self.assertFalse((out / "clips").exists(), "stray 'clips' path segment")
 
 
 class TestMainWiring(unittest.TestCase):

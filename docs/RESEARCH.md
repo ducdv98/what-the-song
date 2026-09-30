@@ -668,12 +668,16 @@ of which are sharper for a Vietnamese catalogue:
 
 ### 10.6 What still needs doing
 
-- **`ffmpeg` timing verification.** The clip pipeline is **written but not
-  executed** — this environment has no `ffmpeg` and YouTube is egress-blocked,
-  so it has never processed a real file. The first real run should verify that
-  a nominal 0.1s clip *is* ~0.1s, since `-ss` before `-i` is fast but seeks to
-  a keyframe. If the short clips come out long or empty, that is the cause, and
-  the fix is a decode-accurate seek (`-ss` after `-i`, or `-accurate_seek`).
+- ~~**`ffmpeg` timing verification.**~~ **Answered.** The pipeline was run
+  end to end against a real 90s file with ffmpeg 7.0.2 (only the network call
+  stubbed). Every rung measured **exactly** its target — 0.000s deviation at
+  0.1s through 16s — all clips were audible, and no title, artist or Vietnamese
+  text appeared anywhere in the output bytes or filenames. The keyframe concern
+  raised here does **not** apply: clips are cut from PCM WAV, where `-ss` is
+  sample-exact. `cut_clips` now measures every clip anyway, since the cost is
+  one ffprobe call and a wrong length silently changes difficulty.
+  Still unexecuted: the yt-dlp download itself, which needs network access
+  this environment does not have.
 - **Web Audio playback** per §4.2 — the client side is not written yet.
 - **The game loop**, per the build order in §8.
 

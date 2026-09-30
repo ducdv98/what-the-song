@@ -99,9 +99,12 @@ passes `encoding="utf-8"` explicitly. Re-running is safe: songs that crashed
 before their `done.json` was written are simply rebuilt.
 
 **Clip length problems reported at the end of a run** — the ffmpeg cut did not
-match the ladder. Each clip is now measured with ffprobe after cutting, so this
-surfaces instead of producing a silently broken catalogue. If short clips come
-out long, `-ss` is seeking to a keyframe; move it after `-i` in `cut_clips()`.
+match the ladder. Each clip is measured with ffprobe after cutting, so this
+surfaces instead of producing a silently broken catalogue. It should not happen:
+clips are cut from PCM WAV, where ffmpeg's seek is sample-exact (verified at
+0.000s deviation across all seven rungs). If it does, check that `normalise()`
+produced a `.wav` — on a compressed input, `-ss` before `-i` would snap to a
+keyframe.
 
 ### Cookies and the bot wall
 

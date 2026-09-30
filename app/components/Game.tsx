@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { clipUrl, indexCatalogue, type Song } from '@/lib/catalogue';
+import { clipUrl, indexCatalogue, playableSongs, type Song } from '@/lib/catalogue';
 import { REVEAL_LADDER } from '@/lib/audio/engine';
 import {
   createRound, giveUp, revealedSeconds, skip, submitGuess, type Round,
@@ -21,25 +21,31 @@ function pickRandom(items: Song[], excludeId?: string): Song | undefined {
 }
 
 export function Game({ catalogue }: { catalogue: Song[] }) {
-  const index = useMemo(() => indexCatalogue(catalogue), [catalogue]);
+  // A song with a gap in its clip ladder would throw mid-round, so drop it up
+  // front rather than discovering it two reveals in.
+  const [songs, skipped] = useMemo(
+    () => playableSongs(catalogue, REVEAL_LADDER),
+    [catalogue],
+  );
+  const index = useMemo(() => indexCatalogue(songs), [songs]);
   const { engine, state } = useAudioEngine();
   const [round, setRound] = useState<Round<Song> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const startRound = useCallback(
     (excludeId?: string) => {
-      const song = pickRandom(catalogue, excludeId);
+      const song = pickRandom(songs, excludeId);
       if (!song) return;
       setError(null);
       engine.stop();
       setRound(createRound(song));
     },
-    [catalogue, engine],
+    [songs, engine],
   );
 
   useEffect(() => {
-    if (!round && catalogue.length > 0) startRound();
-  }, [round, catalogue, startRound]);
+    if (!round && songs.length > 0) startRound();
+  }, [round, songs, startRound]);
 
   const seconds = round ? revealedSeconds(round) : REVEAL_LADDER[0];
 
@@ -65,6 +71,22 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
       setError(err instanceof Error ? err.message : 'Could not play that clip.');
     }
   }, [engine, round, seconds]);
+
+  if (songs.length === 0) {
+    return (
+      <div className="card" style={{ maxWidth: 560 }}>
+        <p style={{ font: 'var(--t-body-bold)', margin: '0 0 var(--s-2)' }}>
+          No playable songs
+        </p>
+        <p style={{ font: 'var(--t-caption)', color: 'var(--text-muted)', margin: 0 }}>
+          {skipped.length > 0
+            ? `${skipped.length} song(s) have an incomplete clip ladder. Re-run
+               tools/ingest.py — its report says which cuts failed.`
+            : 'The catalogue is empty.'}
+        </p>
+      </div>
+    );
+  }
 
   if (!round) {
     return <p style={{ color: 'var(--text-muted)' }}>Loading…</p>;

@@ -1,13 +1,16 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { indexCatalogue, searchCatalogue, clipUrl, isExactSpelling, type Song } from './catalogue.ts';
+import {
+  indexCatalogue, searchCatalogue, clipUrl, clipKey, playableSongs,
+  isExactSpelling, type Song,
+} from './catalogue.ts';
 
 const songs: Song[] = [
-  { id: 'nnca', title: 'Nơi Này Có Anh', artist: 'Sơn Tùng M-TP', clips: { '0.1': 'aaa.m4a' } },
-  { id: 'cnd', title: 'Chạy Ngay Đi', artist: 'Sơn Tùng M-TP', clips: { '0.1': 'bbb.m4a' } },
-  { id: 'htca', title: 'Hãy Trao Cho Anh', artist: 'Sơn Tùng M-TP', aliases: ['Give It To Me'], clips: { '0.1': 'ccc.m4a' } },
-  { id: 'bcb', title: 'Bigcityboi', artist: 'Binz', clips: { '0.1': 'ddd.m4a' } },
-  { id: 'dv', title: 'Đường Về', artist: 'Đen Vâu', clips: { '0.1': 'eee.m4a' } },
+  { id: 'nnca', title: 'Nơi Này Có Anh', artist: 'Sơn Tùng M-TP', clips: { '100': 'aaa.m4a' } },
+  { id: 'cnd', title: 'Chạy Ngay Đi', artist: 'Sơn Tùng M-TP', clips: { '100': 'bbb.m4a' } },
+  { id: 'htca', title: 'Hãy Trao Cho Anh', artist: 'Sơn Tùng M-TP', aliases: ['Give It To Me'], clips: { '100': 'ccc.m4a' } },
+  { id: 'bcb', title: 'Bigcityboi', artist: 'Binz', clips: { '100': 'ddd.m4a' } },
+  { id: 'dv', title: 'Đường Về', artist: 'Đen Vâu', clips: { '100': 'eee.m4a' } },
 ];
 const index = indexCatalogue(songs);
 
@@ -83,5 +86,58 @@ describe('clip URLs', () => {
 
   test('a missing rung fails loudly rather than producing a 404 URL', () => {
     assert.throws(() => clipUrl(songs[0], 16), /no clip/);
+  });
+});
+
+describe('clip keys agree with tools/ingest.py', () => {
+  test('whole seconds must not collapse — String(1.0) is "1" but Python writes "1.0"', () => {
+    // This mismatch silently broke every rung from 1s up: the first two clues
+    // played, then clipUrl threw. Milliseconds are integers in both languages.
+    assert.deepEqual(
+      [0.1, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0].map(clipKey),
+      ['100', '500', '1000', '2000', '4000', '8000', '16000'],
+    );
+  });
+
+  test('clipUrl resolves every rung of a real manifest', () => {
+    const song: Song = {
+      id: 'x', title: 'T', artist: 'A',
+      clips: Object.fromEntries(
+        [0.1, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0].map((s) => [clipKey(s), `${clipKey(s)}.m4a`]),
+      ),
+    };
+    for (const s of [0.1, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0]) {
+      assert.equal(clipUrl(song, s), `/clips/x/${clipKey(s)}.m4a`);
+    }
+  });
+});
+
+describe('incomplete clip ladders are filtered out', () => {
+  const ladder = [0.1, 0.5, 1.0];
+  const full: Song = {
+    id: 'full', title: 'Full', artist: 'A',
+    clips: { '100': 'a.m4a', '500': 'b.m4a', '1000': 'c.m4a' },
+  };
+  const partial: Song = {
+    id: 'partial', title: 'Partial', artist: 'A',
+    clips: { '100': 'a.m4a' },
+  };
+
+  test('a complete song is playable', () => {
+    const [ok, bad] = playableSongs([full], ladder);
+    assert.deepEqual(ok.map((s) => s.id), ['full']);
+    assert.equal(bad.length, 0);
+  });
+
+  test('a song missing rungs is skipped, not offered', () => {
+    const [ok, bad] = playableSongs([full, partial], ladder);
+    assert.deepEqual(ok.map((s) => s.id), ['full']);
+    assert.deepEqual(bad.map((s) => s.id), ['partial']);
+  });
+
+  test('a song with no clips at all is skipped', () => {
+    const [ok, bad] = playableSongs([{ id: 'e', title: 'E', artist: 'A', clips: {} }], ladder);
+    assert.equal(ok.length, 0);
+    assert.equal(bad.length, 1);
   });
 });

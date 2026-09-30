@@ -113,11 +113,12 @@ export class AudioEngine {
   /**
    * Play at most `seconds` from the start of the clip.
    *
-   * The clamp against buffer.duration is deliberate and load-bearing: the
-   * ingest pipeline seeks with `-ss` before `-i`, which is fast but lands on a
-   * keyframe, so a clip can come out longer than nominal (§10.6). Trusting the
-   * file length would leak extra audio and quietly make an early clue easier
-   * than it should be. The ladder step, not the file, decides what is heard.
+   * The clamp against buffer.duration is cheap insurance. Ingest cuts from PCM
+   * WAV, where ffmpeg's seek is sample-exact (verified at 0.000s deviation
+   * across the ladder), so in practice the file is already the right length.
+   * But the ladder step, not the file, should decide what is heard: a clip
+   * rebuilt with different settings must not be able to leak extra audio and
+   * quietly make an early clue easier.
    */
   async play(url: string, seconds: number): Promise<void> {
     this.setState('loading');

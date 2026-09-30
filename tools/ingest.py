@@ -40,6 +40,18 @@ from pathlib import Path
 # Reveal ladder, in seconds. The player starts at 0.1s and buys more.
 CLIP_LADDER = [0.1, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0]
 
+
+def clip_key(seconds: float) -> str:
+    """
+    Manifest key for a reveal rung, as integer milliseconds.
+
+    Must not be str(seconds): Python renders 1.0 as "1.0" while JavaScript's
+    String(1.0) is "1", so the client would miss every whole-second rung.
+    Milliseconds are integers in both languages, so there is nothing to
+    disagree about. lib/catalogue.ts clipKey() is the other half of this.
+    """
+    return str(round(seconds * 1000))
+
 # Reject anything outside this — catches both Shorts and the hour-long
 # "Tuyển tập nhạc trẻ" compilations that are everywhere on Vietnamese YouTube.
 MIN_DURATION = 60
@@ -182,11 +194,12 @@ def cut_clips(
     Filenames are hashes: a player who opens devtools must not be handed the
     answer in a URL. `-map_metadata -1` drops ID3 tags for the same reason.
 
-    Each cut is verified rather than assumed. `-ss` before `-i` is fast but
-    seeks to a keyframe, so a clip can come out longer than asked — which would
-    quietly make an early clue easier than intended. Anything off by more than
-    the tolerance is reported, and the engine also clamps playback client-side
-    (lib/audio/engine.ts) so a bad file cannot leak extra audio.
+    Each cut is verified rather than assumed. `-ss` before `-i` would seek to a
+    keyframe on a compressed input, but the input here is always PCM WAV (from
+    yt-dlp, then from normalise), where seeking is sample-exact — measured at
+    0.000s deviation across the whole ladder. The check stays because the cost
+    is one ffprobe call and a wrong clip length silently changes difficulty:
+    if the input format ever changes, this is what will catch it.
 
     Returns (manifest, warnings).
     """
@@ -220,7 +233,7 @@ def cut_clips(
                 f"(off by {actual - seconds:+.3f}s)"
             )
 
-        manifest[str(seconds)] = name
+        manifest[clip_key(seconds)] = name
 
     return manifest, warnings
 
@@ -382,7 +395,12 @@ def process(
     browser: str | None = None,
     cookie_file: Path | None = None,
 ) -> dict | None:
-    clip_dir = out_root / "clips" / seed.id
+    # --out IS the clips root, so no extra "clips" segment here: the layout
+    # must be <out>/catalogue.json alongside <out>/<id>/<hash>.m4a, because the
+    # app requests /clips/catalogue.json and /clips/<id>/<hash>.m4a from the
+    # same base. An extra level here 404s every clip while the catalogue loads
+    # fine, which looks like a serving problem rather than a path one.
+    clip_dir = out_root / seed.id
     if (clip_dir / "done.json").exists():
         print(f"  [skip] {seed.id} already built")
         return json.loads((clip_dir / "done.json").read_text(encoding="utf-8"))
@@ -411,6 +429,10 @@ def process(
             levelled = raw
 
         manifest, clip_warnings = cut_clips(levelled, anchor, clip_dir, salt=seed.id)
+
+    if not manifest:
+        print("    rejected: ffmpeg produced no clips", file=sys.stderr)
+        return None
 
     record = {
         "id": seed.id,
@@ -538,8 +560,9 @@ def main() -> int:
             print(f"  - {r['artist']} — {r['title']}")
             for w in r["clip_warnings"]:
                 print(f"      {w}")
-        print("  If short clips run long, -ss is seeking to a keyframe; move it")
-        print("  after -i in cut_clips() for a decode-accurate seek.")
+        print("  The input should be PCM WAV, where -ss is exact. If clips are")
+        print("  off, check that normalise() produced a .wav and not something")
+        print("  compressed, where -ss before -i would snap to a keyframe.")
     return 0
 
 

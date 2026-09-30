@@ -93,9 +93,40 @@ export function isExactSpelling(text: string, song: Song): boolean {
   return toneKey(text) === toneKey(song.title);
 }
 
+/**
+ * Manifest key for a reveal rung, as integer milliseconds.
+ *
+ * Must not be String(seconds): JavaScript renders 1.0 as "1" while Python's
+ * str(1.0) is "1.0", so whole-second rungs would never be found. Milliseconds
+ * are integers in both languages. clip_key() in tools/ingest.py is the other
+ * half of this — change one and you must change both.
+ */
+export function clipKey(seconds: number): string {
+  return String(Math.round(seconds * 1000));
+}
+
 /** Clip URL for a reveal step. Filenames are opaque hashes by design. */
 export function clipUrl(song: Song, seconds: number, base = '/clips'): string {
-  const name = song.clips[String(seconds)];
+  const name = song.clips[clipKey(seconds)];
   if (!name) throw new Error(`no clip for ${song.id} at ${seconds}s`);
   return `${base}/${song.id}/${name}`;
+}
+
+/**
+ * Drop songs whose clip ladder is incomplete.
+ *
+ * A song missing rungs would throw mid-round, so it is better to never offer
+ * it. Returns [playable, skipped] so the caller can say what it dropped.
+ */
+export function playableSongs(
+  songs: Song[],
+  ladder: readonly number[],
+): [Song[], Song[]] {
+  const playable: Song[] = [];
+  const skipped: Song[] = [];
+  for (const song of songs) {
+    const complete = ladder.every((s) => Boolean(song.clips?.[clipKey(s)]));
+    (complete ? playable : skipped).push(song);
+  }
+  return [playable, skipped];
 }
