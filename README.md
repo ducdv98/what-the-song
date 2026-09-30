@@ -20,10 +20,12 @@ commercial, not public.
 | Game UI | done — Next.js + [`DESIGN.md`](DESIGN.md) |
 | Genre + difficulty pickers | done, tested |
 | Streaks | done, tested |
+| Weekly / monthly leaderboard | done, tested — `server/scores.ts` |
 | Vietnamese / English UI | done, tested in-browser |
 | Deployment | done — Docker + Caddy, optional basic auth |
 
-54 tests pass (`npm test`); `npm run build` produces a static export.
+`npm test` passes (web, score server and ingest suites); `npm run build`
+produces a static export.
 
 Read [`docs/RESEARCH.md`](docs/RESEARCH.md) before changing anything in
 `lib/vietnamese.ts` or `tools/ingest.py`. Both exist in the shape they do for
@@ -324,21 +326,62 @@ access is guarded and anything read back is coerced, so a corrupt or stale value
 yields zeroes rather than `NaN` in the UI. A static export has no better option —
 losing a streak is a far better outcome than a blank page.
 
+### Leaderboard
+
+A shared board of total points, **this week or this month** — and the one before
+each, so Monday morning is not an empty page. There is no all-time board on
+purpose: a fresh week gives someone who joined late a real chance, and it lets
+the server throw data away instead of keeping it forever.
+
+- **Weeks run Monday 00:00 to Monday 00:00; months from the 1st.** Both at
+  UTC+7 (Vietnam, no daylight saving), so a round at 00:30 on Monday counts for
+  the new week even though UTC still says Sunday. `SCORES_UTC_OFFSET` changes it.
+- **Ranked by points**, the sum of every round's score in the period — a loss or
+  a give-up scores 0 but still counts as a round played. Difficulty needs no
+  weighting: easier modes already cap the achievable score. Equal points share
+  a rank.
+- **Players are names, not devices.** Set a name once (it is remembered in this
+  browser) and your rounds go on the board; phone and laptop under the same name
+  are one row. Names match case-insensitively but keep diacritics — `Đức` and
+  `Duc` are different people. Until you set a name, rounds count towards your
+  streak only.
+- **Nothing is lost to a network blip.** Results queue in `localStorage` and are
+  resent with the next round or on the next visit; each carries a random round
+  id, so a resend counts once. A queued result keeps its own timestamp (up to 24
+  hours), so a round from Sunday night still lands in that week.
+- **Only what a board can show is kept.** On each month boundary the server
+  drops everything older than the start of last month.
+
+It trusts the client, as the rest of the game does (`docs/RESEARCH.md` §10.5):
+the browser already knows every answer, so validation only rejects results no
+real round could produce — a score above 1000, points for a loss, an unknown
+difficulty. Among friends, the board is not worth cheating for.
+
+A static export cannot hold shared state, so this is the one piece with a
+server: `server/scores.ts`, Node's own `http` module and an append-only JSONL
+file — no dependencies, no database. If it is not running, the game plays
+normally and the board says it could not load.
+
 ## Running the app
 
 ```sh
 npm install
 npm run dev          # http://localhost:3000
-npm test             # 74 tests (web + ingest), no dependencies
+npm run scores       # leaderboard server on :8787 (second terminal, optional)
+npm test             # web + score server + ingest, no dependencies
 npm run build        # static export to out/
 ```
+
+In development `next dev` forwards `/api/*` to `npm run scores`, the way Caddy
+does in production; scores go to `data/scores.jsonl` (gitignored).
 
 `npm test` runs both suites: `test:web` (Node's built-in runner over the
 TypeScript modules) and `test:ingest` (Python's unittest over
 `tools/ingest.py`). Neither needs anything installed beyond Node and Python.
 
-Next.js App Router with `output: 'export'` — there is no server, so deploying is
-"copy `out/` and `public/clips/` somewhere private". The catalogue is fetched at
+Next.js App Router with `output: 'export'` — the game itself needs no server, so
+deploying it is "copy `out/` and `public/clips/` somewhere private"; only the
+leaderboard needs the small score service. The catalogue is fetched at
 runtime from `/clips/catalogue.json`, so the build does not depend on what is in
 your clip library; without one, the app says so and tells you what to run.
 
@@ -377,9 +420,12 @@ uses its own wordmark rather than any Spotify branding.
 docker compose up -d --build                      # http://localhost:3000
 ```
 
-Two stages: `node:22-alpine` runs `next build`, and the static export is served
-by `caddy:2-alpine`. The runtime image carries no Node process — there is no
-server to run.
+Two services. `web`: `node:22-alpine` runs `next build`, and the static export is
+served by `caddy:2-alpine` with no Node process. `scores`: the leaderboard
+server, built from the same Dockerfile (`target: scores`). It has no host port —
+Caddy proxies `/api/*` to it, so it sits behind the same basic auth as
+everything else — and keeps its data in the `scores` named volume, which
+survives rebuilds. `docker compose down -v` deletes it.
 
 **The clip library is a bind mount, not part of the image.** `public/clips` on
 the host is mounted read-only at `/srv/clips`. So adding songs is:

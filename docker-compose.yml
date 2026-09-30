@@ -2,7 +2,9 @@ name: what-the-song
 
 services:
   web:
-    build: .
+    build:
+      context: .
+      target: web
     image: what-the-song:local
     ports:
       - "${PORT:-3000}:80"
@@ -16,3 +18,20 @@ services:
       AUTH_USER: "${AUTH_USER:-}"
       AUTH_PASSWORD: "${AUTH_PASSWORD:-}"
     restart: unless-stopped
+
+  # Leaderboard backend. Not published on a host port: it is only reachable
+  # through Caddy at /api/*, and so only behind the basic auth above.
+  scores:
+    build:
+      context: .
+      target: scores
+    image: what-the-song-scores:local
+    volumes:
+      - scores:/data
+    environment:
+      # Weeks start Monday 00:00 and months on the 1st, at this UTC offset.
+      SCORES_UTC_OFFSET: "${SCORES_UTC_OFFSET:-7}"
+    restart: unless-stopped
+
+volumes:
+  scores:

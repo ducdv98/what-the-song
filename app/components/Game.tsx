@@ -11,6 +11,9 @@ import { DIFFICULTIES, findDifficulty } from '@/lib/game/difficulty';
 import type { MessageKey } from '@/lib/i18n/messages';
 import { loadStats, recordResult, saveStats, EMPTY_STATS, type Stats } from '@/lib/game/stats';
 import { loadPrefs, savePrefs } from '@/lib/game/prefs';
+import {
+  flushResults, loadName, newRoundId, pendingCount, saveName, submitResult,
+} from '@/lib/game/scoreboard';
 import { useAudioEngine } from './useAudioEngine';
 import { PlayButton, formatSeconds } from './PlayButton';
 import { RevealLadder } from './RevealLadder';
@@ -20,6 +23,7 @@ import { PillRow } from './PillRow';
 import { LangToggle } from './LangToggle';
 import { useI18n } from './I18nProvider';
 import { StreakBar } from './StreakBar';
+import { Leaderboard } from './Leaderboard';
 
 /** Pick a song at random, avoiding an immediate repeat. */
 function pickRandom(items: Song[], excludeId?: string): Song | undefined {
@@ -39,6 +43,10 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
   const [stats, setStats] = useState<Stats>(EMPTY_STATS);
   const [round, setRound] = useState<Round<Song> | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [name, setName] = useState('');
+  // Bumped after a result reaches the server, so the board refetches.
+  const [boardVersion, setBoardVersion] = useState(0);
+  const [pending, setPending] = useState(0);
 
   const { engine, state } = useAudioEngine();
   const { lang, t } = useI18n();
@@ -51,6 +59,13 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
     setGenre(prefs.genre);
     setDifficultySlug(prefs.difficulty);
     setStats(loadStats());
+    setName(loadName());
+    // Anything left over from a round finished offline last time.
+    setPending(pendingCount());
+    flushResults().then((left) => {
+      setPending(left);
+      setBoardVersion((v) => v + 1);
+    });
   }, []);
 
   const genreOptions = useMemo(() => availableGenres(allSongs), [allSongs]);
@@ -96,10 +111,30 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
         const updated = recordResult(stats, next.status === 'won');
         setStats(updated);
         saveStats(updated);
+        // Only named players are on the board; before a name is set, rounds
+        // count towards the streak alone.
+        if (name) {
+          submitResult({
+            round: newRoundId(),
+            name,
+            score: next.score,
+            won: next.status === 'won',
+            difficulty: difficulty.slug,
+            playedAt: Date.now(),
+          }).then((left) => {
+            setPending(left);
+            setBoardVersion((v) => v + 1);
+          });
+        }
       }
     },
-    [round, stats],
+    [round, stats, name, difficulty],
   );
+
+  function onName(value: string) {
+    setName(value);
+    saveName(value);
+  }
 
   const seconds = round ? revealedSeconds(round) : DEFAULT_LADDER[0];
 
@@ -275,9 +310,10 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
         </>
       )}
 
-      {/* Settings and stats sit below the game: they are touched once a
-          session, while the card above is used every round. */}
+      {/* Settings, stats and the board sit below the game: they are glanced
+          at between rounds, while the card above is used every round. */}
       <StreakBar stats={stats} />
+      <Leaderboard name={name} onName={onName} version={boardVersion} pending={pending} />
       {pickers}
     </div>
   );

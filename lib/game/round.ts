@@ -34,7 +34,7 @@ const BASELINE: Difficulty = {
 /** Minimum shape a round needs from a song. */
 type AnySong = SongLike & { id: string };
 
-const BEST_SCORE = 1000;
+export const BEST_SCORE = 1000;
 const WORST_SCORE = 50;
 
 /**

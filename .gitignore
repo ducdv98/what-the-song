@@ -3,6 +3,9 @@
 /clips/
 seed.jsonl
 
+# Leaderboard data from `npm run scores`.
+/data/
+
 node_modules/
 .next/
 out/

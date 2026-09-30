@@ -8,6 +8,7 @@ out
 public/clips
 clips
 seed.jsonl
+data
 
 # Not needed to build or serve.
 .git

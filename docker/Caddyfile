@@ -40,6 +40,17 @@
 		file_server
 	}
 
+	# The leaderboard — the one dynamic route, proxied to the score service
+	# (server/scores.ts). Behind the same basic auth as everything else. If
+	# that service is not running this answers 502, and the game carries on
+	# without a board.
+	handle /api/* {
+		request_body {
+			max_size 16KB
+		}
+		reverse_proxy {$SCORES_UPSTREAM:scores:8787}
+	}
+
 	# The exported app.
 	handle {
 		root * /srv/site
