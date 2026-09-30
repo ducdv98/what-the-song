@@ -175,7 +175,7 @@ Per song, in the seed file:
 | `"anchor": "intro"` | Just past leading silence — the song's real opening. |
 | `"anchor": "body"` | Loudness-step heuristic aiming at the vocal entry. **Experimental and unvalidated** — listen before trusting it. |
 | `"start_at": 42.0` | Exact offset. Beats every mode; the reliable fix. |
-| `"ladder": [0.5,1,2,4,8,16]` | This song's own reveal steps. |
+| `"ladder": [0.5,2,8,16]` | This song's own reveal steps, at most five — ingest and the validator warn about any extra, since they would never be played. |
 | `"tier": "easy"` | How well known it is: `easy` · `medium` · `hard` · `expert` · `impossible`. Picks the difficulty it plays under. Untagged plays as `medium`. |
 
 For accurate automated vocal onset you want source separation — see
@@ -183,19 +183,22 @@ For accurate automated vocal onset you want source separation — see
 
 ### Flexible ladders
 
-The ladder is per song, not a global constant. `--ladder 0.5,1,2,4,8,16` sets
-the run default; a seed row's own `ladder` overrides it, so a hard song can open
-with a 2s clue while a distinctive one still starts at 0.1s. The client derives
-each song's rungs from its clip manifest, so whatever clips exist *are* the
-ladder — there is no constant to keep in sync. Scoring scales to the ladder's
-length, so the first rung is always worth the most.
+By default ingest cuts exactly the five clips a round plays — **0.1 · 0.5 · 2 ·
+8 · 16 s** (`CLIP_LADDER` in `tools/ingest.py`, mirroring `STAGE_TARGETS` in
+`packages/game/src/ladder.ts`; a test fails if they disagree). About **26.6 s of
+audio, ~0.43 MB per song** at 128 kbps.
 
-A round uses five of a song's clips as its stages — the ones nearest 0.1, 0.5,
-2, 8 and 16 seconds (`stagesFor` in `packages/game/src/round.ts`). The default
-seven-clip ladder yields exactly those five; a song with five clips or fewer
-uses all of them.
+The ladder is per song. `--ladder 0.5,2,8,16` sets the run default; a seed row's
+own `ladder` overrides it, so a hard song can open with a 2s clue while a
+distinctive one still starts at 0.1s. The client derives each song's clips from
+its manifest, and `stagesFor` (`packages/game/src/round.ts`) plays at most five
+of them — all of them for a ladder of five or fewer, otherwise the ones nearest
+each stage. A longer ladder only costs storage, so ingest and the validator
+warn about it.
 
-Budget roughly **0.5 MB per song** for the full seven-step reveal ladder.
+**Libraries built before the five-clip default** have seven clips per song
+(0.1, 0.5, 1, 2, 4, 8, 16). They need no rebuild: the game plays the same five
+stages from them, and the 1s and 4s clips are simply never requested.
 
 ### Cover art and editing built songs
 
@@ -217,6 +220,21 @@ Re-running ingest never rebuilds audio for a song that is already built, but it
 **does re-apply your seed edits** — `title`, `artist`, `aliases`, `genre` and
 `tier` — so fixing a title or tagging tiers across the library is just "edit the
 seed, run ingest again".
+
+Every run ends with a report of how many songs are in each tier (and how many
+are untagged, which all play as Medium) and which songs have no cover yet:
+
+```
+difficulty tiers:
+  easy            42
+  medium          35
+  hard            18
+  expert           4
+  impossible       1
+  (untagged)     112   play as medium — add "tier" in the seed file
+
+3 song(s) without a cover — the result screen shows a fallback. Run again with --covers to fetch them:
+```
 
 ### Troubleshooting
 

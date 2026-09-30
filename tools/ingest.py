@@ -37,11 +37,18 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
 
-# Reveal ladder, in seconds. The player starts at 0.1s and buys more.
-CLIP_LADDER = [0.1, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0]
+# Reveal ladder, in seconds: exactly the five stages a round plays. Mirrors
+# STAGE_TARGETS in packages/game/src/ladder.ts (a test asserts they agree), so
+# no clip is cut that the game never requests.
+CLIP_LADDER = [0.1, 0.5, 2.0, 8.0, 16.0]
+
+# A round plays at most this many rungs; stagesFor in round.ts picks the ones
+# nearest each stage from a longer ladder, and the rest are never heard.
+MAX_STAGES = 5
 
 
 # Genre slugs accepted in the seed file. Mirrors GENRES in packages/game/src/genres.ts —
@@ -670,6 +677,23 @@ def process(
     return record
 
 
+def long_ladder_note(ladder: list[float]) -> str | None:
+    """
+    A warning for a ladder the game cannot fully use, or None.
+
+    A round plays at most MAX_STAGES rungs (the ones nearest 0.1, 0.5, 2, 8
+    and 16s), so every rung beyond that is cut, stored and never heard.
+    """
+    if len(ladder) <= MAX_STAGES:
+        return None
+    extra = len(ladder) - MAX_STAGES
+    return (
+        f"ladder has {len(ladder)} rungs, but a round plays {MAX_STAGES} — the"
+        f" ones nearest {', '.join(f'{s:g}' for s in CLIP_LADDER)}s — so {extra}"
+        f" clip{'s' if extra > 1 else ''} will be cut but never heard"
+    )
+
+
 def load_seeds(path: Path) -> list[Seed]:
     seeds = []
     for n, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
@@ -691,6 +715,8 @@ def load_seeds(path: Path) -> list[Seed]:
                 f" — will show under 'Khác'. Known: {', '.join(KNOWN_GENRES)}",
                 file=sys.stderr,
             )
+        if seed.ladder and (note := long_ladder_note(seed.ladder)):
+            print(f"seed line {n}: {seed.title!r}: {note}", file=sys.stderr)
         if seed.tier is not None and seed.tier not in KNOWN_TIERS:
             print(
                 f"seed line {n}: unknown tier {seed.tier!r} for {seed.title!r}"
@@ -725,8 +751,9 @@ def main() -> int:
     ap.add_argument(
         "--ladder",
         metavar="SECONDS",
-        help="Comma-separated reveal ladder, e.g. 0.5,1,2,4,8,16,30. Default"
-        f" {','.join(str(x) for x in CLIP_LADDER)}. A song can override it with"
+        help="Comma-separated reveal ladder, at most"
+        f" {MAX_STAGES} rungs, e.g. 0.5,2,8,16,30. Default"
+        f" {','.join(f'{x:g}' for x in CLIP_LADDER)}. A song can override it with"
         ' its own "ladder" field.',
     )
     ap.add_argument(
@@ -763,6 +790,8 @@ def main() -> int:
         if not ladder or ladder[0] <= 0:
             print("--ladder needs at least one positive duration", file=sys.stderr)
             return 1
+        if note := long_ladder_note(ladder):
+            print(f"--ladder: {note}", file=sys.stderr)
 
     host_os = detect_os()
 
@@ -823,6 +852,25 @@ def main() -> int:
             print(f"  {r.get('anchor_seconds', 0):>7.2f}s ({pct} in)  "
                   f"[{r.get('anchor_mode', '?')}]  "
                   f"{r.get('artist', '?')} — {r.get('title', '?')}{flag}")
+
+    if built:
+        # What the difficulty chips will offer. Untagged songs all land in
+        # medium, so a big untagged count means the chips are not meaningful yet.
+        tiers = Counter(r.get("tier") if r.get("tier") in KNOWN_TIERS else None for r in built)
+        print("\ndifficulty tiers:")
+        for slug in KNOWN_TIERS:
+            print(f"  {slug:<11} {tiers.get(slug, 0):>5}")
+        if tiers.get(None):
+            print(f"  {'(untagged)':<11} {tiers[None]:>5}   play as medium — add \"tier\" in the seed file")
+
+        no_cover = [r for r in built if not r.get("cover")]
+        if no_cover:
+            print(f"\n{len(no_cover)} song(s) without a cover — the result screen shows a"
+                  " fallback. Run again with --covers to fetch them:")
+            for r in no_cover[:10]:
+                print(f"  - {r.get('artist', '?')} — {r.get('title', '?')}")
+            if len(no_cover) > 10:
+                print(f"  … and {len(no_cover) - 10} more")
 
     if review:
         print("\nthese anchors look questionable — have a listen, and set"

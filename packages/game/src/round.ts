@@ -7,14 +7,11 @@
  * no lives on top of that — the stages *are* the attempts.
  */
 
-import { DEFAULT_LADDER } from './ladder.ts';
+import { DEFAULT_LADDER, STAGE_TARGETS } from './ladder.ts';
 import { matchGuess, type MatchQuality, type SongLike } from './vietnamese.ts';
 
 /** Minimum shape a round needs from a song. */
 type AnySong = SongLike & { id: string };
-
-/** The clip lengths a round aims for, in seconds. */
-export const STAGE_TARGETS = [0.1, 0.5, 2, 8, 16] as const;
 
 /** A first-stage win — the most one round can score. */
 export const BEST_SCORE = 1000;
@@ -24,12 +21,12 @@ export const WORST_SCORE = 50;
 /**
  * Pick a round's stages from the clips a song actually has.
  *
- * Every song's clips come from tools/ingest.py, by default at 0.1, 0.5, 1, 2,
- * 4, 8 and 16 seconds, which yields exactly STAGE_TARGETS. A song ingested
- * with its own ladder keeps all of it when it has five rungs or fewer, and
- * otherwise gets the rungs nearest each target (compared as ratios, since
- * 0.1s vs 0.2s matters as much as 8s vs 16s), always ascending and always
- * ending on its longest clip.
+ * tools/ingest.py cuts exactly STAGE_TARGETS by default, which come back
+ * unchanged. A song with its own ladder keeps all of it when it has five rungs
+ * or fewer, and otherwise gets the rungs nearest each target (compared as
+ * ratios, since 0.1s vs 0.2s matters as much as 8s vs 16s), always ascending
+ * and always ending on its longest clip. That is also how a library built
+ * with the older seven-clip ladder still plays exactly the five stages.
  */
 export function stagesFor(ladder: readonly number[]): number[] {
   const rungs = [...new Set(ladder.filter((s) => Number.isFinite(s) && s > 0))].sort((a, b) => a - b);

@@ -1,10 +1,17 @@
 /**
- * Fallback reveal ladder, used only when a song's manifest yields nothing.
- *
- * This is no longer the source of truth: each song carries its own ladder,
- * derived from the keys of its clip manifest (see ladderFor in catalogue.ts).
- * A per-song ladder is what lets a track with a long generic intro start at 2s
- * while a distinctive one still starts at 0.1s — and it removes the duplicated
- * constant that previously had to be kept in step with tools/ingest.py by hand.
+ * The clip lengths a round plays, in seconds: SongSpot's five stages, ending
+ * on 16s. tools/ingest.py cuts exactly these by default (CLIP_LADDER there; a
+ * test reads this file and fails if the two disagree).
  */
-export const DEFAULT_LADDER = [0.1, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0] as const;
+export const STAGE_TARGETS = [0.1, 0.5, 2, 8, 16] as const;
+
+/**
+ * Fallback ladder, used only when a song's manifest yields nothing.
+ *
+ * Not the source of truth for any real song: each song's rungs come from the
+ * keys of its clip manifest (ladderFor in catalogue.ts), and stagesFor in
+ * round.ts picks the five it plays. So a library built before the five-stage
+ * default — seven clips, 0.1 · 0.5 · 1 · 2 · 4 · 8 · 16 — still plays exactly
+ * these stages; its 1s and 4s clips are simply never requested.
+ */
+export const DEFAULT_LADDER = STAGE_TARGETS;

@@ -197,6 +197,8 @@ def validate(path: Path) -> tuple[Report, Counter]:
             )
             if not ok:
                 rep.error(n, "'ladder' must be a non-empty list of positive numbers")
+            elif note := _ingest.long_ladder_note(ladder):
+                rep.warn(n, note)
 
         unknown = set(row) - {
             "id", "title", "artist", "url", "genre", "tier", "aliases",

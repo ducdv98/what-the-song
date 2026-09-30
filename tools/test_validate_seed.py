@@ -149,6 +149,11 @@ class TestWarnings(unittest.TestCase):
         rep, _ = check(GOOD.replace("Nơi Này Có Anh", "NƠI NÀY CÓ ANH"))
         self.assertTrue(any("ALL CAPS" in w for w in rep.warnings), rep.warnings)
 
+    def test_ladder_longer_than_five_warns(self):
+        rep, _ = check(GOOD.replace('"genre":"nhac-tre"', '"genre":"nhac-tre","ladder":[0.1,0.5,1,2,4,8,16]'))
+        self.assertEqual(rep.errors, [])
+        self.assertTrue(any("never heard" in w for w in rep.warnings), rep.warnings)
+
     def test_unrecognised_field(self):
         rep, _ = check(GOOD.replace('"genre":"nhac-tre"', '"genre":"nhac-tre","mood":"sad"'))
         self.assertEqual(rep.errors, [])

@@ -659,7 +659,8 @@ of which are sharper for a Vietnamese catalogue:
   degrade audio to defeat Shazam. Among friends, the leaderboard is not worth
   cheating for.
 - **Storage is a non-issue.** The seven-step reveal ladder totals ~31.6s of
-  audio per song; at 128 kbps AAC that is **~0.5 MB per song**, so a 500-song
+  audio per song *(since reduced to the five stages a round plays — 26.6s,
+  ~0.43 MB; see the README)*; at 128 kbps AAC that is **~0.5 MB per song**, so a 500-song
   catalogue is **~250 MB**. This fits anywhere, which is why the pipeline
   pre-cuts every step rather than trying to be clever.
 - **§4.2's honest trade-off gets easy.** One request per reveal step is the
@@ -759,7 +760,7 @@ three.
 
 The reveal ladder is now **per song**, not a global constant:
 
-- `--ladder 0.5,1,2,4,8,16` sets the run's default.
+- `--ladder 0.5,2,8,16` sets the run's default (at most five rungs are played).
 - A seed row's own `"ladder": [...]` overrides it, so a hard song can open with
   a 2s clue while a distinctive one still starts at 0.1s.
 - The client derives each song's rungs from the keys of its clip manifest, so

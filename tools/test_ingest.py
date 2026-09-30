@@ -42,17 +42,22 @@ class TestModuleSurface(unittest.TestCase):
         ):
             self.assertTrue(hasattr(ingest, name), f"missing: {name}")
 
-    def test_ladder_matches_the_client(self):
-        # packages/game/src/ladder.ts DEFAULT_LADDER must agree or clip lookups 404.
-        self.assertEqual(ingest.CLIP_LADDER, [0.1, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0])
+    def test_ladder_is_exactly_the_stages_the_game_plays(self):
+        # Read the game's STAGE_TARGETS rather than trusting a copy: a drift
+        # would either cut clips nobody hears or 404 a stage.
+        ts = (ROOT / "packages" / "game" / "src" / "ladder.ts").read_text(encoding="utf-8")
+        line = ts[ts.index("export const STAGE_TARGETS"):ts.index("as const;")]
+        stages = [float(x) for x in re.findall(r"[\d.]+", line.split("=", 1)[1])]
+        self.assertEqual(ingest.CLIP_LADDER, stages)
+        self.assertEqual(len(ingest.CLIP_LADDER), ingest.MAX_STAGES)
 
     def test_clip_keys_match_javascript(self):
-        # str(1.0) is "1.0" in Python but String(1.0) is "1" in JS, which
-        # silently broke every rung from 1s up. Milliseconds are integers in
+        # str(2.0) is "2.0" in Python but String(2.0) is "2" in JS, which
+        # silently broke every whole-second rung. Milliseconds are integers in
         # both. The mirror of this lives in packages/game/src/catalogue.test.ts.
         self.assertEqual(
             [ingest.clip_key(s) for s in ingest.CLIP_LADDER],
-            ["100", "500", "1000", "2000", "4000", "8000", "16000"],
+            ["100", "500", "2000", "8000", "16000"],
         )
 
 
@@ -247,6 +252,39 @@ class TestAnchor(unittest.TestCase):
         self.assertLessEqual(a, 240.0 * 0.60)
 
 
+class TestSummaryReport(unittest.TestCase):
+    def run_main(self, records):
+        with tempfile.TemporaryDirectory() as tmp:
+            argv = ["i", str(ROOT / "tools" / "seed.example.jsonl"), "--out", str(Path(tmp) / "clips")]
+            out = io.StringIO()
+            with mock.patch.object(sys, "argv", argv), \
+                 mock.patch.object(ingest.shutil, "which", return_value="/usr/bin/x"), \
+                 mock.patch.object(ingest, "process", side_effect=records), \
+                 mock.patch.object(sys, "stdout", out):
+                self.assertEqual(ingest.main(), 0)
+        return out.getvalue()
+
+    def test_reports_tiers_and_songs_without_covers(self):
+        text = self.run_main([
+            {"id": "a", "title": "A", "artist": "X", "tier": "easy", "cover": "cover-1.jpg"},
+            {"id": "b", "title": "B", "artist": "X", "tier": "easy", "cover": None},
+            {"id": "c", "title": "C", "artist": "Y", "tier": "hard"},
+            {"id": "d", "title": "D", "artist": "Y", "tier": "normal", "cover": "cover-2.jpg"},
+        ])
+        self.assertRegex(text, r"easy\s+2")
+        self.assertRegex(text, r"hard\s+1")
+        self.assertRegex(text, r"\(untagged\)\s+1\s+play as medium")
+        self.assertIn("2 song(s) without a cover", text)
+        self.assertIn("--covers", text)
+        self.assertIn("X — B", text)
+        self.assertIn("Y — C", text)
+
+    def test_nothing_to_report_when_everything_is_tagged_and_covered(self):
+        text = self.run_main([{"id": s, "title": s, "artist": "X", "tier": "easy", "cover": "c.jpg"} for s in "abcd"])
+        self.assertNotIn("untagged", text)
+        self.assertNotIn("without a cover", text)
+
+
 class TestSummaryRobustness(unittest.TestCase):
     """The end-of-run summary must survive an incomplete record: it is the last
     thing to print, so crashing there throws away the whole report."""
@@ -308,6 +346,38 @@ class TestLadder(unittest.TestCase):
     def test_start_at_beats_every_detector(self):
         seed = ingest.Seed(id="a", title="T", artist="A", url="u", start_at=33.0)
         self.assertEqual(ingest.choose_anchor(seed, 200.0, 0.4, 11.0), 33.0)
+
+
+class TestLongLadders(unittest.TestCase):
+    def test_five_rungs_or_fewer_is_fine(self):
+        self.assertIsNone(ingest.long_ladder_note([0.1, 0.5, 2, 8, 16]))
+        self.assertIsNone(ingest.long_ladder_note([2, 4, 8]))
+
+    def test_more_than_five_is_named_with_the_waste(self):
+        note = ingest.long_ladder_note([0.1, 0.5, 1, 2, 4, 8, 16])
+        self.assertIn("7 rungs", note)
+        self.assertIn("2 clips will be cut but never heard", note)
+
+    def test_a_long_seed_ladder_is_warned_at_load(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "s.jsonl"
+            p.write_text('{"id":"a","title":"T","artist":"A","url":"u","ladder":[0.5,1,2,4,8,16]}\n', encoding="utf-8")
+            err = io.StringIO()
+            with mock.patch.object(sys, "stderr", err):
+                ingest.load_seeds(p)
+        self.assertIn("1 clip will be cut but never heard", err.getvalue())
+
+    def test_a_long_run_ladder_is_warned(self):
+        argv = ["ingest.py", str(ROOT / "tools" / "seed.example.jsonl"), "--ladder", "0.1,0.5,1,2,4,8,16"]
+        err = io.StringIO()
+        with mock.patch.object(sys, "argv", argv), mock.patch.object(sys, "stderr", err), \
+             mock.patch.object(ingest.shutil, "which", return_value=None), mock.patch("builtins.print", side_effect=lambda *a, **k: err.write(" ".join(map(str, a)) + "\n")):
+            ingest.main()
+        self.assertIn("--ladder: ladder has 7 rungs", err.getvalue())
+
+    def test_the_example_seed_uses_no_wasted_rungs(self):
+        for seed in ingest.load_seeds(ROOT / "tools" / "seed.example.jsonl"):
+            self.assertIsNone(ingest.long_ladder_note(seed.ladder or ingest.CLIP_LADDER), seed.id)
 
 
 class TestTiers(unittest.TestCase):

@@ -1,19 +1,23 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_LADDER } from './ladder.ts';
+import { DEFAULT_LADDER, STAGE_TARGETS } from './ladder.ts';
 import {
   createRound, submitGuess, skip, giveUp, revealedSeconds, isLastStage, stagesFor,
-  scoreForStep, STAGE_TARGETS, BEST_SCORE, WORST_SCORE,
+  scoreForStep, BEST_SCORE, WORST_SCORE,
 } from './round.ts';
 
 const song = { id: 'nnca', title: 'Nơi Này Có Anh', aliases: ['Right Here'] };
 const other = { id: 'other', title: 'Nơi Này Có Anh' }; // same title, different song
 
 describe('stages', () => {
-  test('the default ingest ladder yields exactly 0.1 / 0.5 / 2 / 8 / 16', () => {
-    assert.deepEqual([...DEFAULT_LADDER], [0.1, 0.5, 1, 2, 4, 8, 16]);
-    assert.deepEqual(stagesFor(DEFAULT_LADDER), [0.1, 0.5, 2, 8, 16]);
+  test('the default ladder is exactly the five stages', () => {
     assert.deepEqual([...STAGE_TARGETS], [0.1, 0.5, 2, 8, 16]);
+    assert.deepEqual([...DEFAULT_LADDER], [...STAGE_TARGETS]);
+    assert.deepEqual(stagesFor(DEFAULT_LADDER), [0.1, 0.5, 2, 8, 16]);
+  });
+
+  test('a library built with the old seven-clip ladder plays the same five stages', () => {
+    assert.deepEqual(stagesFor([0.1, 0.5, 1, 2, 4, 8, 16]), [0.1, 0.5, 2, 8, 16]);
   });
 
   test('a ladder of five or fewer rungs is used as is', () => {
