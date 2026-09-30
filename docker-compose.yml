@@ -1,0 +1,18 @@
+name: what-the-song
+
+services:
+  web:
+    build: .
+    image: what-the-song:local
+    ports:
+      - "${PORT:-3000}:80"
+    volumes:
+      # The clip library stays on the host. Add songs with tools/ingest.py and
+      # reload the page — no image rebuild needed.
+      - ./public/clips:/srv/clips:ro
+    environment:
+      # Leave both unset for a localhost-only game. Set them to put the site
+      # behind basic auth before sharing the URL (see README).
+      AUTH_USER: "${AUTH_USER:-}"
+      AUTH_PASSWORD: "${AUTH_PASSWORD:-}"
+    restart: unless-stopped

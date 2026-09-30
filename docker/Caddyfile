@@ -1,0 +1,49 @@
+{
+	admin off
+	auto_https off
+	log {
+		output stderr
+		format console
+	}
+}
+
+:80 {
+	encode gzip zstd
+
+	# Written by entrypoint.sh: a basic_auth block when AUTH_USER and
+	# AUTH_PASSWORD are set, otherwise empty.
+	import /etc/caddy/auth.caddy
+
+	# Private game — ask crawlers to stay away. This backs up the noindex
+	# metadata in app/layout.tsx; neither is access control, which is what
+	# AUTH_USER/AUTH_PASSWORD are for.
+	header {
+		X-Robots-Tag "noindex, nofollow"
+		-Server
+	}
+
+	# The catalogue changes every time you ingest more songs, so it must never
+	# be cached — otherwise new songs silently fail to appear.
+	@catalogue path /clips/catalogue.json
+	handle @catalogue {
+		root * /srv
+		header Cache-Control "no-store"
+		file_server
+	}
+
+	# Clips have content-hashed filenames, so they can cache indefinitely.
+	@clips path /clips/*
+	handle @clips {
+		root * /srv
+		header Cache-Control "public, max-age=31536000, immutable"
+		header Content-Type "audio/mp4"
+		file_server
+	}
+
+	# The exported app.
+	handle {
+		root * /srv/site
+		try_files {path} {path}.html /index.html
+		file_server
+	}
+}

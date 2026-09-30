@@ -8,7 +8,11 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test lib/vietnamese.test.ts lib/catalogue.test.ts lib/game/round.test.ts"
+    "test": "node --experimental-strip-types --test lib/vietnamese.test.ts lib/catalogue.test.ts lib/game/round.test.ts",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f"
   },
   "dependencies": {
     "next": "^15.5.4",

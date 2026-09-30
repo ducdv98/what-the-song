@@ -18,7 +18,7 @@ commercial, not public.
 | Round rules | done, tested — `lib/game/round.ts` |
 | Autocomplete search | done, tested — `lib/catalogue.ts` |
 | Game UI | done — Next.js + [`DESIGN.md`](DESIGN.md) |
-| Auth gate | **not started** — needed before anyone else plays (see below) |
+| Deployment | done — Docker + Caddy, optional basic auth |
 
 54 tests pass (`npm test`); `npm run build` produces a static export.
 
@@ -142,10 +142,55 @@ Two documented deviations: the proprietary Spotify fonts are replaced with an
 Inter-led stack (also better for stacked Vietnamese tone marks), and the app
 uses its own wordmark rather than any Spotify branding.
 
-## Before anyone else plays it
+## Running it with Docker
 
-There is **no auth yet**, and the privacy of this thing is what keeps it in
-personal-use territory (`docs/RESEARCH.md` §10.1). Before sharing a URL with
-colleagues, put it behind a gate — a shared passphrase, basic auth at the
-reverse proxy, or a private network is plenty. `robots` is already set to
-`noindex, nofollow`, but that is a request to crawlers, not access control.
+```sh
+./tools/ingest.py seed.jsonl --out public/clips   # build clips first (host)
+docker compose up -d --build                      # http://localhost:3000
+```
+
+Two stages: `node:22-alpine` runs `next build`, and the static export is served
+by `caddy:2-alpine`. The runtime image carries no Node process — there is no
+server to run.
+
+**The clip library is a bind mount, not part of the image.** `public/clips` on
+the host is mounted read-only at `/srv/clips`. So adding songs is:
+
+```sh
+./tools/ingest.py seed.jsonl --out public/clips   # add more rows first
+# reload the page — no rebuild, no restart
+```
+
+`catalogue.json` is served `no-store` precisely so new songs appear on reload;
+clips have content-hashed names and are served `immutable` with a one-year TTL.
+Keeping audio out of the image also means the image stays small and is not
+itself a music library.
+
+Change the port with `PORT=8080 docker compose up -d`.
+
+### Putting it behind a password
+
+No auth is fine while it is only on your machine. Before you give anyone a URL,
+set both variables — privacy is what keeps this in personal-use territory
+(`docs/RESEARCH.md` §10.1):
+
+```sh
+AUTH_USER=friends AUTH_PASSWORD='pick-something' docker compose up -d
+```
+
+The entrypoint bcrypt-hashes the password at startup and generates the
+`basic_auth` block; with the variables unset it writes an empty snippet and logs
+a warning instead. Auth covers **every** route, the clips included — gating the
+page while leaving the audio open would be pointless.
+
+`robots` is set to `noindex, nofollow` and Caddy sends `X-Robots-Tag` to match,
+but those are requests to crawlers, not access control. The password is the
+access control.
+
+> **Verified:** the Caddy config validates in both auth modes, and end-to-end
+> against a real build: app serves 200, `catalogue.json` comes back `no-store`,
+> clips come back `audio/mp4` + `immutable`, a missing clip 404s, and with auth
+> on every route returns 401 without credentials and 200 with them.
+> **Not verified:** the image itself has never been built — this container has
+> the Docker CLI but no daemon. `docker compose build` is the one step still
+> untested.

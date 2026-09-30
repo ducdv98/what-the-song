@@ -1,0 +1,17 @@
+# Build artefacts and deps — the image builds its own.
+node_modules
+.next
+out
+*.tsbuildinfo
+
+# The clip library is mounted at runtime, never copied into the image.
+public/clips
+clips
+seed.jsonl
+
+# Not needed to build or serve.
+.git
+.gitignore
+docs
+tools
+*.md
