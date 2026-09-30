@@ -44,13 +44,32 @@ but short, metadata-stripped clips. See `docs/RESEARCH.md` §10.3.
 
 ## Building the clip library
 
+**macOS / Linux:**
+
 ```sh
 pip install -U yt-dlp      # not youtube-dl, which is unmaintained
-                           # also needs ffmpeg + ffprobe on PATH
+brew install ffmpeg        # or: sudo apt install ffmpeg
 
 cp tools/seed.example.jsonl seed.jsonl   # then add your songs
 ./tools/ingest.py seed.jsonl --out public/clips
 ```
+
+**Windows** (PowerShell) — `./tools/ingest.py` does not work there, since
+Windows ignores the shebang. Call Python explicitly:
+
+```powershell
+py -m pip install -U yt-dlp
+winget install ffmpeg        # or: scoop install ffmpeg
+# reopen PowerShell so PATH is picked up, then check both:
+ffmpeg -version; yt-dlp --version
+
+copy tools\seed.example.jsonl seed.jsonl   # then add your songs
+py tools\ingest.py seed.jsonl --out public/clips
+```
+
+The script detects your OS and picks a cookie source itself, printing what it
+chose. See [Cookies and the bot wall](#cookies-and-the-bot-wall) if downloads
+start failing — on Windows there is one specific trap.
 
 Output goes in `public/clips/` so the app can serve it. It is gitignored.
 
@@ -66,6 +85,40 @@ cannot see past speech. Fix those with `start_at`, or set `anchor: "hook"` to
 pick a mid-track point instead.
 
 Budget roughly **0.5 MB per song** for the full seven-step reveal ladder.
+
+### Cookies and the bot wall
+
+YouTube scores automated requests and will eventually demand "Sign in to confirm
+you're not a bot". Cookies from a signed-in browser are what get you past it, so
+the script auto-detects one and tells you which it picked.
+
+⚠️ **On Windows, Chrome and every other Chromium browser are unusable for this.**
+Chrome 127+ encrypts cookies with app-bound encryption that ties the key to the
+Chrome process, so no external tool can read them and there is **no local
+workaround**. Edge, Brave, Opera and Vivaldi all inherit it. The script knows
+this and will not even try — on Windows it only ever offers Firefox.
+
+So on Windows, pick one:
+
+```powershell
+# Easiest: install Firefox, sign in to YouTube once, then just run it.
+py tools\ingest.py seed.jsonl --out public/clips
+
+# Or export a cookies.txt from any browser and pass it:
+py tools\ingest.py seed.jsonl --out public/clips --cookies cookies.txt
+
+# Or skip cookies — often fine from a home connection:
+py tools\ingest.py seed.jsonl --out public/clips --no-cookies
+```
+
+Firefox stores cookies in plain SQLite, which is why it works everywhere.
+`--cookies-from-browser BROWSER` overrides the detection if you need it.
+
+Two more things worth knowing: **run this on your own machine, never a VPS** —
+datacenter IPs are scored far below residential ones, so ingest from a cloud box
+hits the bot wall constantly (`docs/RESEARCH.md` §10.3). And when downloads
+start failing across the board, **update yt-dlp first**; it is an arms race and
+the fix is usually just a newer version.
 
 ## Answer matching
 
@@ -166,7 +219,11 @@ clips have content-hashed names and are served `immutable` with a one-year TTL.
 Keeping audio out of the image also means the image stays small and is not
 itself a music library.
 
-Change the port with `PORT=8080 docker compose up -d`.
+Change the port in `.env`, or `PORT=8080 docker compose up -d` on a shell that
+supports it.
+
+On **Windows**, this needs Docker Desktop with the WSL2 backend; the
+`./public/clips` bind mount works as-is.
 
 ### Putting it behind a password
 
@@ -174,8 +231,17 @@ No auth is fine while it is only on your machine. Before you give anyone a URL,
 set both variables — privacy is what keeps this in personal-use territory
 (`docs/RESEARCH.md` §10.1):
 
+Copy `.env.example` to `.env` and fill it in — this works the same on every
+platform, and avoids PowerShell's lack of the inline `VAR=value cmd` form:
+
+```ini
+PORT=3000
+AUTH_USER=friends
+AUTH_PASSWORD=pick-something
+```
+
 ```sh
-AUTH_USER=friends AUTH_PASSWORD='pick-something' docker compose up -d
+docker compose up -d
 ```
 
 The entrypoint bcrypt-hashes the password at startup and generates the

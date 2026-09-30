@@ -11,3 +11,6 @@ next-env.d.ts
 *.log
 .DS_Store
 __pycache__/
+
+# Local environment (copy from .env.example).
+.env

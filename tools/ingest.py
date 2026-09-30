@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import os
 import json
 import re
 import shutil
@@ -173,43 +174,173 @@ def cut_clips(src: Path, anchor: float, out_dir: Path, salt: str) -> dict[str, s
     return manifest
 
 
-def download_audio(url: str, work: Path) -> Path | None:
+def detect_os() -> str:
+    """'windows' | 'macos' | 'linux'."""
+    if sys.platform.startswith("win"):
+        return "windows"
+    if sys.platform == "darwin":
+        return "macos"
+    return "linux"
+
+
+# Where each browser keeps its profile, per OS. Presence of the directory is a
+# good enough proxy for "this browser is installed and has been run".
+_BROWSER_PROFILES: dict[str, dict[str, list[str]]] = {
+    "windows": {
+        "firefox": ["APPDATA/Mozilla/Firefox/Profiles"],
+        "chrome": ["LOCALAPPDATA/Google/Chrome/User Data"],
+        "edge": ["LOCALAPPDATA/Microsoft/Edge/User Data"],
+    },
+    "macos": {
+        "firefox": ["~/Library/Application Support/Firefox/Profiles"],
+        "chrome": ["~/Library/Application Support/Google/Chrome"],
+        "brave": ["~/Library/Application Support/BraveSoftware/Brave-Browser"],
+    },
+    "linux": {
+        "firefox": ["~/.mozilla/firefox", "~/snap/firefox/common/.mozilla/firefox"],
+        "chrome": ["~/.config/google-chrome", "~/.config/chromium"],
+        "brave": ["~/.config/BraveSoftware/Brave-Browser"],
+    },
+}
+
+
+def _profile_exists(spec: str) -> bool:
+    """Resolve a profile path spec, which may lead with a Windows env var."""
+    if spec.startswith("~"):
+        return Path(spec).expanduser().is_dir()
+    var, _, rest = spec.partition("/")
+    root = os.environ.get(var)
+    return bool(root) and (Path(root) / rest).is_dir()
+
+
+def installed_browsers(host_os: str) -> list[str]:
+    return [
+        name
+        for name, specs in _BROWSER_PROFILES.get(host_os, {}).items()
+        if any(_profile_exists(spec) for spec in specs)
+    ]
+
+
+def auto_cookie_browser(host_os: str) -> tuple[str | None, str]:
+    """
+    Pick a browser yt-dlp can actually read cookies from. Returns
+    (browser or None, explanation to print).
+
+    Firefox is preferred everywhere: it stores cookies in plain SQLite, so no
+    platform gets in the way.
+
+    On Windows, Chromium browsers are not merely awkward but impossible —
+    Chrome 127+ encrypts cookies with app-bound encryption that ties the key to
+    the Chrome process. No external tool can read them and there is no local
+    workaround. Edge, Brave, Opera and Vivaldi all inherit it. So on Windows we
+    only ever offer Firefox.
+    """
+    found = installed_browsers(host_os)
+
+    if "firefox" in found:
+        return "firefox", "cookies: using Firefox"
+
+    if host_os == "windows":
+        blocked = [b for b in found if b != "firefox"]
+        detail = f" Found {', '.join(blocked)}, but" if blocked else ""
+        return None, (
+            f"cookies: none available.{detail} Chrome 127+ on Windows encrypts"
+            " cookies with app-bound encryption that no external tool can read."
+            "\ncookies: install Firefox and sign in to YouTube, or export a"
+            " cookies.txt and pass --cookies FILE."
+        )
+
+    for candidate in ("chrome", "brave"):
+        if candidate in found:
+            return candidate, f"cookies: using {candidate.title()}"
+
+    return None, "cookies: no supported browser profile found; continuing without"
+
+
+def install_hint(host_os: str) -> list[str]:
+    if host_os == "windows":
+        return [
+            "  py -m pip install -U yt-dlp",
+            "  winget install ffmpeg      (or: scoop install ffmpeg)",
+            "  then reopen your terminal so PATH is picked up.",
+        ]
+    if host_os == "macos":
+        return ["  pip install -U yt-dlp", "  brew install ffmpeg"]
+    return [
+        "  pip install -U yt-dlp",
+        "  sudo apt install ffmpeg      (or your distro's equivalent)",
+    ]
+
+
+def cookie_args(browser: str | None, cookie_file: Path | None) -> list[str]:
+    """Build yt-dlp's cookie flags."""
+    if cookie_file:
+        return ["--cookies", str(cookie_file)]
+    if browser:
+        return ["--cookies-from-browser", browser]
+    return []
+
+
+def download_audio(
+    url: str,
+    work: Path,
+    browser: str | None = None,
+    cookie_file: Path | None = None,
+) -> Path | None:
     """
     Fetch bestaudio as wav for processing.
 
-    --cookies-from-browser is what gets you past the bot wall most of the time.
-    It is an arms race, not a fixed solution: expect to bump yt-dlp every few
-    weeks. If this starts failing across the board, update yt-dlp first.
+    Getting past the bot wall is an arms race, not a fixed solution: expect to
+    bump yt-dlp every few weeks. If this starts failing across the board,
+    update yt-dlp before debugging anything else.
     """
     target = work / "audio.wav"
-    cmd = [
+    base = [
         "yt-dlp", "-f", "bestaudio",
         "-x", "--audio-format", "wav",
         "--no-playlist",
-        "--cookies-from-browser", "chrome",
         "-o", str(work / "audio.%(ext)s"),
-        url,
     ]
-    res = run(cmd)
+    cookies = cookie_args(browser, cookie_file)
+
+    res = run([*base, *cookies, url])
+    if not target.exists() and cookies:
+        # Retry bare — from a residential IP this often succeeds anyway, and it
+        # rules out a cookie problem as the cause.
+        print("    retrying without cookies…", file=sys.stderr)
+        res = run([*base, url])
+
     if not target.exists():
-        # Retry without cookies — works fine from a residential IP often enough.
-        res = run([c for c in cmd if c not in ("--cookies-from-browser", "chrome")])
-    if not target.exists():
-        print(f"    download failed: {res.stderr.strip().splitlines()[-1:]}", file=sys.stderr)
+        tail = res.stderr.strip().splitlines()[-2:] or ["(no output)"]
+        for line in tail:
+            print(f"    {line}", file=sys.stderr)
+        if "not a bot" in res.stderr or "Sign in to confirm" in res.stderr:
+            print(
+                "    → bot check. Pass --cookies-from-browser firefox, or"
+                " --cookies cookies.txt.",
+                file=sys.stderr,
+            )
         return None
     return target
 
 
-def process(seed: Seed, out_root: Path) -> dict | None:
+def process(
+    seed: Seed,
+    out_root: Path,
+    browser: str | None = None,
+    cookie_file: Path | None = None,
+) -> dict | None:
     clip_dir = out_root / "clips" / seed.id
     if (clip_dir / "done.json").exists():
         print(f"  [skip] {seed.id} already built")
         return json.loads((clip_dir / "done.json").read_text())
 
     print(f"  [get ] {seed.artist} — {seed.title}")
-    with tempfile.TemporaryDirectory() as tmp:
+    # ignore_cleanup_errors: on Windows a lingering ffmpeg handle can block
+    # the temp dir removal, which must not fail the whole run.
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
         work = Path(tmp)
-        raw = download_audio(seed.url, work)
+        raw = download_audio(seed.url, work, browser, cookie_file)
         if raw is None:
             return None
 
@@ -264,19 +395,56 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("seed", type=Path, help="JSONL seed file")
     ap.add_argument("--out", type=Path, default=Path("./clips"))
+    ap.add_argument(
+        "--cookies-from-browser",
+        dest="browser",
+        metavar="BROWSER",
+        help="Override the auto-detected browser (e.g. firefox). On Windows,"
+        " Chromium browsers cannot be read at all — use firefox or --cookies.",
+    )
+    ap.add_argument(
+        "--no-cookies",
+        action="store_true",
+        help="Skip cookies entirely. Often fine from a home connection.",
+    )
+    ap.add_argument(
+        "--cookies",
+        dest="cookie_file",
+        type=Path,
+        metavar="FILE",
+        help="Netscape cookies.txt, exported from your browser.",
+    )
     args = ap.parse_args()
 
-    for tool in ("yt-dlp", "ffmpeg", "ffprobe"):
-        if shutil.which(tool) is None:
-            print(f"missing required tool: {tool}", file=sys.stderr)
-            return 1
+    if args.cookie_file and not args.cookie_file.exists():
+        print(f"cookie file not found: {args.cookie_file}", file=sys.stderr)
+        return 1
+
+    host_os = detect_os()
+
+    missing = [t for t in ("yt-dlp", "ffmpeg", "ffprobe") if shutil.which(t) is None]
+    if missing:
+        print(f"missing required tool(s): {', '.join(missing)}", file=sys.stderr)
+        for line in install_hint(host_os):
+            print(line, file=sys.stderr)
+        return 1
+
+    # Resolve the cookie source: explicit flags win, otherwise detect one.
+    browser = args.browser
+    if args.no_cookies or args.cookie_file:
+        browser = None
+    elif browser is None:
+        browser, note = auto_cookie_browser(host_os)
+        print(note)
+    if args.cookie_file:
+        print(f"cookies: using {args.cookie_file}")
 
     seeds = load_seeds(args.seed)
     print(f"{len(seeds)} songs in seed file")
 
     built, failed, review = [], [], []
     for seed in seeds:
-        rec = process(seed, args.out)
+        rec = process(seed, args.out, browser, args.cookie_file)
         if rec is None:
             failed.append(seed)
         else:
