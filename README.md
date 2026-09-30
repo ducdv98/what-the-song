@@ -20,6 +20,7 @@ commercial, not public.
 | Game UI | done — Next.js + [`DESIGN.md`](DESIGN.md) |
 | Genre + difficulty pickers | done, tested |
 | Streaks | done, tested |
+| Vietnamese / English UI | done, tested in-browser |
 | Deployment | done — Docker + Caddy, optional basic auth |
 
 54 tests pass (`npm test`); `npm run build` produces a static export.
@@ -219,6 +220,27 @@ Downloading audio from YouTube is contrary to its Terms of Service, and
 territory is that it stays private: **auth-gated, not publicly indexed, audio
 not redistributed.** If it ever goes public, the licensing analysis in
 `docs/RESEARCH.md` §2.8 and §6 becomes live and needs real answers first.
+
+## Language
+
+The UI is Vietnamese and English. There is no server — this is a static export —
+so there is no `Accept-Language` header to read and no IP geolocation. Two
+client-side signals are used instead, neither of which costs a permission prompt
+or a network call:
+
+1. **`navigator.languages`** — a stated preference, so it wins.
+2. **The IANA time zone** (`Asia/Ho_Chi_Minh`), consulted only when the language
+   list mentions neither Vietnamese nor English.
+
+So a French browser in Vietnam gets Vietnamese, while an English browser in
+Vietnam gets English — a deliberate choice: someone who set their browser to
+English asked for English. A manual `VI`/`EN` toggle overrides detection and is
+remembered.
+
+Copy lives in `lib/i18n/messages.ts`. The English table is typed against the
+Vietnamese keys, so a missing translation is a compile error rather than a
+Vietnamese string leaking into the English UI. Tests also assert that both
+tables declare the same `{placeholders}`.
 
 ## Genres, difficulty and streaks
 

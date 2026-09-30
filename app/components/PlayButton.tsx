@@ -1,6 +1,7 @@
 'use client';
 
 import type { PlaybackState } from '@/lib/audio/engine';
+import { useI18n } from './I18nProvider';
 
 /**
  * Circular play control — DESIGN.md §4 "Circular Play", using the accent
@@ -17,6 +18,7 @@ export function PlayButton({
   onPlay: () => void;
   disabled?: boolean;
 }) {
+  const { t } = useI18n();
   const busy = state === 'loading';
   const playing = state === 'playing';
 
@@ -25,7 +27,7 @@ export function PlayButton({
       <button
         onClick={onPlay}
         disabled={disabled || busy}
-        aria-label={`Play ${seconds} second clue`}
+        aria-label={t('round.playLabel', { seconds: formatSeconds(seconds) })}
         style={{
           width: 88,
           height: 88,

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import { I18nProvider } from './components/I18nProvider';
 
 export const metadata: Metadata = {
   title: 'what the song',
@@ -15,9 +16,12 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // lang is corrected client-side by I18nProvider once detection has run.
   return (
     <html lang="vi">
-      <body>{children}</body>
+      <body>
+        <I18nProvider>{children}</I18nProvider>
+      </body>
     </html>
   );
 }

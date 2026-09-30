@@ -1,6 +1,7 @@
 'use client';
 
 import { formatSeconds } from './PlayButton';
+import { useI18n } from './I18nProvider';
 
 /**
  * Progress through the reveal ladder.
@@ -19,6 +20,7 @@ export function RevealLadder({
   stepIndex: number;
   ladder: readonly number[];
 }) {
+  const { t } = useI18n();
   const total = ladder.length;
   const remaining = total - stepIndex - 1;
 
@@ -54,13 +56,11 @@ export function RevealLadder({
           justifyContent: 'space-between',
         }}
       >
-        <span>
-          Đoạn {stepIndex + 1}/{total}
-        </span>
+        <span>{t('round.segment', { n: stepIndex + 1, total })}</span>
         <span>
           {remaining > 0
-            ? `còn ${remaining} lần mở`
-            : 'đoạn cuối cùng'}
+            ? t('round.remaining', { n: remaining })
+            : t('round.lastSegment')}
         </span>
       </p>
     </div>

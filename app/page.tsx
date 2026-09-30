@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { Song } from '@/lib/catalogue';
 import { Game } from './components/Game';
+import { useI18n } from './components/I18nProvider';
 
 /**
  * The catalogue is fetched at runtime rather than imported, because
@@ -10,6 +11,7 @@ import { Game } from './components/Game';
  * That keeps the build independent of whatever is in the clip library.
  */
 export default function Page() {
+  const { t } = useI18n();
   const [catalogue, setCatalogue] = useState<Song[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,7 +23,7 @@ export default function Page() {
       })
       .then((data: Song[]) => setCatalogue(data))
       .catch((err: unknown) =>
-        setError(err instanceof Error ? err.message : 'Could not load the catalogue.'),
+        setError(err instanceof Error ? err.message : t('empty.noLibrary')),
       );
   }, []);
 
@@ -53,10 +55,10 @@ export default function Page() {
       {error && (
         <div className="card" style={{ maxWidth: 560 }}>
           <p style={{ font: 'var(--t-body-bold)', margin: '0 0 var(--s-2)' }}>
-            No clip library found
+            {t('empty.noLibrary')}
           </p>
           <p style={{ font: 'var(--t-caption)', color: 'var(--text-muted)', margin: 0 }}>
-            Build one first, then reload:
+            {t('empty.buildFirst')}
             <br />
             <code style={{ color: 'var(--text-near-white)' }}>
               ./tools/ingest.py seed.jsonl --out public/clips
@@ -70,7 +72,7 @@ export default function Page() {
 
       {catalogue && catalogue.length > 0 && <Game catalogue={catalogue} />}
       {catalogue && catalogue.length === 0 && (
-        <p style={{ color: 'var(--text-muted)' }}>The catalogue is empty.</p>
+        <p style={{ color: 'var(--text-muted)' }}>{t('empty.catalogue')}</p>
       )}
     </main>
   );

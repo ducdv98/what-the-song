@@ -8,6 +8,7 @@ import {
 } from '@/lib/game/round';
 import { availableGenres, filterByGenre } from '@/lib/game/genres';
 import { DIFFICULTIES, findDifficulty } from '@/lib/game/difficulty';
+import type { MessageKey } from '@/lib/i18n/messages';
 import { loadStats, recordResult, saveStats, EMPTY_STATS, type Stats } from '@/lib/game/stats';
 import { loadPrefs, savePrefs } from '@/lib/game/prefs';
 import { useAudioEngine } from './useAudioEngine';
@@ -16,6 +17,8 @@ import { RevealLadder } from './RevealLadder';
 import { Lives } from './Lives';
 import { GuessInput } from './GuessInput';
 import { PillRow } from './PillRow';
+import { LangToggle } from './LangToggle';
+import { useI18n } from './I18nProvider';
 import { StreakBar } from './StreakBar';
 
 /** Pick a song at random, avoiding an immediate repeat. */
@@ -38,6 +41,7 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
   const [error, setError] = useState<string | null>(null);
 
   const { engine, state } = useAudioEngine();
+  const { lang, t } = useI18n();
   const difficulty = findDifficulty(difficultySlug);
 
   // Restore remembered choices and streak on mount. Client-only: localStorage
@@ -118,7 +122,7 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
       // mobile Safari.
       await engine.play(clipUrl(round.song, seconds), seconds);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not play that clip.');
+      setError(err instanceof Error ? err.message : t('error.playFailed'));
     }
   }, [engine, round, seconds]);
 
@@ -135,27 +139,29 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
   const pickers = (
     <div style={{ display: 'grid', gap: 'var(--s-4)' }}>
       <PillRow
-        label="Thể loại"
+        label={t('picker.genre')}
         value={genre}
         onChange={onPick}
         options={[
-          { value: null, label: 'Tất cả', count: allSongs.length },
+          { value: null, label: t('picker.all'), count: allSongs.length },
+          // In Vietnamese the genre's own name is the label; in English the
+          // gloss is more use, with the Vietnamese name kept as the tooltip.
           ...genreOptions.map((g) => ({
             value: g.genre.slug as string | null,
-            label: g.genre.label,
-            hint: g.genre.gloss,
+            label: lang === 'vi' ? g.genre.label : g.genre.gloss,
+            hint: lang === 'vi' ? g.genre.gloss : g.genre.label,
             count: g.count,
           })),
         ]}
       />
       <PillRow
-        label="Độ khó"
+        label={t('picker.difficulty')}
         value={difficultySlug}
         onChange={onDifficulty}
         options={DIFFICULTIES.map((d) => ({
           value: d.slug,
-          label: d.label,
-          hint: d.gloss,
+          label: t(`difficulty.${d.slug}` as MessageKey),
+          hint: t(`difficulty.${d.slug}.gloss` as MessageKey),
         }))}
       />
     </div>
@@ -165,12 +171,12 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
     return (
       <div className="card" style={{ maxWidth: 560 }}>
         <p style={{ font: 'var(--t-body-bold)', margin: '0 0 var(--s-2)' }}>
-          No playable songs
+          {t('empty.noPlayable')}
         </p>
         <p style={{ font: 'var(--t-caption)', color: 'var(--text-muted)', margin: 0 }}>
           {skipped.length > 0
-            ? `${skipped.length} song(s) have an incomplete clip ladder. Re-run tools/ingest.py — its report says which cuts failed.`
-            : 'The catalogue is empty.'}
+            ? t('empty.incomplete', { n: skipped.length })
+            : t('empty.catalogue')}
         </p>
       </div>
     );
@@ -182,13 +188,16 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
   return (
     <div style={{ display: 'grid', gap: 'var(--s-6)', maxWidth: 560 }}>
       <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ font: 'var(--t-section-title)', margin: 0 }}>Đoán bài hát</h1>
-        {round && <Lives livesLeft={round.livesLeft} maxLives={round.maxLives} />}
+        <h1 style={{ font: 'var(--t-section-title)', margin: 0 }}>{t('app.tagline')}</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-3)' }}>
+          {round && <Lives livesLeft={round.livesLeft} maxLives={round.maxLives} />}
+          <LangToggle />
+        </div>
       </header>
 
       {!round && (
         <p style={{ font: 'var(--t-caption)', color: 'var(--text-muted)', margin: 0 }}>
-          Chưa có bài nào trong thể loại này — chọn thể loại khác.
+          {t('empty.genre')}
         </p>
       )}
 
@@ -217,14 +226,14 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
               <div style={{ display: 'flex', gap: 'var(--s-2)', flexWrap: 'wrap' }}>
                 {round.allowSkip && (
                   <button className="pill" onClick={() => apply(skip(round))}>
-                    Mở thêm
+                    {t('round.revealMore')}
                   </button>
                 )}
                 <button
                   className="pill pill--outlined pill--muted"
                   onClick={() => apply(giveUp(round))}
                 >
-                  Chịu thua
+                  {t('round.giveUp')}
                 </button>
               </div>
             </>
@@ -242,7 +251,7 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
                     margin: '0 0 var(--s-2)',
                   }}
                 >
-                  {round.status === 'won' ? 'Chính xác' : 'Hết lượt'}
+                  {round.status === 'won' ? t('round.correct') : t('round.lost')}
                 </p>
                 <p style={{ font: 'var(--t-body-bold)', margin: 0 }}>{song.title}</p>
                 <p style={{ font: 'var(--t-caption)', color: 'var(--text-muted)', margin: 0 }}>
@@ -252,13 +261,13 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
 
               <p style={{ font: 'var(--t-small)', color: 'var(--text-muted)', margin: 0 }}>
                 {round.status === 'won'
-                  ? `${round.score} điểm — đoán ra ở ${formatSeconds(seconds)}`
-                  : `Đã mở tới ${formatSeconds(seconds)}`}
+                  ? t('round.score', { score: round.score, at: formatSeconds(seconds) })
+                  : t('round.revealedTo', { at: formatSeconds(seconds) })}
               </p>
 
               <div style={{ display: 'flex', gap: 'var(--s-2)' }}>
                 <button className="pill pill--accent" onClick={() => startRound(song.id)}>
-                  Bài tiếp theo
+                  {t('round.next')}
                 </button>
               </div>
             </div>

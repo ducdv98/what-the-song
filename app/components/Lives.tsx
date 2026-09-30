@@ -1,5 +1,7 @@
 'use client';
 
+import { useI18n } from './I18nProvider';
+
 /** Lives as dots. Spent lives use the documented negative red. */
 export function Lives({
   livesLeft,
@@ -9,11 +11,12 @@ export function Lives({
   /** From the round, not a constant — difficulty changes how many you get. */
   maxLives: number;
 }) {
+  const { t } = useI18n();
   return (
     <div
       style={{ display: 'flex', gap: 'var(--s-2)', alignItems: 'center' }}
       role="status"
-      aria-label={`${livesLeft} of ${maxLives} lives remaining`}
+      aria-label={t('round.livesLabel', { n: livesLeft, total: maxLives })}
     >
       {Array.from({ length: maxLives }, (_, i) => {
         const alive = i < livesLeft;

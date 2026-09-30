@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { searchCatalogue, type IndexedSong } from '@/lib/catalogue';
+import { useI18n } from './I18nProvider';
 
 /**
  * Autocomplete-constrained guessing (docs/RESEARCH.md §3.2).
@@ -19,6 +20,7 @@ export function GuessInput({
   onGuess: (title: string) => void;
   disabled?: boolean;
 }) {
+  const { t } = useI18n();
   const [text, setText] = useState('');
   const [highlight, setHighlight] = useState(0);
   const [open, setOpen] = useState(false);
@@ -69,7 +71,7 @@ export function GuessInput({
   return (
     <div style={{ position: 'relative' }}>
       <label htmlFor="guess" className="visually-hidden">
-        Name the song
+        {t('round.guessLabel')}
       </label>
       <input
         id="guess"
@@ -79,7 +81,7 @@ export function GuessInput({
         autoComplete="off"
         spellCheck={false}
         disabled={disabled}
-        placeholder="Tên bài hát… (dấu không bắt buộc)"
+        placeholder={t('round.guessPlaceholder')}
         value={text}
         onChange={(e) => {
           setText(e.target.value);

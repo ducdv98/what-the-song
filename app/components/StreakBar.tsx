@@ -1,6 +1,7 @@
 'use client';
 
 import { winRate, type Stats } from '@/lib/game/stats';
+import { useI18n } from './I18nProvider';
 
 /**
  * Current streak, best streak and totals.
@@ -10,11 +11,12 @@ import { winRate, type Stats } from '@/lib/game/stats';
  * than decorate a zero.
  */
 export function StreakBar({ stats }: { stats: Stats }) {
+  const { t } = useI18n();
   const items: { label: string; value: string; accent?: boolean }[] = [
-    { label: 'Chuỗi', value: String(stats.currentStreak), accent: stats.currentStreak > 0 },
-    { label: 'Tốt nhất', value: String(stats.bestStreak) },
-    { label: 'Đã chơi', value: String(stats.played) },
-    { label: 'Thắng', value: stats.played ? `${winRate(stats)}%` : '—' },
+    { label: t('stats.streak'), value: String(stats.currentStreak), accent: stats.currentStreak > 0 },
+    { label: t('stats.best'), value: String(stats.bestStreak) },
+    { label: t('stats.played'), value: String(stats.played) },
+    { label: t('stats.winRate'), value: stats.played ? `${winRate(stats)}%` : '—' },
   ];
 
   return (
