@@ -216,12 +216,47 @@ A VCPMC licence alone does not make you legal. Budget and negotiate for both.
   compliant launch mode — but note: *the composition* may be public domain
   while *every available recording of it* is not.
 
-⚠️ **On replicating songspot.net specifically:** the existing SongSpot sites
-most likely run on the iTunes/Deezer preview trick, i.e. in the grey zone
-described in 2.4. Copying their architecture inherits their legal exposure.
-"The incumbent does it" is not a defence, and it is materially worse exposure
-for a Vietnamese catalogue where rights are concentrated in a few motivated
-domestic holders who already litigate and collect.
+### 2.9 What SongSpot actually does — [verified, with one caveat]
+
+Checked properly after this was first drafted. `songspot.net` itself is
+egress-blocked here, but its sibling domains publish the details, and they
+confirm the inference above:
+
+- **Metadata and preview links come from the Apple iTunes Search API** — song
+  titles, artist names, artwork, preview URLs.
+- **The browser requests the preview directly from Apple.** SongSpot does not
+  proxy, cache or host the audio; Apple receives the player's IP and user
+  agent. Clips run 0.1s up to ~15s of reveal.
+- **There is no music licence.** Their terms state that recordings,
+  compositions, artwork and related rights belong to their respective owners,
+  that they grant no licence to copy, and that previews come from third-party
+  catalogue services "governed by the relevant provider's terms".
+
+*Caveat:* the policy text is from `songspot.org` / `songspot.co`; `songspot.net`
+remained unreachable, so I am reading across sibling domains that present as the
+same product family.
+
+🔺 **The consequential detail: never touching the audio is the whole dodge.**
+Because the bytes go from Apple's CDN straight to the player's browser,
+SongSpot makes no copy and distributes nothing. Their exposure is therefore a
+*terms* question with Apple — §2.4's "not for entertainment purposes" clause —
+rather than a copyright question with labels. That is a meaningfully weaker
+form of exposure than it first appears, and it is load-bearing for them.
+
+**It does not transfer to this project**, for two reasons:
+
+1. **Coverage.** The dodge only works for tracks Apple actually serves, which
+   per §2.5 is precisely where a Vietnamese catalogue is weakest. SongSpot can
+   afford this posture because it plays Anglophone pop.
+2. **Downloading inverts the legal shape.** Any yt-dlp route means you
+   reproduce, transcode, store and serve copies. That is a copyright question,
+   not merely a terms-of-use one — strictly a bigger category of problem than
+   SongSpot's, regardless of who is more visible.
+
+⚠️ So "the incumbent is unlicensed too" is true but is **not** a defence, and
+it is not even the same defence. What actually mitigates this project is §10.1:
+staying private, non-commercial and un-indexed. That is a stronger basis than
+anything SongSpot relies on — and it is the thing to protect.
 
 ---
 
