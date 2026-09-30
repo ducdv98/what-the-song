@@ -105,6 +105,20 @@ class TestCatchesBreakingMistakes(unittest.TestCase):
         self.assertTrue(any("not valid JSON" in e for e in rep.errors))
         self.assertEqual(genres["__total__"], 1, "the good row still counted")
 
+    def test_unknown_tier_is_an_error(self):
+        rep, _ = check(GOOD.replace('"genre":"nhac-tre"', '"genre":"nhac-tre","tier":"normal"'))
+        self.assertTrue(any("unknown tier 'normal'" in e for e in rep.errors), rep.errors)
+
+    def test_tiers_are_counted_including_untagged(self):
+        rep, _ = check(
+            GOOD.replace('"genre":"nhac-tre"', '"genre":"nhac-tre","tier":"easy"'),
+            GOOD.replace('nnca', 'b').replace('Nơi Này Có Anh', 'Bài Khác').replace('abc123xyz', 'zzz999yyy'),
+        )
+        self.assertEqual(rep.errors, [])
+        self.assertEqual(rep.warnings, [], "tier is a known field, not an unrecognised one")
+        self.assertEqual(rep.tiers["easy"], 1)
+        self.assertEqual(rep.tiers[None], 1)
+
     def test_bad_optional_field_types(self):
         cases = [
             ('"aliases":"a string"', "aliases"),

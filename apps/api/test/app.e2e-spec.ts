@@ -281,7 +281,7 @@ describe('rounds and stats', () => {
     songId: 'noi-nay-co-anh',
     won: true,
     score: 800,
-    difficulty: 'normal',
+    difficulty: 'medium',
     genre: 'nhac-tre',
   };
 
@@ -359,6 +359,7 @@ describe('rounds and stats', () => {
       { ...round, won: false }, // a loss cannot score
       { ...round, score: 10 }, // below the least a win can score
       { ...round, difficulty: 'godmode' },
+      { ...round, difficulty: 'normal' }, // the pre-tier name
       { ...round, genre: 'DROP TABLE' },
       { ...round, songId: '../../etc/passwd' },
     ];

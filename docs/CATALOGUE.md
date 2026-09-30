@@ -14,7 +14,7 @@ there is no cheap way to re-audit them later.
 One JSON object per line. Blank lines and `//` comments are ignored.
 
 ```json
-{"id":"nnca","title":"Nơi Này Có Anh","artist":"Sơn Tùng M-TP","url":"https://www.youtube.com/watch?v=...","genre":"nhac-tre"}
+{"id":"nnca","title":"Nơi Này Có Anh","artist":"Sơn Tùng M-TP","url":"https://www.youtube.com/watch?v=...","genre":"nhac-tre","tier":"easy"}
 ```
 
 | Field | Required | Notes |
@@ -24,6 +24,7 @@ One JSON object per line. Blank lines and `//` comments are ignored.
 | `artist` | yes | The performer most associated with the recording, with diacritics. |
 | `url` | yes | A YouTube URL for the audio. See §4. |
 | `genre` | yes | Exactly one slug from §2. |
+| `tier` | strongly advised | How well known the song is — the difficulty it plays under. See §5.1. Untagged plays as `medium`. |
 | `aliases` | no | Other accepted answers: a widely used English title, a very common alternative spelling. Not misspellings — the matcher already handles diacritics and typos. |
 | `anchor` | no | `hook` (default), `intro`, or `body`. Leave it out unless you know better. |
 | `start_at` | no | Exact clue offset in seconds. Only after listening. |
@@ -155,6 +156,24 @@ anything you cannot verify exists with that title and artist.
 **Spread the eras.** A library of only 2020s hits is dull and unfair to older
 players. Aim for a real mix across decades within the contemporary genres.
 
+### 5.1 Choosing a tier
+
+The difficulty chips pick songs by tier, so the tier is a judgement of **how
+many Vietnamese listeners would name the song**, not of how hard the clip is.
+Ask: *who knows this?*
+
+| Tier | Who can name it | Typical examples |
+|---|---|---|
+| `easy` | Almost everyone, including people who don't follow music | Nationwide #1 hits, wedding and karaoke staples |
+| `medium` | Anyone who listens to this genre or era | Charting hits, an artist's second-best-known song |
+| `hard` | Regular listeners of the artist or genre | Solid album tracks, older hits that have faded |
+| `expert` | Real fans of the artist or era | B-sides, early work, regional hits |
+| `impossible` | A handful of devotees | Deep cuts — keep these rare |
+
+Aim for a pyramid, roughly 30% easy, 30% medium, 20% hard, 15% expert, 5%
+impossible. When unsure between two tiers, pick the easier one: a song that is
+too easy is a quick win, one that is too obscure is a round nobody enjoys.
+
 ### Distribution target for 1000 songs
 
 A guide, not a quota — adjust to what is actually findable.
@@ -191,20 +210,22 @@ to review and to undo.
    ```
 
    Fix everything it reports. It checks required fields, id uniqueness,
-   duplicate title+artist pairs, unknown genres, suspicious titles, URL shape,
-   and prints the genre distribution against the §5 targets.
+   duplicate title+artist pairs, unknown genres and tiers, suspicious titles,
+   URL shape, and prints the genre distribution against the §5 targets and the
+   count per tier.
 7. Only then ingest:
 
    ```sh
-   ./tools/ingest.py seed.jsonl --out apps/web/public/clips
+   ./tools/ingest.py seed.jsonl
    ```
 
    Ingest skips songs already built, so re-running is cheap.
 
 ### Rules for an agent doing this unattended
 
-- **Never edit or delete an existing row.** Append only. Existing `id`s are
-  already clip directory names.
+- **Never delete an existing row, and never change its `id` or `url`.** `id`s
+  are clip directory names. Editing `tier`, `title`, `aliases` or `genre` on an
+  existing row is safe — ingest re-applies them without rebuilding the audio.
 - **Never invent a URL.** Skip the song instead.
 - **Never guess a title's diacritics.** If you cannot verify the correct
   spelling, skip the song — a wrong title is an unwinnable round.

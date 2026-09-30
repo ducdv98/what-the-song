@@ -2,165 +2,165 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULT_LADDER } from './ladder.ts';
 import {
-  createRound, submitGuess, skip, giveUp, revealedSeconds, isLastStep, MAX_LIVES,
-  scoreForStep,
+  createRound, submitGuess, skip, giveUp, revealedSeconds, isLastStage, stagesFor,
+  scoreForStep, STAGE_TARGETS, BEST_SCORE, WORST_SCORE,
 } from './round.ts';
 
 const song = { id: 'nnca', title: 'Nơi Này Có Anh', aliases: ['Right Here'] };
+const other = { id: 'other', title: 'Nơi Này Có Anh' }; // same title, different song
 
-describe('round setup', () => {
-  test('starts on the shortest clue with full lives', () => {
-    const r = createRound(song);
-    assert.equal(r.stepIndex, 0);
-    assert.equal(revealedSeconds(r), 0.1);
-    assert.equal(r.livesLeft, MAX_LIVES);
-    assert.equal(r.status, 'playing');
+describe('stages', () => {
+  test('the default ingest ladder yields exactly 0.1 / 0.5 / 2 / 8 / 16', () => {
+    assert.deepEqual([...DEFAULT_LADDER], [0.1, 0.5, 1, 2, 4, 8, 16]);
+    assert.deepEqual(stagesFor(DEFAULT_LADDER), [0.1, 0.5, 2, 8, 16]);
+    assert.deepEqual([...STAGE_TARGETS], [0.1, 0.5, 2, 8, 16]);
+  });
+
+  test('a ladder of five or fewer rungs is used as is', () => {
+    assert.deepEqual(stagesFor([2, 4, 8]), [2, 4, 8]);
+    assert.deepEqual(stagesFor([0.5, 1, 2, 4, 8]), [0.5, 1, 2, 4, 8]);
+  });
+
+  test('a longer custom ladder picks the nearest rungs, ascending, ending on the longest', () => {
+    const s = stagesFor([0.5, 1, 2, 4, 8, 16]);
+    assert.equal(s.length, 5);
+    assert.deepEqual(s, [...s].sort((a, b) => a - b), 'ascending');
+    assert.equal(new Set(s).size, 5, 'no repeats');
+    assert.equal(s.at(-1), 16);
+    assert.deepEqual(s, [0.5, 1, 2, 8, 16]);
+  });
+
+  test('unsorted, duplicated or junk rungs are cleaned up', () => {
+    assert.deepEqual(stagesFor([16, 0.1, 8, 0.1, 2, NaN, -1, 0.5]), [0.1, 0.5, 2, 8, 16]);
+  });
+
+  test('an empty ladder falls back to the targets instead of breaking the round', () => {
+    assert.deepEqual(stagesFor([]), [...STAGE_TARGETS]);
   });
 });
 
-describe('correct guesses', () => {
-  test('a first-try win scores the maximum', () => {
-    const r = submitGuess(createRound(song), 'Nơi Này Có Anh');
+describe('round setup', () => {
+  test('always starts on the shortest clue', () => {
+    const r = createRound(song);
+    assert.equal(r.stageIndex, 0);
+    assert.equal(revealedSeconds(r), 0.1);
+    assert.equal(r.status, 'playing');
+    assert.equal(r.stages.length, 5);
+  });
+});
+
+describe('winning', () => {
+  test('picking the right song on the first stage scores the maximum', () => {
+    const r = submitGuess(createRound(song), { id: 'nnca', title: 'Nơi Này Có Anh' });
     assert.equal(r.status, 'won');
-    assert.equal(r.score, 1000);
-    assert.equal(r.livesLeft, MAX_LIVES, 'a win must not cost a life');
+    assert.equal(r.score, BEST_SCORE);
+    assert.deepEqual(r.attempts, [{ text: 'Nơi Này Có Anh', kind: 'guess', at: 0.1, quality: 'exact' }]);
   });
 
-  test('a diacritic-free guess still wins', () => {
-    const r = submitGuess(createRound(song), 'noi nay co anh');
-    assert.equal(r.status, 'won');
-    assert.equal(r.attempts.at(-1)?.quality, 'diacritics');
+  test('a picked song is compared by id, so a same-titled different song is wrong', () => {
+    const r = submitGuess(createRound(song), other);
+    assert.equal(r.status, 'playing');
+    assert.equal(r.stageIndex, 1);
   });
 
-  test('an alias wins', () => {
+  test('free text still matches leniently — no diacritics, aliases', () => {
+    assert.equal(submitGuess(createRound(song), 'noi nay co anh').status, 'won');
     assert.equal(submitGuess(createRound(song), 'right here').status, 'won');
   });
 
-  test('later wins score less', () => {
+  test('later wins score less, down to the floor on the last stage', () => {
     let r = createRound(song);
-    r = skip(r);
-    r = skip(r);
-    const won = submitGuess(r, 'Nơi Này Có Anh');
+    for (let i = 0; i < 4; i++) r = skip(r);
+    assert.ok(isLastStage(r));
+    const won = submitGuess(r, { id: 'nnca', title: 'x' });
     assert.equal(won.status, 'won');
-    assert.ok(won.score < 1000 && won.score > 0, `unexpected score ${won.score}`);
+    assert.equal(won.score, WORST_SCORE);
   });
 });
 
-describe('wrong guesses', () => {
-  test('cost a life and reveal more audio', () => {
-    const r = submitGuess(createRound(song), 'Chạy Ngay Đi');
+describe('wrong guesses and skips open the next stage', () => {
+  test('a wrong guess advances one stage and is recorded', () => {
+    const r = submitGuess(createRound(song), { id: 'other', title: 'Bigcityboi' });
     assert.equal(r.status, 'playing');
-    assert.equal(r.livesLeft, MAX_LIVES - 1);
-    assert.equal(r.stepIndex, 1);
     assert.equal(revealedSeconds(r), 0.5);
+    assert.deepEqual(r.attempts, [{ text: 'Bigcityboi', kind: 'guess', at: 0.1, quality: 'none' }]);
   });
 
-  test('running out of lives loses the round', () => {
-    let r = createRound(song);
-    for (let i = 0; i < MAX_LIVES; i++) r = submitGuess(r, `wrong ${i}`);
-    assert.equal(r.status, 'lost');
-    assert.equal(r.livesLeft, 0);
-    assert.equal(r.score, 0);
-  });
-
-  test('an empty or whitespace guess is a no-op, not a wasted life', () => {
-    const start = createRound(song);
-    for (const bad of ['', '   ', '\t\n']) {
-      const r = submitGuess(start, bad);
-      assert.equal(r.livesLeft, MAX_LIVES, `"${bad}" cost a life`);
-      assert.equal(r.stepIndex, 0);
-      assert.equal(r.attempts.length, 0);
-    }
-  });
-});
-
-describe('skipping', () => {
-  test('reveals more audio without costing a life', () => {
+  test('a skip advances one stage and is recorded', () => {
     const r = skip(createRound(song));
-    assert.equal(r.livesLeft, MAX_LIVES);
-    assert.equal(r.stepIndex, 1);
-    assert.equal(r.attempts.at(-1)?.kind, 'skip');
+    assert.equal(revealedSeconds(r), 0.5);
+    assert.deepEqual(r.attempts, [{ text: '', kind: 'skip', at: 0.1 }]);
   });
 
-  test('skipping past the last rung loses the round', () => {
+  test('walking the whole ladder visits every stage in order', () => {
     let r = createRound(song);
-    for (let i = 0; i < DEFAULT_LADDER.length - 1; i++) {
+    const seen = [revealedSeconds(r)];
+    while (!isLastStage(r)) {
       r = skip(r);
-      assert.equal(r.status, 'playing', `ended early at step ${i}`);
+      seen.push(revealedSeconds(r));
     }
-    assert.ok(isLastStep(r));
-    assert.equal(revealedSeconds(r), DEFAULT_LADDER.at(-1));
-    r = skip(r);
-    assert.equal(r.status, 'lost', 'no ladder left should end the round');
+    assert.deepEqual(seen, [0.1, 0.5, 2, 8, 16]);
   });
 
-  test('the reveal never runs off the end of the ladder', () => {
+  test('a wrong guess on the last stage loses', () => {
     let r = createRound(song);
-    for (let i = 0; i < 50; i++) r = skip(r);
-    assert.ok(r.stepIndex < DEFAULT_LADDER.length);
-    assert.equal(Number.isFinite(revealedSeconds(r)), true);
+    for (let i = 0; i < 4; i++) r = skip(r);
+    const lost = submitGuess(r, { id: 'other', title: 'x' });
+    assert.equal(lost.status, 'lost');
+    assert.equal(lost.attempts.length, 5);
+  });
+
+  test('skipping the last stage loses', () => {
+    let r = createRound(song);
+    for (let i = 0; i < 5; i++) r = skip(r);
+    assert.equal(r.status, 'lost');
+    assert.equal(revealedSeconds(r), 16, 'the reveal never runs off the end');
+  });
+
+  test('an empty guess is a no-op, not a wasted stage', () => {
+    const r = createRound(song);
+    assert.deepEqual(submitGuess(r, '   '), r);
+    assert.deepEqual(submitGuess(r, { id: 'x', title: '' }), r);
   });
 });
 
-describe('terminal states are final', () => {
-  test('nothing changes a won round', () => {
-    const won = submitGuess(createRound(song), 'Nơi Này Có Anh');
-    assert.deepEqual(submitGuess(won, 'anything'), won);
+describe('giving up and terminal states', () => {
+  test('give up loses immediately, on any stage', () => {
+    assert.equal(giveUp(createRound(song)).status, 'lost');
+    assert.equal(giveUp(skip(skip(createRound(song)))).status, 'lost');
+  });
+
+  test('nothing changes a won or lost round', () => {
+    const won = submitGuess(createRound(song), { id: 'nnca', title: 't' });
     assert.deepEqual(skip(won), won);
     assert.deepEqual(giveUp(won), won);
-  });
-
-  test('nothing changes a lost round', () => {
+    assert.deepEqual(submitGuess(won, 'anything'), won);
     const lost = giveUp(createRound(song));
-    assert.equal(lost.status, 'lost');
-    assert.deepEqual(submitGuess(lost, 'Nơi Này Có Anh'), lost);
     assert.deepEqual(skip(lost), lost);
+    assert.deepEqual(submitGuess(lost, { id: 'nnca', title: 't' }), lost);
+  });
+
+  test('transitions never mutate the previous state', () => {
+    const r = createRound(song);
+    const snapshot = structuredClone(r);
+    skip(r);
+    submitGuess(r, 'wrong');
+    submitGuess(r, { id: 'nnca', title: 't' });
+    giveUp(r);
+    assert.deepEqual(r, snapshot);
   });
 });
 
-describe('immutability', () => {
-  test('transitions do not mutate the previous state', () => {
-    const before = createRound(song);
-    const snapshot = structuredClone({ ...before, song: { ...before.song } });
-    submitGuess(before, 'wrong');
-    skip(before);
-    assert.deepEqual({ ...before, song: { ...before.song } }, snapshot);
-  });
-});
-
-describe('per-song ladders', () => {
-  test('the default fallback is the seven-rung ladder', () => {
-    assert.deepEqual([...DEFAULT_LADDER], [0.1, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0]);
+describe('scoring', () => {
+  test('decays from best to worst across the stages', () => {
+    const scores = [0, 1, 2, 3, 4].map((i) => scoreForStep(i, 5));
+    assert.equal(scores[0], BEST_SCORE);
+    assert.equal(scores[4], WORST_SCORE);
+    for (let i = 1; i < 5; i++) assert.ok(scores[i] < scores[i - 1]);
   });
 
-  test('a round honours a song\'s own shorter ladder', () => {
-    // A track with a long generic intro starts later and has fewer rungs.
-    const r = createRound(song, [2, 4, 8]);
-    assert.equal(revealedSeconds(r), 2);
-    const after = skip(r);
-    assert.equal(revealedSeconds(after), 4);
-    assert.ok(isLastStep(skip(after)), 'three rungs means the third is last');
-  });
-
-  test('an empty ladder falls back rather than breaking the round', () => {
-    const r = createRound(song, []);
-    assert.equal(revealedSeconds(r), DEFAULT_LADDER[0]);
-  });
-
-  test('scoring scales to the ladder length', () => {
-    // First rung always best, last always worst, whatever the length.
-    for (const n of [3, 5, 7, 12]) {
-      assert.equal(scoreForStep(0, n), 1000, `n=${n}`);
-      assert.equal(scoreForStep(n - 1, n), 50, `n=${n}`);
-      for (let i = 1; i < n; i++) {
-        assert.ok(scoreForStep(i, n) < scoreForStep(i - 1, n), `n=${n} i=${i}`);
-      }
-    }
-  });
-
-  test('winning on a short ladder still awards the top score', () => {
-    const r = submitGuess(createRound(song, [2, 4, 8]), 'Nơi Này Có Anh');
-    assert.equal(r.status, 'won');
-    assert.equal(r.score, 1000);
+  test('a one-stage song still awards the top score', () => {
+    const r = submitGuess(createRound(song, [4]), { id: 'nnca', title: 't' });
+    assert.equal(r.score, BEST_SCORE);
   });
 });

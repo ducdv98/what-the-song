@@ -18,7 +18,7 @@ describe('storage degrades instead of throwing', () => {
 
   test('prefs fall back to defaults', () => {
     assert.deepEqual(loadPrefs(), DEFAULT_PREFS);
-    assert.doesNotThrow(() => savePrefs({ genre: 'bolero', difficulty: 'hard' }));
+    assert.doesNotThrow(() => savePrefs({ genre: 'bolero', tier: 'hard' }));
   });
 });
 
@@ -55,5 +55,38 @@ describe('guest stats last only for the tab', () => {
       delete g.sessionStorage;
       delete g.localStorage;
     }
+  });
+});
+
+describe('prefs', () => {
+  function withStorage(fn: (store: Map<string, string>) => void) {
+    const store = new Map<string, string>();
+    const g = globalThis as Record<string, unknown>;
+    g.localStorage = {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => void store.set(k, v),
+      removeItem: (k: string) => void store.delete(k),
+    };
+    try {
+      fn(store);
+    } finally {
+      delete g.localStorage;
+    }
+  }
+
+  test('a tier round-trips', () => {
+    withStorage(() => {
+      savePrefs({ genre: 'bolero', tier: 'expert' });
+      assert.deepEqual(loadPrefs(), { genre: 'bolero', tier: 'expert' });
+    });
+  });
+
+  test('the old difficulty setting reads back as "pick for me", not as a bogus tier', () => {
+    withStorage((store) => {
+      store.set('what-the-song:prefs:v1', JSON.stringify({ genre: null, difficulty: 'normal' }));
+      assert.deepEqual(loadPrefs(), { genre: null, tier: null });
+      store.set('what-the-song:prefs:v1', JSON.stringify({ genre: 'x', tier: 'Hard' }));
+      assert.equal(loadPrefs().tier, null);
+    });
   });
 });

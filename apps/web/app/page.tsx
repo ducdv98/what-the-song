@@ -6,6 +6,7 @@ import { Game } from './components/Game';
 import { useI18n } from './components/I18nProvider';
 import { AccountBar } from './components/AccountBar';
 import { GuestNotice } from './components/GuestNotice';
+import { MenuButton, MenuProvider } from './components/GameMenu';
 
 /**
  * The catalogue is fetched at runtime rather than imported, because
@@ -29,68 +30,68 @@ export default function Page() {
       );
   }, []);
 
+  const playable = catalogue !== null && catalogue.length > 0;
+
   return (
-    <main
-      style={{
-        minHeight: '100dvh',
-        padding: 'var(--s-6) var(--s-4) var(--s-10)',
-        display: 'grid',
-        justifyContent: 'center',
-        // Centre the column when it fits, fall back to top-aligned when it
-        // does not, so a short viewport still scrolls normally.
-        alignContent: 'safe center',
-        gap: 'var(--s-5)',
-      }}
-    >
-      <div
+    <MenuProvider>
+      <main
         style={{
+          minHeight: '100dvh',
+          padding: 'var(--s-4) var(--s-4) var(--s-10)',
           display: 'flex',
-          justifyContent: 'space-between',
+          flexDirection: 'column',
           alignItems: 'center',
-          gap: 'var(--s-3)',
-          flexWrap: 'wrap',
-          maxWidth: 560,
+          gap: 'var(--s-6)',
+          // A soft spotlight from above, behind the game.
+          background:
+            'radial-gradient(ellipse 60% 45% at 50% 0%, rgba(30, 215, 96, 0.07), transparent 70%), var(--bg-base)',
         }}
       >
-        <p
+        <header
           style={{
-            font: 'var(--t-caption-bold)',
-            letterSpacing: '1.4px',
-            textTransform: 'uppercase',
-            color: 'var(--accent)',
-            margin: 0,
+            width: '100%',
+            maxWidth: 480,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 'var(--s-3)',
           }}
         >
-          what the song
-        </p>
-        {/* Outside <Game>, so signing in works even with no clip library. */}
-        <AccountBar />
-      </div>
+          {playable && <MenuButton />}
+          <p
+            style={{
+              font: 'italic 800 20px/1 var(--font-ui)',
+              letterSpacing: '-0.5px',
+              color: 'var(--text-base)',
+              margin: 0,
+              marginRight: 'auto',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            what the <span style={{ color: 'var(--accent)' }}>song</span>
+          </p>
+          {/* Outside <Game>, so signing in works even with no clip library. */}
+          <AccountBar />
+        </header>
 
-      <GuestNotice />
-
-      {error && (
-        <div className="card" style={{ maxWidth: 560 }}>
-          <p style={{ font: 'var(--t-body-bold)', margin: '0 0 var(--s-2)' }}>
-            {t('empty.noLibrary')}
-          </p>
-          <p style={{ font: 'var(--t-caption)', color: 'var(--text-muted)', margin: 0 }}>
-            {t('empty.buildFirst')}
-            <br />
-            <code style={{ color: 'var(--text-near-white)' }}>
-              ./tools/ingest.py seed.jsonl --out apps/web/public/clips
-            </code>
-          </p>
-          <p style={{ font: 'var(--t-small)', color: 'var(--text-muted)', margin: 'var(--s-3) 0 0' }}>
-            {error}
-          </p>
+        <div style={{ width: '100%', maxWidth: 480, display: 'grid' }}>
+          <GuestNotice />
         </div>
-      )}
 
-      {catalogue && catalogue.length > 0 && <Game catalogue={catalogue} />}
-      {catalogue && catalogue.length === 0 && (
-        <p style={{ color: 'var(--text-muted)' }}>{t('empty.catalogue')}</p>
-      )}
-    </main>
+        {error && (
+          <div className="card" style={{ width: '100%', maxWidth: 480 }}>
+            <p style={{ font: 'var(--t-body-bold)', margin: '0 0 var(--s-2)' }}>{t('empty.noLibrary')}</p>
+            <p style={{ font: 'var(--t-caption)', color: 'var(--text-muted)', margin: 0 }}>
+              {t('empty.buildFirst')}
+              <br />
+              <code style={{ color: 'var(--text-near-white)' }}>./tools/ingest.py seed.jsonl</code>
+            </p>
+            <p style={{ font: 'var(--t-small)', color: 'var(--text-muted)', margin: 'var(--s-3) 0 0' }}>{error}</p>
+          </div>
+        )}
+
+        {playable && <Game catalogue={catalogue} />}
+        {catalogue && catalogue.length === 0 && <p style={{ color: 'var(--text-muted)' }}>{t('empty.catalogue')}</p>}
+      </main>
+    </MenuProvider>
   );
 }

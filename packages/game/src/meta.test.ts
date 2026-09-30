@@ -3,9 +3,8 @@ import assert from 'node:assert/strict';
 import {
   GENRES, findGenre, isKnownGenre, availableGenres, filterByGenre,
 } from './genres.ts';
-import { DIFFICULTIES, DEFAULT_DIFFICULTY, findDifficulty } from './difficulty.ts';
+import { TIERS, TIER_SLUGS, DEFAULT_TIER, isTier, tierOf, filterByTier, tierCounts } from './difficulty.ts';
 import { EMPTY_STATS, recordResult, winRate, coerceStats } from './stats.ts';
-import { createRound, skip, submitGuess, revealedSeconds } from './round.ts';
 
 describe('genre taxonomy', () => {
   test('slugs are unique and url-safe', () => {
@@ -94,78 +93,42 @@ describe('genre filtering', () => {
   });
 });
 
-describe('difficulty modes', () => {
-  test('slugs unique, default is normal', () => {
-    const slugs = DIFFICULTIES.map((d) => d.slug);
-    assert.equal(new Set(slugs).size, slugs.length);
-    assert.equal(DEFAULT_DIFFICULTY.slug, 'normal');
+describe('difficulty tiers', () => {
+  const songs = [
+    { id: 'a', tier: 'easy' },
+    { id: 'b', tier: 'impossible' },
+    { id: 'c' },                 // untagged
+    { id: 'd', tier: 'Easy' },   // wrong case: not a tier
+    { id: 'e', tier: 'normal' }, // the old difficulty name: not a tier
+    { id: 'f', tier: null },
+  ];
+
+  test('five tiers in order, each labelled in both languages', () => {
+    assert.deepEqual(TIERS.map((t) => t.slug), [...TIER_SLUGS]);
+    assert.deepEqual([...TIER_SLUGS], ['easy', 'medium', 'hard', 'expert', 'impossible']);
+    for (const t of TIERS) assert.ok(t.label && t.gloss, t.slug);
   });
 
-  test('unknown slug falls back rather than breaking the game', () => {
-    assert.equal(findDifficulty('nonsense').slug, 'normal');
-    assert.equal(findDifficulty(null).slug, 'normal');
+  test('anything that is not exactly a tier counts as medium', () => {
+    assert.equal(DEFAULT_TIER, 'medium');
+    assert.deepEqual(songs.map(tierOf), ['easy', 'impossible', 'medium', 'medium', 'medium', 'medium']);
+    assert.equal(isTier('hard'), true);
+    assert.equal(isTier('Hard'), false);
+    assert.equal(isTier(undefined), false);
   });
 
-  test('harder modes start earlier on the ladder and give fewer lives', () => {
-    const easy = findDifficulty('easy');
-    const hard = findDifficulty('hard');
-    const expert = findDifficulty('expert');
-    assert.ok(easy.startStep > hard.startStep, 'easy should start later');
-    assert.ok(easy.lives > hard.lives);
-    assert.ok(expert.lives <= hard.lives);
-    assert.equal(expert.allowSkip, false, 'expert must not allow skipping');
+  test('filtering picks one tier; null picks every song', () => {
+    assert.deepEqual(filterByTier(songs, 'easy').map((s) => s.id), ['a']);
+    assert.deepEqual(filterByTier(songs, 'medium').map((s) => s.id), ['c', 'd', 'e', 'f']);
+    assert.deepEqual(filterByTier(songs, 'hard'), []);
+    assert.equal(filterByTier(songs, null).length, songs.length);
   });
 
-  test('all modes are internally sane', () => {
-    for (const d of DIFFICULTIES) {
-      assert.ok(d.lives >= 1, d.slug);
-      assert.ok(d.startStep >= 0, d.slug);
-      assert.ok(d.label.length > 0 && d.gloss.length > 0, d.slug);
-    }
-  });
-});
-
-describe('difficulty drives the round', () => {
-  const song = { id: 's', title: 'Nơi Này Có Anh' };
-  const ladder = [0.1, 0.5, 1, 2, 4, 8, 16];
-
-  test('easy opens on a longer clue with more lives', () => {
-    const r = createRound(song, ladder, findDifficulty('easy'));
-    assert.equal(r.stepIndex, 2);
-    assert.equal(revealedSeconds(r), 1);
-    assert.equal(r.livesLeft, 5);
-    assert.equal(r.maxLives, 5);
-  });
-
-  test('hard opens on the shortest clue', () => {
-    const r = createRound(song, ladder, findDifficulty('hard'));
-    assert.equal(revealedSeconds(r), 0.1);
-    assert.equal(r.maxLives, 3);
-  });
-
-  test('expert has one life and cannot skip', () => {
-    const r = createRound(song, ladder, findDifficulty('expert'));
-    assert.equal(r.livesLeft, 1);
-    assert.equal(r.allowSkip, false);
-    // Even a stale button must not advance the round.
-    assert.deepEqual(skip(r), r);
-    // And one wrong guess ends it.
-    assert.equal(submitGuess(r, 'wrong').status, 'lost');
-  });
-
-  test('a start step beyond the song\'s ladder is clamped, not out of range', () => {
-    // An "easy" start of rung 2 on a two-rung song must still work.
-    const r = createRound(song, [2, 4], findDifficulty('easy'));
-    assert.equal(r.stepIndex, 1);
-    assert.equal(revealedSeconds(r), 4);
-    assert.ok(Number.isFinite(revealedSeconds(r)));
-  });
-
-  test('starting later caps the achievable score — easier means fewer points', () => {
-    const easy = submitGuess(createRound(song, ladder, findDifficulty('easy')), 'Nơi Này Có Anh');
-    const hard = submitGuess(createRound(song, ladder, findDifficulty('hard')), 'Nơi Này Có Anh');
-    assert.equal(hard.score, 1000);
-    assert.ok(easy.score < hard.score, `${easy.score} should be under ${hard.score}`);
+  test('counts list all five tiers, including empty ones', () => {
+    assert.deepEqual(
+      tierCounts(songs).map((c) => [c.tier.slug, c.count]),
+      [['easy', 1], ['medium', 4], ['hard', 0], ['expert', 0], ['impossible', 1]],
+    );
   });
 });
 

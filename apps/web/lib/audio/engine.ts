@@ -20,11 +20,19 @@ const MAX_FADE_SECONDS = 0.008;
 
 export type PlaybackState = 'idle' | 'loading' | 'playing';
 
+/** Where the current clip is: seconds heard so far out of the clip's length. */
+export interface PlaybackProgress {
+  elapsed: number;
+  duration: number;
+}
+
 export class AudioEngine {
   private ctx: AudioContext | null = null;
   private buffers = new Map<string, AudioBuffer>();
   private inflight = new Map<string, Promise<AudioBuffer>>();
   private current: AudioBufferSourceNode | null = null;
+  /** When the current clip starts and how long it runs, on the context clock. */
+  private span: { startAt: number; duration: number } | null = null;
   private stopTimer: ReturnType<typeof setTimeout> | null = null;
 
   private state: PlaybackState = 'idle';
@@ -157,6 +165,7 @@ export class AudioEngine {
       gain.disconnect();
       if (this.current === source) {
         this.current = null;
+        this.span = null;
         this.setState('idle');
       }
     };
@@ -164,6 +173,7 @@ export class AudioEngine {
     // Sample-accurate: play `duration` from offset 0, scheduled at startAt.
     source.start(startAt, 0, duration);
     this.current = source;
+    this.span = { startAt, duration };
     this.setState('playing');
 
     // onended is the source of truth; this is a belt-and-braces stop in case
@@ -176,7 +186,21 @@ export class AudioEngine {
     );
   }
 
+  /**
+   * How far into the current clip playback is, read from the AudioContext
+   * clock — the same clock that schedules the audio, so a playhead drawn from
+   * this matches what is heard rather than a separate timer's guess. Null when
+   * nothing is playing. Cheap: call it every animation frame.
+   */
+  progress(): PlaybackProgress | null {
+    if (!this.span || !this.ctx || !this.current) return null;
+    const { startAt, duration } = this.span;
+    const elapsed = Math.min(Math.max(this.ctx.currentTime - startAt, 0), duration);
+    return { elapsed, duration };
+  }
+
   stop(): void {
+    this.span = null;
     if (this.stopTimer !== null) {
       clearTimeout(this.stopTimer);
       this.stopTimer = null;

@@ -12,7 +12,7 @@ It depends on two workspace packages:
   return its response types, so the web client and this service are checked
   against one definition.
 - **`@wts/game`** — the game's own rules. Round reports are validated against
-  the real `DIFFICULTIES`, `BEST_SCORE` and `WORST_SCORE` the browser played
+  the real `TIER_SLUGS`, `BEST_SCORE` and `WORST_SCORE` the browser played
   with, not a copy.
 
 ## What it does
@@ -38,7 +38,7 @@ All under `/api`. Errors are `{ statusCode, code, message?, fields? }`, where
 | GET | `/auth/session` | optional | page-load restore: user, silently refreshed, or `null` — never 401 |
 | GET | `/auth/me` | access | the signed-in user |
 | GET | `/stats/me` | access | `{ played, won, currentStreak, bestStreak, totalScore }` |
-| POST | `/rounds` | access | `{ songId, won, score, difficulty, genre }` → updated stats |
+| POST | `/rounds` | access | `{ songId, won, score, difficulty, genre }` → updated stats. `difficulty` is the song's tier (`easy` … `impossible`). |
 | GET | `/health` | — | database ping, for container healthchecks |
 
 Error codes: `validation_failed` (+ `fields`), `username_taken`, `email_taken`,
@@ -78,7 +78,7 @@ There is no CORS configuration because nothing legitimate is cross-origin.
 **Rounds.** The game is played in the browser, so the server cannot prove a
 result is honest (among friends that is accepted — `docs/RESEARCH.md` §10.5). It
 does refuse the impossible: scores off the 0–1000 scale, a scoring loss, a win
-below the 50-point floor, unknown difficulties. Totals are updated with one
+below the 50-point floor, unknown tiers. Totals are updated with one
 atomic `INSERT … ON CONFLICT DO UPDATE` computed in SQL, so concurrent rounds
 cannot lose updates, whichever instance handles them.
 

@@ -4,53 +4,57 @@ import type { PlaybackState } from '@/lib/audio/engine';
 import { useI18n } from './I18nProvider';
 
 /**
- * Circular play control — DESIGN.md §4 "Circular Play", using the accent
- * colour because playing is the primary action of the whole app.
+ * The big circular play control, glowing because playing is the primary
+ * action of the whole app. Tapping it while a clip plays stops it. The clip
+ * length sits beside it, large, so it is always clear what the next play is.
  */
 export function PlayButton({
   state,
   seconds,
   onPlay,
-  disabled,
+  onStop,
+  size = 112,
 }: {
   state: PlaybackState;
   seconds: number;
   onPlay: () => void;
-  disabled?: boolean;
+  onStop: () => void;
+  size?: number;
 }) {
   const { t } = useI18n();
   const busy = state === 'loading';
   const playing = state === 'playing';
 
   return (
-    <div style={{ display: 'grid', placeItems: 'center', gap: 'var(--s-3)' }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--s-4)' }}>
+      {/* Balances the label on the right, so the button itself is centred. */}
+      <span aria-hidden="true" style={{ minWidth: 56 }} />
       <button
-        onClick={onPlay}
-        disabled={disabled || busy}
-        aria-label={t('round.playLabel', { seconds: formatSeconds(seconds) })}
+        onClick={playing ? onStop : onPlay}
+        disabled={busy}
+        aria-label={playing ? t('round.stopLabel') : t('round.playLabel', { seconds: formatSeconds(seconds) })}
         style={{
-          width: 88,
-          height: 88,
+          width: size,
+          height: size,
           borderRadius: '50%',
           background: 'var(--accent)',
           color: '#000',
           display: 'grid',
           placeItems: 'center',
-          boxShadow: 'var(--shadow-heavy)',
-          transition: 'transform 120ms ease, filter 120ms ease',
-          transform: playing ? 'scale(1.04)' : 'scale(1)',
-          filter: playing ? 'brightness(1.1)' : 'none',
+          boxShadow: playing
+            ? '0 0 0 10px rgba(30, 215, 96, 0.14), 0 0 48px rgba(30, 215, 96, 0.45)'
+            : '0 0 36px rgba(30, 215, 96, 0.35)',
+          transition: 'box-shadow 160ms ease, transform 120ms ease',
         }}
       >
         {busy ? (
           <Spinner />
         ) : (
-          /* Simple geometric glyphs — no third-party icon dependency. */
-          <svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true">
+          <svg width={size * 0.36} height={size * 0.36} viewBox="0 0 24 24" aria-hidden="true">
             {playing ? (
               <>
-                <rect x="6" y="5" width="4" height="14" fill="currentColor" />
-                <rect x="14" y="5" width="4" height="14" fill="currentColor" />
+                <rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor" />
+                <rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor" />
               </>
             ) : (
               <path d="M8 5v14l11-7z" fill="currentColor" />
@@ -58,8 +62,14 @@ export function PlayButton({
           </svg>
         )}
       </button>
-
-      <span style={{ font: 'var(--t-small-bold)', color: 'var(--text-muted)' }}>
+      <span
+        data-testid="clip-length"
+        style={{
+          minWidth: 56,
+          font: '600 22px/1 ui-monospace, SFMono-Regular, Menlo, monospace',
+          color: 'var(--accent)',
+        }}
+      >
         {formatSeconds(seconds)}
       </span>
     </div>
@@ -68,7 +78,7 @@ export function PlayButton({
 
 function Spinner() {
   return (
-    <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true">
+    <svg width="30" height="30" viewBox="0 0 24 24" aria-hidden="true">
       <circle
         cx="12"
         cy="12"

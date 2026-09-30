@@ -78,12 +78,12 @@ describe('message catalogue', () => {
 
   test('placeholders are substituted', () => {
     assert.equal(
-      translate('en', 'round.segment', { n: 2, total: 7 }),
-      'Clue 2/7',
+      translate('en', 'round.timeline', { at: '2s', max: '16s' }),
+      '2s unlocked of 16s',
     );
     assert.equal(
-      translate('vi', 'round.segment', { n: 2, total: 7 }),
-      'Đoạn 2/7',
+      translate('vi', 'result.guessedIn', { at: '0.1s' }),
+      'Đoán đúng ở 0.1s!',
     );
   });
 
@@ -99,8 +99,8 @@ describe('message catalogue', () => {
 
   test('an unknown placeholder is left alone rather than printing undefined', () => {
     assert.equal(
-      translate('en', 'round.score', { score: 500 }),
-      '500 points — guessed at {at}',
+      translate('en', 'round.timeline', { at: '2s' }),
+      '2s unlocked of {max}',
     );
   });
 

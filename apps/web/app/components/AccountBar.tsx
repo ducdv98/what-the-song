@@ -17,7 +17,8 @@ export function AccountBar() {
   const { t } = useI18n();
   const { status, user, logout, expired, dialog, openDialog, closeDialog } = useAuth();
 
-  const small = { padding: '6px 12px' };
+  // Compact, so the header stays on one line on a phone next to the logo.
+  const small = { padding: '6px 10px', fontSize: 12, letterSpacing: '0.6px', whiteSpace: 'nowrap' as const };
 
   return (
     <div
@@ -25,7 +26,7 @@ export function AccountBar() {
         display: 'flex',
         alignItems: 'center',
         gap: 'var(--s-2)',
-        flexWrap: 'wrap',
+        flexWrap: 'nowrap',
         justifyContent: 'flex-end',
         minHeight: 32,
       }}
@@ -52,8 +53,10 @@ export function AccountBar() {
           >
             {t('auth.signIn')}
           </button>
+          {/* Hidden on narrow phones to keep the header on one line; the
+              dialog's Register tab and the guest notice still offer it. */}
           <button
-            className="pill pill--accent"
+            className="pill pill--accent hide-narrow"
             style={small}
             onClick={() => openDialog('register')}
           >

@@ -51,12 +51,15 @@
 		file_server
 	}
 
-	# Clips have content-hashed filenames, so they can cache indefinitely.
+	# Clips and covers have hashed filenames (a cover's is a hash of the image
+	# itself), so both can cache indefinitely. Only the audio gets its type
+	# forced; covers keep the image/jpeg that file_server infers.
 	@clips path /clips/*
 	handle @clips {
 		root * /srv
 		header Cache-Control "public, max-age=31536000, immutable"
-		header Content-Type "audio/mpeg"
+		@mp3 path *.mp3
+		header @mp3 Content-Type "audio/mpeg"
 		file_server
 	}
 

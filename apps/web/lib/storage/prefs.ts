@@ -7,15 +7,21 @@
  * player on the server (apps/api).
  */
 
+import { isTier, type TierSlug } from '@wts/game';
+
 const KEY = 'what-the-song:prefs:v1';
 
 export interface Prefs {
   /** null means "all genres". */
   genre: string | null;
-  difficulty: string;
+  /**
+   * null means "pick for me": the first tier that has songs. Also what an
+   * older build's saved difficulty ("normal", …) reads back as.
+   */
+  tier: TierSlug | null;
 }
 
-export const DEFAULT_PREFS: Prefs = { genre: null, difficulty: 'normal' };
+export const DEFAULT_PREFS: Prefs = { genre: null, tier: null };
 
 export function loadPrefs(): Prefs {
   try {
@@ -24,8 +30,7 @@ export function loadPrefs(): Prefs {
     const p = JSON.parse(raw) as Record<string, unknown>;
     return {
       genre: typeof p.genre === 'string' ? p.genre : null,
-      difficulty:
-        typeof p.difficulty === 'string' ? p.difficulty : DEFAULT_PREFS.difficulty,
+      tier: isTier(p.tier) ? p.tier : null,
     };
   } catch {
     return DEFAULT_PREFS;

@@ -18,7 +18,9 @@ commercial, not public.
 | Round rules | done, tested — `packages/game/src/round.ts` |
 | Autocomplete search | done, tested — `packages/game/src/catalogue.ts` |
 | Game UI | done — Next.js + [`DESIGN.md`](DESIGN.md) |
-| Genre + difficulty pickers | done, tested |
+| Round + result screens (SongSpot-style) | done, verified in a browser — see [How a round works](#how-a-round-works) |
+| Difficulty tiers + genre filter | done, tested |
+| Cover art | done, tested — thumbnail per song, `--covers` backfill |
 | Streaks | done, tested |
 | Vietnamese / English UI | done, tested in-browser |
 | Accounts (guest / register / sign in) | done, tested — NestJS + Postgres, [`apps/api/`](apps/api/README.md) |
@@ -174,6 +176,7 @@ Per song, in the seed file:
 | `"anchor": "body"` | Loudness-step heuristic aiming at the vocal entry. **Experimental and unvalidated** — listen before trusting it. |
 | `"start_at": 42.0` | Exact offset. Beats every mode; the reliable fix. |
 | `"ladder": [0.5,1,2,4,8,16]` | This song's own reveal steps. |
+| `"tier": "easy"` | How well known it is: `easy` · `medium` · `hard` · `expert` · `impossible`. Picks the difficulty it plays under. Untagged plays as `medium`. |
 
 For accurate automated vocal onset you want source separation — see
 `docs/RESEARCH.md` §11.2.
@@ -187,7 +190,33 @@ each song's rungs from its clip manifest, so whatever clips exist *are* the
 ladder — there is no constant to keep in sync. Scoring scales to the ladder's
 length, so the first rung is always worth the most.
 
+A round uses five of a song's clips as its stages — the ones nearest 0.1, 0.5,
+2, 8 and 16 seconds (`stagesFor` in `packages/game/src/round.ts`). The default
+seven-clip ladder yields exactly those five; a song with five clips or fewer
+uses all of them.
+
 Budget roughly **0.5 MB per song** for the full seven-step reveal ladder.
+
+### Cover art and editing built songs
+
+Each song gets a cover: the video's thumbnail, centre-cropped to a 480×480
+JPEG with metadata stripped. YouTube "Topic" art tracks put the album art in
+the middle of the frame, so the crop lands on it. The filename is a hash of the
+image — opaque, and a different image always gets a new URL, so the long cache
+on `/clips` never serves a stale cover. No thumbnail is not an error; the result
+screen shows a fallback.
+
+Songs built before covers existed don't have one. Backfill them without
+touching their audio:
+
+```sh
+./tools/ingest.py seed.jsonl --covers
+```
+
+Re-running ingest never rebuilds audio for a song that is already built, but it
+**does re-apply your seed edits** — `title`, `artist`, `aliases`, `genre` and
+`tier` — so fixing a title or tagging tiers across the library is just "edit the
+seed, run ingest again".
 
 ### Troubleshooting
 
@@ -343,21 +372,24 @@ songs under Khác with no error.
 
 ### Difficulty
 
-Difficulty is a **game mode**, not a per-song rating. Per-song difficulty should
-come from real play data seeded with a popularity proxy (`docs/RESEARCH.md` §1),
-and we have neither — inventing a rating would be a guess dressed up as data. So
-it adjusts the rules instead, which needs no metadata:
+Difficulty is **how well known the songs are**, as on SongSpot: each song
+carries a `tier` in the seed file, and the chips on the round screen pick the
+pool. The rules of a round are identical at every tier.
 
-| Mode | First clue | Lives | Skips |
-|---|---|---|---|
-| Dễ | 3rd rung (1s) | 5 | yes |
-| Thường | 2nd rung (0.5s) | 3 | yes |
-| Khó | 1st rung (0.1s) | 3 | yes |
-| Cực khó | 1st rung (0.1s) | 1 | **no** |
+| Tier | Meaning (see `docs/CATALOGUE.md` §5 for how to choose) |
+|---|---|
+| Dễ · Easy | Everyone knows it — the biggest hits |
+| Vừa · Medium | Well known to anyone who listens to the genre |
+| Khó · Hard | Known, but not a hit you hear everywhere |
+| Chuyên gia · Expert | Fans of the artist or era know it |
+| Bất khả · Impossible | Deep cuts |
 
-0.1s is genuinely brutal, so it sits under *Khó* rather than being the default.
-Starting later caps the achievable score, so easier honestly means fewer points.
-A start rung beyond a song's own (shorter) ladder is clamped.
+An untagged song plays as Medium, so an untagged library still works while the
+tagging catches up. A tier with no songs shows as a disabled chip, so it is
+visible what is still missing. The seed validator prints the count per tier.
+
+The guess search always covers **every** song, not just the current tier — a
+list limited to one tier would narrow the answer for you.
 
 ### Streaks
 
@@ -370,6 +402,37 @@ blocked, or during a thumbnail capture the accessor itself can throw. Every
 access is guarded and anything read back is coerced, so a corrupt or stale value
 yields zeroes rather than `NaN` in the UI — losing a streak is a far better
 outcome than a blank page.
+
+## How a round works
+
+Modelled on SongSpot, whose round screen was studied directly rather than
+guessed at (screenshots of every state were compared side by side).
+
+1. **Five stages: 0.1s → 0.5s → 2s → 8s → 16s.** Every round starts on the
+   shortest.
+2. **Play** the clip. The timeline under the difficulty chips is drawn to scale
+   — 0.1s is a sliver, 16s most of the bar — and while a clip plays a lighter
+   fill sweeps across it, driven by the audio clock itself
+   (`AudioEngine.progress`), not a timer. Measured in a real browser: an 8s clip
+   plays for 8.02–8.04s and the playhead sits at 25.1% of the bar halfway
+   through (expected 25%).
+3. **Search and pick** a song; the box shows "Title — Artist" and the button
+   beside it turns from **Skip** into **Guess**. Typing again drops the pick.
+   Picks are compared by song id, so two songs with the same title cannot be
+   confused.
+4. A **wrong guess or Skip opens the next stage and plays it** straight away. On
+   the last stage the button is **Give up**; a wrong guess there loses too.
+   There are no lives — the stages are the attempts.
+5. The **result screen** replaces the round: the cover, "It was_" on a loss,
+   title and artist, a stamp — *Guessed in 0.5s!* or *Lost!* — and Hear 16s,
+   Share and Next / Try again. Share copies a spoiler-free row, one square per
+   stage: 🟥 wrong guess, ⬛ skipped, 🟩 guessed, ⬜ not reached.
+
+Scoring still runs underneath (1000 on the first stage down to 50 on the last)
+for the leaderboard; the screen leads with the time instead.
+
+Genre, full stats, language and how-to-play live in the **menu** (top left), so
+the round screen holds nothing but the game.
 
 ## Guests and accounts
 

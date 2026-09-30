@@ -35,6 +35,7 @@ _ingest = importlib.util.module_from_spec(_spec)
 sys.modules.setdefault("ingest", _ingest)
 _spec.loader.exec_module(_ingest)
 KNOWN_GENRES: list[str] = _ingest.KNOWN_GENRES
+KNOWN_TIERS: list[str] = _ingest.KNOWN_TIERS
 
 ID_RE = re.compile(r"^[a-z0-9-]+$")
 YOUTUBE_RE = re.compile(r"^https?://(www\.|m\.|music\.)?(youtube\.com/watch\?v=|youtu\.be/)[\w-]{6,}")
@@ -74,6 +75,8 @@ class Report:
     def __init__(self) -> None:
         self.errors: list[str] = []
         self.warnings: list[str] = []
+        # Songs per difficulty tier; None counts the untagged (they play as medium).
+        self.tiers: Counter = Counter()
 
     def error(self, line: int, msg: str) -> None:
         self.errors.append(f"  line {line}: {msg}")
@@ -162,6 +165,15 @@ def validate(path: Path) -> tuple[Report, Counter]:
         else:
             genres[genre] += 1
 
+        # ── tier ───────────────────────────────────────────────────────────
+        # Optional — an untagged song plays as medium — but a misspelt tier is
+        # an error: it would silently put the song in the wrong difficulty.
+        tier = row.get("tier")
+        if tier is not None and tier not in KNOWN_TIERS:
+            rep.error(n, f"unknown tier {tier!r}. Known: {', '.join(KNOWN_TIERS)}")
+        else:
+            rep.tiers[tier] += 1
+
         # ── Optional fields ────────────────────────────────────────────────
         aliases = row.get("aliases")
         if aliases is not None:
@@ -187,7 +199,7 @@ def validate(path: Path) -> tuple[Report, Counter]:
                 rep.error(n, "'ladder' must be a non-empty list of positive numbers")
 
         unknown = set(row) - {
-            "id", "title", "artist", "url", "genre", "aliases",
+            "id", "title", "artist", "url", "genre", "tier", "aliases",
             "anchor", "start_at", "ladder",
         }
         if unknown:
@@ -215,6 +227,15 @@ def print_distribution(genres: Counter) -> None:
         print(f"\n  still short in: {', '.join(short)}")
 
 
+def print_tiers(tiers: Counter) -> None:
+    print("\n  difficulty tiers")
+    for slug in KNOWN_TIERS:
+        print(f"  {slug:<12} {tiers.get(slug, 0):>5}")
+    untagged = tiers.get(None, 0)
+    if untagged:
+        print(f"  {'(untagged)':<12} {untagged:>5}   play as medium — tag them for real tiers")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("seed", type=Path, nargs="?", default=Path("seed.jsonl"))
@@ -236,6 +257,7 @@ def main() -> int:
 
     if not args.quiet:
         print_distribution(genres)
+        print_tiers(rep.tiers)
 
     if rep.errors:
         print(f"\nFAILED — {len(rep.errors)} error(s) to fix before ingesting.")

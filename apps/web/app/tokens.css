@@ -26,6 +26,15 @@
   --accent: #1ed760;
   --accent-border: #1db954;
 
+  /* Difficulty tiers — a warm-to-cold scale, easy (accent green) through
+     impossible (violet). Each has a solid colour for the active chip and a
+     dark tint for the resting one. */
+  --tier-easy: #1ed760;
+  --tier-medium: #f5c518;
+  --tier-hard: #ff8a3d;
+  --tier-expert: #f3727f;
+  --tier-impossible: #b18cff;
+
   /* Semantic */
   --text-negative: #f3727f;
   --text-warning: #ffa42b;

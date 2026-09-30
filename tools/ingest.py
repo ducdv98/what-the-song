@@ -56,6 +56,17 @@ KNOWN_GENRES = [
 ]
 
 
+# Difficulty tiers: how well known a song is. Mirrors TIER_SLUGS in
+# packages/game/src/difficulty.ts (a test asserts they agree). A song with no
+# tier, or an unknown one, plays as "medium".
+KNOWN_TIERS = ["easy", "medium", "hard", "expert", "impossible"]
+
+# Cover art: the video thumbnail, centre-cropped square. YouTube "Topic" art
+# tracks put the album cover in the middle of a 16:9 frame, so the crop lands
+# exactly on it; for a music video it is the middle of the frame.
+COVER_SIZE = 480
+
+
 def clip_key(seconds: float) -> str:
     """
     Manifest key for a reveal rung, as integer milliseconds.
@@ -92,6 +103,9 @@ class Seed:
     url: str
     aliases: list[str] = field(default_factory=list)
     genre: str | None = None
+    # How well known the song is: easy | medium | hard | expert | impossible.
+    # Picks which difficulty it appears under. Absent means medium.
+    tier: str | None = None
     # Seconds into the track to anchor clips. Set this by hand when the
     # automatic choice lands somewhere useless.
     start_at: float | None = None
@@ -503,12 +517,67 @@ def download_audio(
     return target
 
 
+def fetch_cover(
+    seed: Seed,
+    clip_dir: Path,
+    browser: str | None = None,
+    cookie_file: Path | None = None,
+) -> str | None:
+    """
+    Save the video thumbnail as the song's cover. Returns the filename, or None.
+
+    The filename is a hash of the image itself: opaque like the clips (it must
+    not give the answer away), and a different image always gets a different
+    name, so the year-long immutable cache on /clips can never serve a stale
+    cover. Metadata is stripped. Never fatal: a song without a cover still
+    plays, and the result screen has a fallback.
+    """
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
+        work = Path(tmp)
+        run([
+            "yt-dlp", "--skip-download", "--no-playlist",
+            "--write-thumbnail", "--convert-thumbnails", "jpg",
+            "-o", str(work / "thumb.%(ext)s"),
+            *cookie_args(browser, cookie_file), seed.url,
+        ])
+        thumb = work / "thumb.jpg"
+        if not thumb.exists():
+            print("    no thumbnail — the result screen will use its fallback", file=sys.stderr)
+            return None
+        square = work / "cover.jpg"
+        run([
+            "ffmpeg", "-y", "-i", str(thumb),
+            "-vf", f"crop='min(iw,ih)':'min(iw,ih)',scale={COVER_SIZE}:{COVER_SIZE}",
+            "-map_metadata", "-1", "-q:v", "4",
+            str(square),
+        ])
+        if not square.exists() or square.stat().st_size == 0:
+            print("    cover conversion failed — continuing without one", file=sys.stderr)
+            return None
+        data = square.read_bytes()
+    name = "cover-" + hashlib.sha256(data).hexdigest()[:16] + ".jpg"
+    clip_dir.mkdir(parents=True, exist_ok=True)
+    (clip_dir / name).write_bytes(data)
+    return name
+
+
+# Seed fields that are yours to edit at any time. They are re-applied to songs
+# that are already built, so fixing a title or tagging a tier does not need a
+# rebuild — only the audio is expensive to redo.
+SEED_METADATA = ("title", "artist", "aliases", "genre", "tier")
+
+
+def apply_seed_metadata(record: dict, seed: Seed) -> dict:
+    return {**record, **{k: getattr(seed, k) for k in SEED_METADATA}}
+
+
 def process(
     seed: Seed,
     out_root: Path,
     browser: str | None = None,
     cookie_file: Path | None = None,
     ladder: list[float] | None = None,
+    covers: bool = False,
 ) -> dict | None:
     # --out IS the clips root, so no extra "clips" segment here: the layout
     # must be <out>/catalogue.json alongside <out>/<id>/<hash>.mp3, because the
@@ -516,9 +585,19 @@ def process(
     # same base. An extra level here 404s every clip while the catalogue loads
     # fine, which looks like a serving problem rather than a path one.
     clip_dir = out_root / seed.id
-    if (clip_dir / "done.json").exists():
-        print(f"  [skip] {seed.id} already built")
-        return json.loads((clip_dir / "done.json").read_text(encoding="utf-8"))
+    done = clip_dir / "done.json"
+    if done.exists():
+        record = apply_seed_metadata(json.loads(done.read_text(encoding="utf-8")), seed)
+        # --covers backfills songs built before covers existed (or whose cover
+        # file has gone missing), without touching their audio.
+        has_cover = record.get("cover") and (clip_dir / record["cover"]).exists()
+        if covers and not has_cover:
+            print(f"  [art ] {seed.artist} — {seed.title}")
+            record["cover"] = fetch_cover(seed, clip_dir, browser, cookie_file)
+        else:
+            print(f"  [skip] {seed.id} already built")
+        done.write_text(json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8")
+        return record
 
     print(f"  [get ] {seed.artist} — {seed.title}")
     # ignore_cleanup_errors: on Windows a lingering ffmpeg handle can block
@@ -554,12 +633,16 @@ def process(
         print("    rejected: ffmpeg produced no clips", file=sys.stderr)
         return None
 
+    cover = fetch_cover(seed, clip_dir, browser, cookie_file)
+
     record = {
         "id": seed.id,
         "title": seed.title,
         "artist": seed.artist,
         "aliases": seed.aliases,
         "genre": seed.genre,
+        "tier": seed.tier,
+        "cover": cover,
         "anchor_seconds": round(anchor, 3),
         "anchor_mode": seed.anchor,
         "detected_onset": round(onset, 3),
@@ -608,6 +691,12 @@ def load_seeds(path: Path) -> list[Seed]:
                 f" — will show under 'Khác'. Known: {', '.join(KNOWN_GENRES)}",
                 file=sys.stderr,
             )
+        if seed.tier is not None and seed.tier not in KNOWN_TIERS:
+            print(
+                f"seed line {n}: unknown tier {seed.tier!r} for {seed.title!r}"
+                f" — will play as 'medium'. Known: {', '.join(KNOWN_TIERS)}",
+                file=sys.stderr,
+            )
         seeds.append(seed)
     return seeds
 
@@ -639,6 +728,12 @@ def main() -> int:
         help="Comma-separated reveal ladder, e.g. 0.5,1,2,4,8,16,30. Default"
         f" {','.join(str(x) for x in CLIP_LADDER)}. A song can override it with"
         ' its own "ladder" field.',
+    )
+    ap.add_argument(
+        "--covers",
+        action="store_true",
+        help="Also fetch cover art for songs that are already built and have"
+        " none. New songs always get a cover.",
     )
     ap.add_argument(
         "--no-cookies",
@@ -693,7 +788,7 @@ def main() -> int:
 
     built, failed, review = [], [], []
     for seed in seeds:
-        rec = process(seed, args.out, browser, args.cookie_file, ladder)
+        rec = process(seed, args.out, browser, args.cookie_file, ladder, covers=args.covers)
         if rec is None:
             failed.append(seed)
         else:

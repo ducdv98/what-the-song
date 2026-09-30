@@ -2,7 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   indexCatalogue, searchCatalogue, clipUrl, clipKey, playableSongs,
-  isExactSpelling, ladderFor, type Song,
+  isExactSpelling, ladderFor, type Song, coverUrl,
 } from './catalogue.ts';
 
 const songs: Song[] = [
@@ -150,5 +150,24 @@ describe('per-song ladders derived from the manifest', () => {
     ]);
     assert.deepEqual(ok.map((s) => s.id), ['full']);
     assert.deepEqual(bad.map((s) => s.id), ['empty', 'junk']);
+  });
+});
+
+describe('cover art', () => {
+  const base = { id: 'nnca', title: 't', artist: 'a', clips: {} };
+
+  test('a cover filename becomes a URL in the song folder', () => {
+    assert.equal(coverUrl({ ...base, cover: 'cover-3f9a.jpg' }), '/clips/nnca/cover-3f9a.jpg');
+  });
+
+  test('no cover means null, so the UI shows its fallback', () => {
+    assert.equal(coverUrl(base), null);
+    assert.equal(coverUrl({ ...base, cover: null }), null);
+    assert.equal(coverUrl({ ...base, cover: '' }), null);
+  });
+
+  test('a cover that is not a bare filename is refused', () => {
+    assert.equal(coverUrl({ ...base, cover: '../../etc/passwd' }), null);
+    assert.equal(coverUrl({ ...base, cover: 'https://evil.example/x.jpg' }), null);
   });
 });

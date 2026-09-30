@@ -11,8 +11,10 @@ would have caught it, so that is what test_main_wiring does.
 """
 
 import importlib.util
+import io
 import json
 import re
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -308,9 +310,159 @@ class TestLadder(unittest.TestCase):
         self.assertEqual(ingest.choose_anchor(seed, 200.0, 0.4, 11.0), 33.0)
 
 
+class TestTiers(unittest.TestCase):
+    def test_tiers_match_the_client(self):
+        ts = (ROOT / "packages" / "game" / "src" / "difficulty.ts").read_text(encoding="utf-8")
+        line = ts[ts.index("export const TIER_SLUGS"):ts.index("as const;")]
+        self.assertEqual(re.findall(r"'([a-z]+)'", line), ingest.KNOWN_TIERS)
+
+    def test_unknown_tier_is_reported_but_not_fatal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "s.jsonl"
+            p.write_text(
+                '{"id":"a","title":"T","artist":"A","url":"u","tier":"normal"}\n'
+                '{"id":"b","title":"T2","artist":"A","url":"u","tier":"hard"}\n'
+                '{"id":"c","title":"T3","artist":"A","url":"u"}\n',
+                encoding="utf-8",
+            )
+            err = io.StringIO()
+            with mock.patch.object(sys, "stderr", err):
+                seeds = ingest.load_seeds(p)
+        self.assertEqual([(x.id, x.tier) for x in seeds], [("a", "normal"), ("b", "hard"), ("c", None)])
+        self.assertIn("unknown tier 'normal'", err.getvalue())
+
+
+def _build(seed, out, **kw):
+    """Run process() for a new song with every external step faked."""
+    with mock.patch.object(ingest, "download_audio", return_value=Path("x.wav")), \
+         mock.patch.object(ingest, "probe_duration", return_value=120.0), \
+         mock.patch.object(ingest, "detect_music_onset", return_value=0.0), \
+         mock.patch.object(ingest, "normalise"), \
+         mock.patch.object(
+             ingest, "cut_clips",
+             side_effect=lambda src, anchor, out_dir, salt, ladder=None: (
+                 out_dir.mkdir(parents=True, exist_ok=True),
+                 ({"100": "deadbeef.mp3"}, []),
+             )[1],
+         ):
+        return ingest.process(seed, out, **kw)
+
+
+class TestCovers(unittest.TestCase):
+    def fake_run(self, produce_thumb=True, produce_cover=True):
+        calls = []
+
+        def run(cmd):
+            calls.append(cmd)
+            if cmd[0] == "yt-dlp" and produce_thumb:
+                out = Path(cmd[cmd.index("-o") + 1].replace("%(ext)s", "jpg"))
+                out.write_bytes(b"jpg")
+            if cmd[0] == "ffmpeg" and produce_cover:
+                Path(cmd[-1]).write_bytes(b"cover")
+            return subprocess.CompletedProcess(cmd, 0, "", "")
+
+        return run, calls
+
+    def test_cover_name_follows_the_image_so_the_cache_cannot_go_stale(self):
+        names = []
+        for content in (b"image-one", b"image-two", b"image-one"):
+            def run(cmd, content=content):
+                if cmd[0] == "yt-dlp":
+                    Path(cmd[cmd.index("-o") + 1].replace("%(ext)s", "jpg")).write_bytes(b"t")
+                if cmd[0] == "ffmpeg":
+                    Path(cmd[-1]).write_bytes(content)
+                return subprocess.CompletedProcess(cmd, 0, "", "")
+            with tempfile.TemporaryDirectory() as tmp, mock.patch.object(ingest, "run", side_effect=run):
+                names.append(ingest.fetch_cover(ingest.Seed(id="a", title="T", artist="A", url="u"), Path(tmp)))
+        self.assertNotEqual(names[0], names[1], "a new image must get a new URL")
+        self.assertEqual(names[0], names[2], "the same image keeps its URL")
+
+    def test_cover_is_an_opaque_square_jpeg_without_metadata(self):
+        run, calls = self.fake_run()
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(ingest, "run", side_effect=run):
+            seed = ingest.Seed(id="noi-nay-co-anh", title="T", artist="A", url="https://y/v")
+            name = ingest.fetch_cover(seed, Path(tmp) / "noi-nay-co-anh")
+            self.assertTrue((Path(tmp) / "noi-nay-co-anh" / name).exists())
+        self.assertRegex(name, r"^cover-[0-9a-f]{16}\.jpg$")
+        self.assertNotIn("noi", name, "the filename must not give the song away")
+        ytdlp, ffmpeg = calls
+        self.assertIn("--skip-download", ytdlp)
+        self.assertIn("--write-thumbnail", ytdlp)
+        self.assertIn("-map_metadata", ffmpeg)
+        self.assertTrue(any(a.startswith("crop=") for a in ffmpeg), ffmpeg)
+
+    def test_no_thumbnail_means_no_cover_not_a_failure(self):
+        run, _ = self.fake_run(produce_thumb=False)
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(ingest, "run", side_effect=run), \
+             mock.patch.object(sys, "stderr", io.StringIO()):
+            seed = ingest.Seed(id="a", title="T", artist="A", url="u")
+            self.assertIsNone(ingest.fetch_cover(seed, Path(tmp) / "a"))
+
+    def test_a_new_song_records_tier_and_cover(self):
+        with tempfile.TemporaryDirectory() as tmp, \
+             mock.patch.object(ingest, "fetch_cover", return_value="cover-x.jpg"):
+            seed = ingest.Seed(id="a", title="T", artist="A", url="u", tier="easy")
+            rec = _build(seed, Path(tmp))
+        self.assertEqual(rec["tier"], "easy")
+        self.assertEqual(rec["cover"], "cover-x.jpg")
+
+
+class TestBuiltSongs(unittest.TestCase):
+    """A built song is not rebuilt, but your seed edits and --covers still apply."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.out = Path(self.tmp.name)
+        with mock.patch.object(ingest, "fetch_cover", return_value=None):
+            _build(ingest.Seed(id="a", title="Old", artist="A", url="u"), self.out)
+        self.done = self.out / "a" / "done.json"
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def rebuild(self, seed, **kw):
+        with mock.patch.object(ingest, "download_audio") as dl, \
+             mock.patch.object(ingest, "fetch_cover", return_value="cover-new.jpg") as fc, \
+             mock.patch("builtins.print"):
+            rec = ingest.process(seed, self.out, **kw)
+        self.assertFalse(dl.called, "a built song must never be downloaded again")
+        return rec, fc
+
+    def test_seed_edits_reach_a_built_song_without_a_rebuild(self):
+        seed = ingest.Seed(id="a", title="New", artist="A", url="u", tier="hard", genre="bolero", aliases=["x"])
+        rec, fc = self.rebuild(seed)
+        self.assertEqual((rec["title"], rec["tier"], rec["genre"], rec["aliases"]), ("New", "hard", "bolero", ["x"]))
+        self.assertEqual(rec["clips"], {"100": "deadbeef.mp3"}, "audio untouched")
+        self.assertFalse(fc.called, "no cover fetch without --covers")
+        self.assertEqual(json.loads(self.done.read_text(encoding="utf-8"))["tier"], "hard", "persisted")
+
+    def test_covers_flag_backfills_a_missing_cover(self):
+        rec, fc = self.rebuild(ingest.Seed(id="a", title="Old", artist="A", url="u"), covers=True)
+        self.assertTrue(fc.called)
+        self.assertEqual(rec["cover"], "cover-new.jpg")
+        self.assertEqual(json.loads(self.done.read_text(encoding="utf-8"))["cover"], "cover-new.jpg")
+
+    def test_covers_flag_leaves_an_existing_cover_alone(self):
+        (self.out / "a" / "cover-old.jpg").write_bytes(b"x")
+        record = json.loads(self.done.read_text(encoding="utf-8"))
+        self.done.write_text(json.dumps({**record, "cover": "cover-old.jpg"}), encoding="utf-8")
+        rec, fc = self.rebuild(ingest.Seed(id="a", title="Old", artist="A", url="u"), covers=True)
+        self.assertFalse(fc.called)
+        self.assertEqual(rec["cover"], "cover-old.jpg")
+
+    def test_main_passes_covers_through(self):
+        argv = ["ingest.py", str(ROOT / "tools" / "seed.example.jsonl"), "--out", str(self.out), "--covers"]
+        with mock.patch.object(sys, "argv", argv), \
+             mock.patch.object(ingest.shutil, "which", return_value="/usr/bin/x"), \
+             mock.patch.object(ingest, "process", return_value={"id": "a", "title": "T", "artist": "A"}) as proc, \
+             mock.patch("builtins.print"):
+            self.assertEqual(ingest.main(), 0)
+        self.assertTrue(all(c.kwargs.get("covers") is True for c in proc.call_args_list))
+
+
 class TestOutputLayout(unittest.TestCase):
     """
-    The app fetches /clips/catalogue.json and /clips/<id>/<hash>.m4a from one
+    The app fetches /clips/catalogue.json and /clips/<id>/<hash>.mp3 from one
     base, so catalogue.json and the per-song dirs must be siblings under --out.
     A stray path segment 404s every clip while the catalogue still loads, which
     reads like a server misconfiguration instead of a path bug.
@@ -325,6 +477,7 @@ class TestOutputLayout(unittest.TestCase):
                  mock.patch.object(ingest, "probe_duration", return_value=120.0), \
                  mock.patch.object(ingest, "detect_music_onset", return_value=0.0), \
                  mock.patch.object(ingest, "normalise"), \
+                 mock.patch.object(ingest, "fetch_cover", return_value=None), \
                  mock.patch.object(
                      ingest, "cut_clips",
                      side_effect=lambda src, anchor, out_dir, salt, ladder=None: (

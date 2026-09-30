@@ -12,7 +12,10 @@
 //           heard a clip and know where the identifiable part is.
 // ladder:   this song's reveal steps in seconds, e.g. [0.5, 1, 2, 4, 8, 16].
 //           Overrides --ladder. Give a hard song a longer first clue.
-{"id":"nnca","title":"Nơi Này Có Anh","artist":"Sơn Tùng M-TP","url":"https://www.youtube.com/watch?v=EXAMPLE1","genre":"nhac-tre"}
-{"id":"htca","title":"Hãy Trao Cho Anh","artist":"Sơn Tùng M-TP","url":"https://www.youtube.com/watch?v=EXAMPLE2","aliases":["Give It To Me"],"genre":"nhac-tre","start_at":42.0}
-{"id":"bcb","title":"Bigcityboi","artist":"Binz","url":"https://www.youtube.com/watch?v=EXAMPLE3","genre":"rap-viet","ladder":[0.5,1,2,4,8,16]}
-{"id":"lhkn","title":"Lòng Mẹ","artist":"Y Vân","url":"https://www.youtube.com/watch?v=EXAMPLE4","genre":"bolero","anchor":"intro"}
+// tier:     how well known the song is — the difficulty it appears under:
+//           easy | medium | hard | expert | impossible. Untagged plays as medium.
+//           Editing it later needs no rebuild: re-run ingest and it is applied.
+{"id":"nnca","title":"Nơi Này Có Anh","artist":"Sơn Tùng M-TP","url":"https://www.youtube.com/watch?v=EXAMPLE1","genre":"nhac-tre","tier":"easy"}
+{"id":"htca","title":"Hãy Trao Cho Anh","artist":"Sơn Tùng M-TP","url":"https://www.youtube.com/watch?v=EXAMPLE2","aliases":["Give It To Me"],"genre":"nhac-tre","tier":"easy","start_at":42.0}
+{"id":"bcb","title":"Bigcityboi","artist":"Binz","url":"https://www.youtube.com/watch?v=EXAMPLE3","genre":"rap-viet","tier":"medium","ladder":[0.5,1,2,4,8,16]}
+{"id":"lhkn","title":"Lòng Mẹ","artist":"Y Vân","url":"https://www.youtube.com/watch?v=EXAMPLE4","genre":"bolero","tier":"hard","anchor":"intro"}

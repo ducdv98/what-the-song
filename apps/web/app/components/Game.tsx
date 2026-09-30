@@ -2,17 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  availableGenres, clipUrl, createRound, DEFAULT_LADDER, DIFFICULTIES, filterByGenre,
-  findDifficulty, giveUp, indexCatalogue, ladderFor, playableSongs, revealedSeconds, skip,
-  submitGuess, type Round, type Song,
+  availableGenres, clipUrl, createRound, filterByGenre, filterByTier, giveUp, indexCatalogue,
+  isLastStage, ladderFor, playableSongs, revealedSeconds, skip, submitGuess, tierCounts, tierOf,
+  type IndexedSong, type Round, type Song, type TierSlug,
 } from '@wts/game';
-import type { MessageKey } from '@/lib/i18n/messages';
 import { loadPrefs, savePrefs } from '@/lib/storage/prefs';
 import { useAudioEngine } from './useAudioEngine';
-import { PlayButton, formatSeconds } from './PlayButton';
-import { RevealLadder } from './RevealLadder';
-import { Lives } from './Lives';
-import { GuessInput } from './GuessInput';
+import { PlayButton } from './PlayButton';
+import { Timeline } from './Timeline';
+import { TierChips } from './TierChips';
+import { GuessBar } from './GuessBar';
+import { ResultCard } from './ResultCard';
+import { MenuDrawer } from './GameMenu';
 import { PillRow } from './PillRow';
 import { LangToggle } from './LangToggle';
 import { useI18n } from './I18nProvider';
@@ -27,261 +28,232 @@ function pickRandom(items: Song[], excludeId?: string): Song | undefined {
   return from[Math.floor(Math.random() * from.length)];
 }
 
+/**
+ * The game: one round at a time, SongSpot-style.
+ *
+ * Round screen: difficulty chips, the timeline, the play button, the search
+ * box. When the round ends the result replaces it. Genre, stats and language
+ * live in the menu drawer.
+ */
 export function Game({ catalogue }: { catalogue: Song[] }) {
   // Drop songs with a gap in their clip ladder up front, rather than throwing
   // two reveals into a round.
   const [allSongs, skipped] = useMemo(() => playableSongs(catalogue), [catalogue]);
 
   const [genre, setGenre] = useState<string | null>(null);
-  const [difficultySlug, setDifficultySlug] = useState('normal');
+  const [savedTier, setSavedTier] = useState<TierSlug | null>(null);
   const [round, setRound] = useState<Round<Song> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const { stats, record, syncFailed } = useStats();
   const { engine, state } = useAudioEngine();
   const { lang, t } = useI18n();
-  const difficulty = findDifficulty(difficultySlug);
+  const progress = useCallback(() => engine.progress(), [engine]);
 
   // Restore remembered choices on mount. Client-only: localStorage does not
-  // exist during the static export's prerender. Stats come from useStats,
-  // which knows whether this is a guest or a signed-in player.
+  // exist during the static export's prerender.
   useEffect(() => {
     const prefs = loadPrefs();
     setGenre(prefs.genre);
-    setDifficultySlug(prefs.difficulty);
+    setSavedTier(prefs.tier);
   }, []);
 
   const genreOptions = useMemo(() => availableGenres(allSongs), [allSongs]);
-  const songs = useMemo(() => filterByGenre(allSongs, genre), [allSongs, genre]);
-  const index = useMemo(() => indexCatalogue(songs), [songs]);
+  const inGenre = useMemo(() => filterByGenre(allSongs, genre), [allSongs, genre]);
+  const tiers = useMemo(() => tierCounts(inGenre), [inGenre]);
+  // The saved tier if it has songs here, else the easiest tier that does.
+  const tier: TierSlug =
+    (savedTier && tiers.find((x) => x.tier.slug === savedTier && x.count > 0)?.tier.slug) ||
+    tiers.find((x) => x.count > 0)?.tier.slug ||
+    'medium';
+  const songs = useMemo(() => filterByTier(inGenre, tier), [inGenre, tier]);
+  // Search covers every playable song, not just this tier: a guess list that
+  // only offered this tier's songs would give the answer away.
+  const index = useMemo(() => indexCatalogue(allSongs), [allSongs]);
 
-  const startRound = useCallback(
+  const newRound = useCallback(
     (excludeId?: string) => {
-      const song = pickRandom(songs, excludeId);
-      if (!song) {
-        setRound(null);
-        return;
-      }
-      setError(null);
       engine.stop();
-      setRound(createRound(song, ladderFor(song), difficulty));
+      setError(null);
+      const song = pickRandom(songs, excludeId);
+      setRound(song ? createRound(song, ladderFor(song)) : null);
     },
-    [songs, engine, difficulty],
+    [songs, engine],
   );
 
-  // Start a round, and restart whenever the pool or the rules change — a
-  // half-played round under the old difficulty would be meaningless.
-  useEffect(() => {
-    engine.stop();
-    const song = pickRandom(songs);
-    setRound(song ? createRound(song, ladderFor(song), difficulty) : null);
-    setError(null);
-  }, [songs, difficulty, engine]);
+  // A new pool (tier or genre changed) starts a new round.
+  useEffect(() => newRound(), [newRound]);
+
+  const playClip = useCallback(
+    async (song: Song, seconds: number) => {
+      try {
+        // Always inside a click handler, which is what unlocks the
+        // AudioContext on mobile Safari.
+        await engine.play(clipUrl(song, seconds), seconds);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t('error.playFailed'));
+      }
+    },
+    [engine, t],
+  );
 
   /**
-   * Apply a transition, recording a newly-finished round exactly once.
-   *
-   * Deliberately NOT done inside a setRound updater: React calls updaters twice
-   * under StrictMode to surface impurity, which would double-count every win —
-   * and, for a signed-in player, post every round to the server twice.
-   * Updaters stay pure; the side effect lives here, in the event handler, where
-   * `round` from the closure is already current.
+   * Apply a transition. A newly finished round is recorded exactly once, here
+   * in the event handler — never inside a setRound updater, which StrictMode
+   * calls twice. A newly unlocked stage plays straight away: the click that
+   * unlocked it is the gesture the browser needs.
    */
   const apply = useCallback(
     (next: Round<Song>) => {
       const before = round;
       setRound(next);
-      if (before && before.status === 'playing' && next.status !== 'playing') {
+      if (!before || before.status !== 'playing') return;
+      if (next.status !== 'playing') {
         record({
           songId: next.song.id,
           won: next.status === 'won',
           score: next.status === 'won' ? next.score : 0,
-          difficulty: difficulty.slug,
+          difficulty: tierOf(next.song),
           genre,
         });
+      } else if (next.stageIndex > before.stageIndex) {
+        void playClip(next.song, revealedSeconds(next));
       }
     },
-    [round, record, difficulty, genre],
+    [round, record, genre, playClip],
   );
 
-  const seconds = round ? revealedSeconds(round) : DEFAULT_LADDER[0];
-
-  // Warm the next rung so revealing feels immediate.
+  // Warm the next stage so revealing it feels immediate.
   useEffect(() => {
     if (!round || round.status !== 'playing') return;
-    const next = round.ladder[round.stepIndex + 1];
+    const next = round.stages[round.stageIndex + 1];
     if (next === undefined) return;
     try {
       engine.prefetch(clipUrl(round.song, next));
     } catch {
-      /* rung missing; play() will report it */
+      /* missing clip; play() will report it */
     }
   }, [round, engine]);
 
-  const play = useCallback(async () => {
-    if (!round) return;
-    try {
-      // Inside a click handler, which is what unlocks the AudioContext on
-      // mobile Safari.
-      await engine.play(clipUrl(round.song, seconds), seconds);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('error.playFailed'));
-    }
-  }, [engine, round, seconds]);
+  function onTier(slug: TierSlug) {
+    setSavedTier(slug);
+    savePrefs({ genre, tier: slug });
+  }
 
-  function onPick(slug: string | null) {
+  function onGenre(slug: string | null) {
     setGenre(slug);
-    savePrefs({ genre: slug, difficulty: difficultySlug });
+    savePrefs({ genre: slug, tier: savedTier });
   }
-
-  function onDifficulty(slug: string) {
-    setDifficultySlug(slug);
-    savePrefs({ genre, difficulty: slug });
-  }
-
-  const pickers = (
-    <div style={{ display: 'grid', gap: 'var(--s-4)' }}>
-      <PillRow
-        label={t('picker.genre')}
-        value={genre}
-        onChange={onPick}
-        options={[
-          { value: null, label: t('picker.all'), count: allSongs.length },
-          // In Vietnamese the genre's own name is the label; in English the
-          // gloss is more use, with the Vietnamese name kept as the tooltip.
-          ...genreOptions.map((g) => ({
-            value: g.genre.slug as string | null,
-            label: lang === 'vi' ? g.genre.label : g.genre.gloss,
-            hint: lang === 'vi' ? g.genre.gloss : g.genre.label,
-            count: g.count,
-          })),
-        ]}
-      />
-      <PillRow
-        label={t('picker.difficulty')}
-        value={difficultySlug}
-        onChange={onDifficulty}
-        options={DIFFICULTIES.map((d) => ({
-          value: d.slug,
-          label: t(`difficulty.${d.slug}` as MessageKey),
-          hint: t(`difficulty.${d.slug}.gloss` as MessageKey),
-        }))}
-      />
-    </div>
-  );
 
   if (allSongs.length === 0) {
     return (
-      <div className="card" style={{ maxWidth: 560 }}>
-        <p style={{ font: 'var(--t-body-bold)', margin: '0 0 var(--s-2)' }}>
-          {t('empty.noPlayable')}
-        </p>
+      <div className="card" style={{ maxWidth: 480 }}>
+        <p style={{ font: 'var(--t-body-bold)', margin: '0 0 var(--s-2)' }}>{t('empty.noPlayable')}</p>
         <p style={{ font: 'var(--t-caption)', color: 'var(--text-muted)', margin: 0 }}>
-          {skipped.length > 0
-            ? t('empty.incomplete', { n: skipped.length })
-            : t('empty.catalogue')}
+          {skipped.length > 0 ? t('empty.incomplete', { n: skipped.length }) : t('empty.catalogue')}
         </p>
       </div>
     );
   }
 
+  const seconds = round ? revealedSeconds(round) : 0;
   const over = round !== null && round.status !== 'playing';
-  const song = round?.song;
 
   return (
-    <div style={{ display: 'grid', gap: 'var(--s-6)', maxWidth: 560 }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 style={{ font: 'var(--t-section-title)', margin: 0 }}>{t('app.tagline')}</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--s-3)' }}>
-          {round && <Lives livesLeft={round.livesLeft} maxLives={round.maxLives} />}
-          <LangToggle />
-        </div>
-      </header>
+    // minmax(0, 1fr): without it the grid's column grows to its widest
+    // child's natural width and pushes past a phone's screen edge.
+    // marginBlock auto centres the game in the space under the header, as
+    // SongSpot does, instead of leaving it stuck to the top of a tall screen.
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 'var(--s-6)', width: '100%', maxWidth: 480, marginBlock: 'auto' }}>
+      {!over && <TierChips tiers={tiers} value={tier} onChange={onTier} />}
 
       {!round && (
-        <p style={{ font: 'var(--t-caption)', color: 'var(--text-muted)', margin: 0 }}>
-          {t('empty.genre')}
+        <p style={{ font: 'var(--t-caption)', color: 'var(--text-muted)', margin: 0, textAlign: 'center' }}>
+          {inGenre.length === 0 ? t('empty.genre') : t('difficulty.empty')}
         </p>
       )}
 
-      {round && song && (
+      {round && !over && (
         <>
-          <div className="card card--elevated" style={{ display: 'grid', gap: 'var(--s-5)' }}>
-            {/* Stays enabled after the round: hearing the clue again is the
-                natural next thing, and it makes a separate replay button
-                redundant. */}
-            <PlayButton state={state} seconds={seconds} onPlay={play} />
-            <RevealLadder stepIndex={round.stepIndex} ladder={round.ladder} />
-          </div>
-
-          {error && (
-            <p role="alert" style={{ font: 'var(--t-caption)', color: 'var(--text-negative)', margin: 0 }}>
-              {error}
-            </p>
-          )}
-
-          {!over && (
-            <>
-              <GuessInput
-                index={index}
-                onGuess={(title) => apply(submitGuess(round, title))}
-              />
-              <div style={{ display: 'flex', gap: 'var(--s-2)', flexWrap: 'wrap' }}>
-                {round.allowSkip && (
-                  <button className="pill" onClick={() => apply(skip(round))}>
-                    {t('round.revealMore')}
-                  </button>
-                )}
-                <button
-                  className="pill pill--outlined pill--muted"
-                  onClick={() => apply(giveUp(round))}
-                >
-                  {t('round.giveUp')}
-                </button>
-              </div>
-            </>
-          )}
-
-          {over && (
-            <div className="card" style={{ display: 'grid', gap: 'var(--s-4)' }}>
-              <div>
-                <p
-                  style={{
-                    font: 'var(--t-caption-bold)',
-                    letterSpacing: '1.4px',
-                    textTransform: 'uppercase',
-                    color: round.status === 'won' ? 'var(--accent)' : 'var(--text-negative)',
-                    margin: '0 0 var(--s-2)',
-                  }}
-                >
-                  {round.status === 'won' ? t('round.correct') : t('round.lost')}
-                </p>
-                <p style={{ font: 'var(--t-body-bold)', margin: 0 }}>{song.title}</p>
-                <p style={{ font: 'var(--t-caption)', color: 'var(--text-muted)', margin: 0 }}>
-                  {song.artist}
-                </p>
-              </div>
-
-              <p style={{ font: 'var(--t-small)', color: 'var(--text-muted)', margin: 0 }}>
-                {round.status === 'won'
-                  ? t('round.score', { score: round.score, at: formatSeconds(seconds) })
-                  : t('round.revealedTo', { at: formatSeconds(seconds) })}
-              </p>
-
-              <div style={{ display: 'flex', gap: 'var(--s-2)' }}>
-                <button className="pill pill--accent" onClick={() => startRound(song.id)}>
-                  {t('round.next')}
-                </button>
-              </div>
-            </div>
-          )}
+          <Timeline
+            stages={round.stages}
+            stageIndex={round.stageIndex}
+            playing={state === 'playing'}
+            progress={progress}
+          />
+          <PlayButton
+            state={state}
+            seconds={seconds}
+            onPlay={() => void playClip(round.song, seconds)}
+            onStop={() => engine.stop()}
+          />
+          <GuessBar
+            key={round.song.id}
+            index={index}
+            lastStage={isLastStage(round)}
+            onGuess={(song: IndexedSong) => apply(submitGuess(round, { id: song.id, title: song.title }))}
+            onSkip={() => apply(skip(round))}
+            onGiveUp={() => apply(giveUp(round))}
+          />
         </>
       )}
 
-      {/* Settings and stats sit below the game: they are touched once a
-          session, while the card above is used every round. */}
-      <StreakBar stats={stats} syncFailed={syncFailed} />
-      {pickers}
+      {round && over && (
+        <ResultCard
+          round={round}
+          playback={state}
+          onListen={() => {
+            if (state === 'playing') engine.stop();
+            else void playClip(round.song, round.stages[round.stages.length - 1]);
+          }}
+          onNext={() => newRound(round.song.id)}
+        />
+      )}
+
+      {error && (
+        <p role="alert" style={{ font: 'var(--t-caption)', color: 'var(--text-negative)', margin: 0, textAlign: 'center' }}>
+          {error}
+        </p>
+      )}
+
+      {/* One quiet line of stats; the full numbers are in the menu. */}
+      <p style={{ margin: 0, textAlign: 'center', font: 'var(--t-small)', color: 'var(--text-muted)' }}>
+        {t('stats.streak')} <strong style={{ color: stats.currentStreak > 0 ? 'var(--accent)' : 'var(--text-base)' }}>{stats.currentStreak}</strong>
+        {' · '}
+        {t('stats.best')} <strong style={{ color: 'var(--text-base)' }}>{stats.bestStreak}</strong>
+      </p>
+
+      <MenuDrawer>
+        <section>
+          <h3 style={{ margin: '0 0 var(--s-2)', font: 'var(--t-small-bold)', letterSpacing: '1.4px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+            {t('menu.howTo')}
+          </h3>
+          <p style={{ margin: 0, font: 'var(--t-caption)', color: 'var(--text-near-white)' }}>{t('menu.howToBody')}</p>
+        </section>
+        <PillRow
+          label={t('picker.genre')}
+          value={genre}
+          onChange={onGenre}
+          options={[
+            { value: null, label: t('picker.all'), count: allSongs.length },
+            // In Vietnamese the genre's own name is the label; in English the
+            // gloss is more use, with the Vietnamese name kept as the tooltip.
+            ...genreOptions.map((g) => ({
+              value: g.genre.slug as string | null,
+              label: lang === 'vi' ? g.genre.label : g.genre.gloss,
+              hint: lang === 'vi' ? g.genre.gloss : g.genre.label,
+              count: g.count,
+            })),
+          ]}
+        />
+        <StreakBar stats={stats} syncFailed={syncFailed} />
+        <section style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ font: 'var(--t-small-bold)', letterSpacing: '1.4px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+            {t('app.language')}
+          </span>
+          <LangToggle />
+        </section>
+      </MenuDrawer>
     </div>
   );
 }

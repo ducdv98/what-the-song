@@ -3,7 +3,7 @@ import {
   SONG_ID_PATTERN,
   type RoundReport,
 } from '@wts/contracts';
-import { BEST_SCORE, DIFFICULTIES } from '@wts/game';
+import { BEST_SCORE, TIER_SLUGS } from '@wts/game';
 import {
   IsBoolean,
   IsIn,
@@ -18,7 +18,8 @@ import {
 
 /**
  * Bounds come straight from the game package the browser plays with, so a new
- * difficulty or a rescaled score cannot be rejected here by a stale copy.
+ * tier or a rescaled score cannot be rejected here by a stale copy.
+ * `difficulty` is the song's tier (easy … impossible).
  */
 export class RecordRoundDto implements RoundReport {
   @IsString()
@@ -33,7 +34,7 @@ export class RecordRoundDto implements RoundReport {
   @Max(BEST_SCORE)
   score: number;
 
-  @IsIn(DIFFICULTIES.map((d) => d.slug))
+  @IsIn(TIER_SLUGS)
   difficulty: string;
 
   /** null or absent means "all genres". */

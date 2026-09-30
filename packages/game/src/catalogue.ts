@@ -15,6 +15,10 @@ export interface Song {
   artist: string;
   aliases?: string[];
   genre?: string | null;
+  /** How well known the song is — see difficulty.ts. Absent means medium. */
+  tier?: string | null;
+  /** Cover image filename in the song's clip folder, when ingest saved one. */
+  cover?: string | null;
   /** Reveal-step index → clip filename, from tools/ingest.py. */
   clips: Record<string, string>;
 }
@@ -110,6 +114,12 @@ export function clipUrl(song: Song, seconds: number, base = '/clips'): string {
   const name = song.clips[clipKey(seconds)];
   if (!name) throw new Error(`no clip for ${song.id} at ${seconds}s`);
   return `${base}/${song.id}/${name}`;
+}
+
+/** Cover image URL, or null when the song has none. */
+export function coverUrl(song: Song, base = '/clips'): string | null {
+  // Only a bare filename is trusted: the catalogue is data, not a path.
+  return song.cover && /^[\w.-]+$/.test(song.cover) ? `${base}/${song.id}/${song.cover}` : null;
 }
 
 /**
