@@ -17,3 +17,6 @@ __pycache__/
 
 # Local environment (copy from .env.example). apps/api/.env holds the API's.
 .env
+
+# Virtual environment for Python dependencies.
+.venv/
