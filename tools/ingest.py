@@ -73,7 +73,24 @@ class Seed:
 
 
 def run(cmd: list[str]) -> subprocess.CompletedProcess:
-    return subprocess.run(cmd, capture_output=True, text=True)
+    """
+    Run a command, capturing output as UTF-8.
+
+    encoding/errors are explicit because text=True decodes with the *locale*
+    codec, which is cp1252 on a default Windows install. yt-dlp and ffmpeg
+    happily print Vietnamese titles, so the default would raise
+    UnicodeDecodeError on perfectly successful commands.
+    """
+    try:
+        return subprocess.run(
+            cmd, capture_output=True, text=True, encoding="utf-8", errors="replace"
+        )
+    except FileNotFoundError:
+        # main() checks PATH up front, but a partial install (ffmpeg without
+        # ffprobe is a common Windows one) should report, not traceback.
+        return subprocess.CompletedProcess(
+            cmd, returncode=127, stdout="", stderr=f"{cmd[0]}: not found on PATH"
+        )
 
 
 def probe_duration(path: Path) -> float:
@@ -81,7 +98,12 @@ def probe_duration(path: Path) -> float:
         "ffprobe", "-v", "error", "-show_entries", "format=duration",
         "-of", "default=nw=1:nk=1", str(path),
     ])
-    return float(out.stdout.strip())
+    try:
+        return float(out.stdout.strip())
+    except ValueError:
+        # ffprobe failed or printed nothing; 0.0 fails the duration sanity
+        # check below, which reports the song rather than crashing the run.
+        return 0.0
 
 
 def detect_music_onset(path: Path, threshold_db: int = -35) -> float:
@@ -151,134 +173,56 @@ def normalise(src: Path, dst: Path) -> None:
     run(["ffmpeg", "-y", "-i", str(src), "-af", f, "-ar", "44100", "-ac", "2", str(dst)])
 
 
-def cut_clips(src: Path, anchor: float, out_dir: Path, salt: str) -> dict[str, str]:
+def cut_clips(
+    src: Path, anchor: float, out_dir: Path, salt: str
+) -> tuple[dict[str, str], list[str]]:
     """
     Cut the reveal ladder into opaque, metadata-free files.
 
     Filenames are hashes: a player who opens devtools must not be handed the
     answer in a URL. `-map_metadata -1` drops ID3 tags for the same reason.
+
+    Each cut is verified rather than assumed. `-ss` before `-i` is fast but
+    seeks to a keyframe, so a clip can come out longer than asked — which would
+    quietly make an early clue easier than intended. Anything off by more than
+    the tolerance is reported, and the engine also clamps playback client-side
+    (lib/audio/engine.ts) so a bad file cannot leak extra audio.
+
+    Returns (manifest, warnings).
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     manifest: dict[str, str] = {}
+    warnings: list[str] = []
+
     for seconds in CLIP_LADDER:
         name = hashlib.sha256(f"{salt}:{seconds}".encode()).hexdigest()[:24] + ".m4a"
+        dest = out_dir / name
         run([
             "ffmpeg", "-y",
             "-ss", f"{anchor:.3f}", "-t", f"{seconds:.3f}",
             "-i", str(src),
             "-map_metadata", "-1", "-map_chapters", "-1",
             "-c:a", "aac", "-b:a", "128k",
-            str(out_dir / name),
+            str(dest),
         ])
+
+        if not dest.exists() or dest.stat().st_size == 0:
+            warnings.append(f"{seconds}s clip was not produced")
+            continue
+
+        actual = probe_duration(dest)
+        # Generous on short rungs: AAC frames are ~23ms, so a 0.1s target
+        # cannot be sample-exact in a container.
+        tolerance = max(0.06, seconds * 0.25)
+        if abs(actual - seconds) > tolerance:
+            warnings.append(
+                f"{seconds}s clip measured {actual:.3f}s "
+                f"(off by {actual - seconds:+.3f}s)"
+            )
+
         manifest[str(seconds)] = name
-    return manifest
 
-
-def detect_os() -> str:
-    """'windows' | 'macos' | 'linux'."""
-    if sys.platform.startswith("win"):
-        return "windows"
-    if sys.platform == "darwin":
-        return "macos"
-    return "linux"
-
-
-# Where each browser keeps its profile, per OS. Presence of the directory is a
-# good enough proxy for "this browser is installed and has been run".
-_BROWSER_PROFILES: dict[str, dict[str, list[str]]] = {
-    "windows": {
-        "firefox": ["APPDATA/Mozilla/Firefox/Profiles"],
-        "chrome": ["LOCALAPPDATA/Google/Chrome/User Data"],
-        "edge": ["LOCALAPPDATA/Microsoft/Edge/User Data"],
-    },
-    "macos": {
-        "firefox": ["~/Library/Application Support/Firefox/Profiles"],
-        "chrome": ["~/Library/Application Support/Google/Chrome"],
-        "brave": ["~/Library/Application Support/BraveSoftware/Brave-Browser"],
-    },
-    "linux": {
-        "firefox": ["~/.mozilla/firefox", "~/snap/firefox/common/.mozilla/firefox"],
-        "chrome": ["~/.config/google-chrome", "~/.config/chromium"],
-        "brave": ["~/.config/BraveSoftware/Brave-Browser"],
-    },
-}
-
-
-def _profile_exists(spec: str) -> bool:
-    """Resolve a profile path spec, which may lead with a Windows env var."""
-    if spec.startswith("~"):
-        return Path(spec).expanduser().is_dir()
-    var, _, rest = spec.partition("/")
-    root = os.environ.get(var)
-    return bool(root) and (Path(root) / rest).is_dir()
-
-
-def installed_browsers(host_os: str) -> list[str]:
-    return [
-        name
-        for name, specs in _BROWSER_PROFILES.get(host_os, {}).items()
-        if any(_profile_exists(spec) for spec in specs)
-    ]
-
-
-def auto_cookie_browser(host_os: str) -> tuple[str | None, str]:
-    """
-    Pick a browser yt-dlp can actually read cookies from. Returns
-    (browser or None, explanation to print).
-
-    Firefox is preferred everywhere: it stores cookies in plain SQLite, so no
-    platform gets in the way.
-
-    On Windows, Chromium browsers are not merely awkward but impossible —
-    Chrome 127+ encrypts cookies with app-bound encryption that ties the key to
-    the Chrome process. No external tool can read them and there is no local
-    workaround. Edge, Brave, Opera and Vivaldi all inherit it. So on Windows we
-    only ever offer Firefox.
-    """
-    found = installed_browsers(host_os)
-
-    if "firefox" in found:
-        return "firefox", "cookies: using Firefox"
-
-    if host_os == "windows":
-        blocked = [b for b in found if b != "firefox"]
-        detail = f" Found {', '.join(blocked)}, but" if blocked else ""
-        return None, (
-            f"cookies: none available.{detail} Chrome 127+ on Windows encrypts"
-            " cookies with app-bound encryption that no external tool can read."
-            "\ncookies: install Firefox and sign in to YouTube, or export a"
-            " cookies.txt and pass --cookies FILE."
-        )
-
-    for candidate in ("chrome", "brave"):
-        if candidate in found:
-            return candidate, f"cookies: using {candidate.title()}"
-
-    return None, "cookies: no supported browser profile found; continuing without"
-
-
-def install_hint(host_os: str) -> list[str]:
-    if host_os == "windows":
-        return [
-            "  py -m pip install -U yt-dlp",
-            "  winget install ffmpeg      (or: scoop install ffmpeg)",
-            "  then reopen your terminal so PATH is picked up.",
-        ]
-    if host_os == "macos":
-        return ["  pip install -U yt-dlp", "  brew install ffmpeg"]
-    return [
-        "  pip install -U yt-dlp",
-        "  sudo apt install ffmpeg      (or your distro's equivalent)",
-    ]
-
-
-def cookie_args(browser: str | None, cookie_file: Path | None) -> list[str]:
-    """Build yt-dlp's cookie flags."""
-    if cookie_file:
-        return ["--cookies", str(cookie_file)]
-    if browser:
-        return ["--cookies-from-browser", browser]
-    return []
+    return manifest, warnings
 
 
 def download_audio(
@@ -333,7 +277,7 @@ def process(
     clip_dir = out_root / "clips" / seed.id
     if (clip_dir / "done.json").exists():
         print(f"  [skip] {seed.id} already built")
-        return json.loads((clip_dir / "done.json").read_text())
+        return json.loads((clip_dir / "done.json").read_text(encoding="utf-8"))
 
     print(f"  [get ] {seed.artist} — {seed.title}")
     # ignore_cleanup_errors: on Windows a lingering ffmpeg handle can block
@@ -358,7 +302,7 @@ def process(
         if not levelled.exists():
             levelled = raw
 
-        manifest = cut_clips(levelled, anchor, clip_dir, salt=seed.id)
+        manifest, clip_warnings = cut_clips(levelled, anchor, clip_dir, salt=seed.id)
 
     record = {
         "id": seed.id,
@@ -370,11 +314,14 @@ def process(
         "detected_onset": round(onset, 3),
         "source_duration": round(duration, 1),
         "clips": manifest,
+        "clip_warnings": clip_warnings,
         # Long detected onset usually means a spoken or cinematic intro that
         # silencedetect could not see past. Worth an ear before you trust it.
         "needs_review": onset > 8.0 or (seed.start_at is None and seed.anchor == "intro" and onset > 4.0),
     }
-    (clip_dir / "done.json").write_text(json.dumps(record, ensure_ascii=False, indent=2))
+    (clip_dir / "done.json").write_text(
+        json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
     return record
 
 
@@ -453,7 +400,9 @@ def main() -> int:
                 review.append(rec)
 
     catalogue = args.out / "catalogue.json"
-    catalogue.write_text(json.dumps(built, ensure_ascii=False, indent=2))
+    catalogue.write_text(
+        json.dumps(built, ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
     print(f"\nbuilt {len(built)}, failed {len(failed)}")
     print(f"catalogue: {catalogue}")
@@ -466,6 +415,18 @@ def main() -> int:
               "\nset \"start_at\" in the seed file to fix:")
         for r in review:
             print(f"  - {r['artist']} — {r['title']}  onset={r['detected_onset']}s")
+
+    # Clip length problems are a pipeline fault, not a catalogue one: they mean
+    # ffmpeg is not cutting what was asked for.
+    flagged = [r for r in built if r.get("clip_warnings")]
+    if flagged:
+        print("\nclip length problems — the ffmpeg cut did not match the ladder:")
+        for r in flagged:
+            print(f"  - {r['artist']} — {r['title']}")
+            for w in r["clip_warnings"]:
+                print(f"      {w}")
+        print("  If short clips run long, -ss is seeking to a keyframe; move it")
+        print("  after -i in cut_clips() for a decode-accurate seek.")
     return 0
 
 

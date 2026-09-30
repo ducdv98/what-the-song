@@ -86,6 +86,19 @@ pick a mid-track point instead.
 
 Budget roughly **0.5 MB per song** for the full seven-step reveal ladder.
 
+### Troubleshooting
+
+**`UnicodeEncodeError: 'charmap' codec can't encode character`** — fixed; update
+to the latest commit. Python on Windows defaults file writes and subprocess
+decoding to cp1252, which cannot represent Vietnamese. Every such call now
+passes `encoding="utf-8"` explicitly. Re-running is safe: songs that crashed
+before their `done.json` was written are simply rebuilt.
+
+**Clip length problems reported at the end of a run** — the ffmpeg cut did not
+match the ladder. Each clip is now measured with ffprobe after cutting, so this
+surfaces instead of producing a silently broken catalogue. If short clips come
+out long, `-ss` is seeking to a keyframe; move it after `-i` in `cut_clips()`.
+
 ### Cookies and the bot wall
 
 YouTube scores automated requests and will eventually demand "Sign in to confirm
@@ -113,6 +126,10 @@ py tools\ingest.py seed.jsonl --out public/clips --no-cookies
 
 Firefox stores cookies in plain SQLite, which is why it works everywhere.
 `--cookies-from-browser BROWSER` overrides the detection if you need it.
+
+If the script reports no cookies and downloads still succeed, you do not need
+any of this — a home connection is often scored well enough on its own. Only
+reach for cookies once you actually see the bot check.
 
 Two more things worth knowing: **run this on your own machine, never a VPS** —
 datacenter IPs are scored far below residential ones, so ingest from a cloud box
