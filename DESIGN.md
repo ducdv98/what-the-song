@@ -1,264 +1,251 @@
-# Design System Inspired by Spotify
+# What the Song — Gig Poster design system
 
-> ## Implementation notes for this repo
->
-> Two deviations, both unavoidable rather than stylistic:
->
-> 1. **Fonts.** `SpotifyMixUI` / `SpotifyMixUITitle` are proprietary (the
->    CircularSp family, derived from Circular by Lineto) and cannot be licensed
->    or shipped here. The tokens map them to **Inter** with the documented
->    global fallback stack. Inter is metrically close, free, and covers
->    Vietnamese diacritics well — which matters more than usual for this app,
->    since stacked tone marks render badly in many fonts.
-> 2. **No Spotify branding.** §4 mentions a Spotify logo in the sidebar; this
->    app uses its own wordmark. The design *language* here is ours to use; the
->    marks are not.
->
-> Everything else below is implemented as specified. Tokens live in
-> `apps/web/app/tokens.css`; see §9 for the quick reference the components were built
-> against.
+**Status:** Implemented September 2026. The frontend now uses the Gig Poster palette, self-hosted Anton and Be Vietnam Pro fonts, responsive printed play and result cards, real audio progress, accessible stage history, and coordinated drawer and account styles. Desktop introduces the game with a bilingual poster headline; phones put the controls first. The guest notice sits below the game, with expandable details.
 
-## 1. Visual Theme & Atmosphere
+**Reference:** [interactive raw HTML preview](design-previews.html), style 02. The preview is a visual sketch. The rules, copy, and component behavior in this document take precedence where the sketch simplifies the real game.
 
-Spotify's web interface is a dark, immersive music player that wraps listeners in a near-black cocoon (`#121212`, `#181818`, `#1f1f1f`) where album art and content become the primary source of color. The design philosophy is "content-first darkness" — the UI recedes into shadow so that music, podcasts, and playlists can glow. Every surface is a shade of charcoal, creating a theater-like environment where the only true color comes from the iconic Spotify Green (`#1ed760`) and the album artwork itself.
+## 1. Product fit and concept
 
-The typography uses SpotifyMixUI and SpotifyMixUITitle — proprietary fonts from the CircularSp family (Circular by Lineto, customized for Spotify) with an extensive fallback stack that includes Arabic, Hebrew, Cyrillic, Greek, Devanagari, and CJK fonts, reflecting Spotify's global reach. The type system is compact and functional: 700 (bold) for emphasis and navigation, 600 (semibold) for secondary emphasis, and 400 (regular) for body. Buttons use uppercase with positive letter-spacing (1.4px–2px) for a systematic, label-like quality.
+What the Song is a private, bilingual guessing game for Vietnamese music. Players hear a short clip, reveal longer clips at a score cost, search the catalogue for a song, and see a result. Difficulty, genre, streaks, account, and leaderboards support that loop. The app is a single screen, often used on a phone, and has no public music library to browse.
 
-What distinguishes Spotify is its pill-and-circle geometry. Primary buttons use 500px–9999px radius (full pill), circular play buttons use 50% radius, and search inputs are 500px pills. Combined with heavy shadows (`rgba(0,0,0,0.5) 0px 8px 24px`) on elevated elements and a unique inset border-shadow combo (`rgb(18,18,18) 0px 1px 0px, rgb(124,124,124) 0px 0px 0px 1px inset`), the result is an interface that feels like a premium audio device — tactile, rounded, and built for touch.
+**Concept: a Vietnamese gig poster brought to life.** The page feels like an energetic show flyer: a bright yellow field, oversized ink typography, a printed cream play card, coral accents, heavy offset shadows, and stage markers that look like tickets or setlist strips. This should feel social and immediate, with the music clue as the star.
 
-**Key Characteristics:**
-- Near-black immersive dark theme (`#121212`–`#1f1f1f`) — UI disappears behind content
-- Spotify Green (`#1ed760`) as singular brand accent — never decorative, always functional
-- SpotifyMixUI/CircularSp font family with global script support
-- Pill buttons (500px–9999px) and circular controls (50%) — rounded, touch-optimized
-- Uppercase button labels with wide letter-spacing (1.4px–2px)
-- Heavy shadows on elevated elements (`rgba(0,0,0,0.5) 0px 8px 24px`)
-- Semantic colors: negative red (`#f3727f`), warning orange (`#ffa42b`), announcement blue (`#539df5`)
-- Album art as the primary color source — the UI is achromatic by design
+### Design goals
 
-## 2. Color Palette & Roles
+1. The player sees the current clue, play button, and answer action at a glance.
+2. The visual rhythm builds as clues get longer, without suggesting a countdown or fake audio waveform.
+3. The app has its own identity. The selected style is a poster language, not a copy of a streaming service or a real artist's promotional materials.
+4. Song identity stays hidden until the result. No pre-answer cover art, title, artist, or answer derived colors.
+5. Vietnamese and English both fit, with tone marks rendered cleanly and natural sentence case for functional text.
+6. A phone player can use every primary action with one hand, with keyboard and screen reader support preserved.
 
-### Primary Brand
-- **Spotify Green** (`#1ed760`): Primary brand accent — play buttons, active states, CTAs
-- **Near Black** (`#121212`): Deepest background surface
-- **Dark Surface** (`#181818`): Cards, containers, elevated surfaces
-- **Mid Dark** (`#1f1f1f`): Button backgrounds, interactive surfaces
+### Current product constraints
 
-### Text
-- **White** (`#ffffff`): `--text-base`, primary text
-- **Silver** (`#b3b3b3`): Secondary text, muted labels, inactive nav
-- **Near White** (`#cbcbcb`): Slightly brighter secondary text
-- **Light** (`#fdfdfd`): Near-pure white for maximum emphasis
+The game already has a variable, per-song clip ladder, up to five stages. The default ladder is 0.1, 0.5, 2, 8, and 16 seconds, but the interface must read the actual stages. Search covers all playable songs to avoid revealing the difficulty pool. A selected suggestion is submitted by the Guess action; an empty answer action is Skip or Give up at the final stage. The result replaces the round and offers replay, share, and next round. Keep this behavior unless a later task explicitly changes it.
 
-### Semantic
-- **Negative Red** (`#f3727f`): `--text-negative`, error states
-- **Warning Orange** (`#ffa42b`): `--text-warning`, warning states
-- **Announcement Blue** (`#539df5`): `--text-announcement`, info states
+The existing app uses Next.js, CSS, React, and browser audio. The catalogue and cover assets are generated outside the repository. The redesign should remain workable with no cover, no playable songs, guest mode, account errors, and no leaderboard connection.
 
-### Surface & Border
-- **Dark Card** (`#252525`): Elevated card surface
-- **Mid Card** (`#272727`): Alternate card surface
-- **Border Gray** (`#4d4d4d`): Button borders on dark
-- **Light Border** (`#7c7c7c`): Outlined button borders, muted links
-- **Separator** (`#b3b3b3`): Divider lines
-- **Light Surface** (`#eeeeee`): Light-mode buttons (rare)
-- **Spotify Green Border** (`#1db954`): Green accent border variant
+## 2. Research and rationale
 
-### Shadows
-- **Heavy** (`rgba(0,0,0,0.5) 0px 8px 24px`): Dialogs, menus, elevated panels
-- **Medium** (`rgba(0,0,0,0.3) 0px 8px 8px`): Cards, dropdowns
-- **Inset Border** (`rgb(18,18,18) 0px 1px 0px, rgb(124,124,124) 0px 0px 0px 1px inset`): Input border-shadow combo
+| Evidence | What it means here |
+|---|---|
+| Repository: Game, Timeline, PlayButton, GuessBar, ResultCard, GameMenu, AuthDialog, and i18n messages | The round is the main product. A sidebar, album grid, or persistent player bar would consume space without serving the current flow. |
+| [Atlassian design tokens](https://atlassian.design/foundations/design-tokens) | Tokens should describe a role such as action, text, border, or result, so the system stays coherent as components change. |
+| [Atlassian spacing guidance](https://atlassian.design/foundations/spacing) | Repeated spacing and varied grouping make hierarchy easier to scan. Use the poster's dense details around a few large focal points. |
+| [Apple guidance on game controls](https://developer.apple.com/design/human-interface-guidelines/game-controls) | Controls need symbols that describe their actions and visible press feedback. The playback control and answer action should be unmistakable. |
+| [Apple guidance on audio](https://developer.apple.com/design/human-interface-guidelines/playing-audio) | Playback should follow familiar expectations and user initiation. Decorative sound effects would compete with the clue. |
+| [WCAG 2.2](https://www.w3.org/TR/wcag/) and [target size guidance](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum) | Ordinary text needs 4.5:1 contrast; meaningful nontext graphics need 3:1. Pointer targets need at least 24×24 CSS px or enough separation. This design aims for 44px primary controls. |
+| [Anton font metadata](https://github.com/google/fonts/blob/main/ofl/anton/METADATA.pb) and [Be Vietnam Pro metadata](https://github.com/google/fonts/blob/main/ofl/bevietnampro/METADATA.pb) | Both include Vietnamese glyph subsets and open licenses. Anton supplies the poster headline; Be Vietnam Pro handles UI, titles, artists, and readable Vietnamese copy. |
 
-## 3. Typography Rules
+The gig poster concept, layout, and palette are design decisions for this app. The external sources support system structure, font coverage, and interaction/accessibility rules; they do not prescribe this visual style.
 
-### Font Families
-- **Title**: `SpotifyMixUITitle`, fallbacks: `CircularSp-Arab, CircularSp-Hebr, CircularSp-Cyrl, CircularSp-Grek, CircularSp-Deva, Helvetica Neue, helvetica, arial, Hiragino Sans, Hiragino Kaku Gothic ProN, Meiryo, MS Gothic`
-- **UI / Body**: `SpotifyMixUI`, same fallback stack
+## 3. Visual language
 
-### Hierarchy
+### Signature elements
 
-| Role | Font | Size | Weight | Line Height | Letter Spacing | Notes |
-|------|------|------|--------|-------------|----------------|-------|
-| Section Title | SpotifyMixUITitle | 24px (1.50rem) | 700 | normal | normal | Bold title weight |
-| Feature Heading | SpotifyMixUI | 18px (1.13rem) | 600 | 1.30 (tight) | normal | Semibold section heads |
-| Body Bold | SpotifyMixUI | 16px (1.00rem) | 700 | normal | normal | Emphasized text |
-| Body | SpotifyMixUI | 16px (1.00rem) | 400 | normal | normal | Standard body |
-| Button Uppercase | SpotifyMixUI | 14px (0.88rem) | 600–700 | 1.00 (tight) | 1.4px–2px | `text-transform: uppercase` |
-| Button | SpotifyMixUI | 14px (0.88rem) | 700 | normal | 0.14px | Standard button |
-| Nav Link Bold | SpotifyMixUI | 14px (0.88rem) | 700 | normal | normal | Navigation |
-| Nav Link | SpotifyMixUI | 14px (0.88rem) | 400 | normal | normal | Inactive nav |
-| Caption Bold | SpotifyMixUI | 14px (0.88rem) | 700 | 1.50–1.54 | normal | Bold metadata |
-| Caption | SpotifyMixUI | 14px (0.88rem) | 400 | normal | normal | Metadata |
-| Small Bold | SpotifyMixUI | 12px (0.75rem) | 700 | 1.50 | normal | Tags, counts |
-| Small | SpotifyMixUI | 12px (0.75rem) | 400 | normal | normal | Fine print |
-| Badge | SpotifyMixUI | 10.5px (0.66rem) | 600 | 1.33 | normal | `text-transform: capitalize` |
-| Micro | SpotifyMixUI | 10px (0.63rem) | 400 | normal | normal | Smallest text |
+- **Yellow venue wall:** the page background is warm yellow with optional faint halftone dots. Use dots at very low opacity and keep them away from dense text.
+- **Printed play card:** cream paper, thick ink border, and a hard offset shadow. One main card holds the round. Avoid a stack of nested cards.
+- **Display type:** large, compressed poster headlines. Use a short English wordmark or concise title. Functional Vietnamese labels and song titles use Be Vietnam Pro for consistent tone marks and wrapping.
+- **Setlist strip:** actual reveal stages appear as five marked segments. Current and unlocked segments gain emphasis; future ones remain clear but quieter.
+- **Coral hit:** a single bright accent marks the play action, current stage, and win energy. Ink and cream carry the rest of the interface.
+- **Ink rules and stamps:** thick horizontal lines, small edition labels, and a result stamp add print character. They carry information or divide content.
 
-### Principles
-- **Bold/regular binary**: Most text is either 700 (bold) or 400 (regular), with 600 used sparingly. This creates a clear visual hierarchy through weight contrast rather than size variation.
-- **Uppercase buttons as system**: Button labels use uppercase + wide letter-spacing (1.4px–2px), creating a systematic "label" voice distinct from content text.
-- **Compact sizing**: The range is 10px–24px — narrower than most systems. Spotify's type is compact and functional, designed for scanning playlists, not reading articles.
-- **Global script support**: The extensive fallback stack (Arabic, Hebrew, Cyrillic, Greek, Devanagari, CJK) reflects Spotify's 180+ market reach.
+### Visual hierarchy
 
-## 4. Component Stylings
+1. Current listening action and duration.
+2. Revealed stage and the cost of moving to the next clue.
+3. Answer field and Skip, Guess, or Give up action.
+4. Difficulty and genre context.
+5. Streak, account, menu, and leaderboard.
 
-### Buttons
+Use the boldest headline only once per view. The active round is a game surface, so the decorative introduction from the preview is optional on desktop and absent above the playable controls on phones.
 
-**Dark Pill**
-- Background: `#1f1f1f`
-- Text: `#ffffff` or `#b3b3b3`
-- Padding: 8px 16px
-- Radius: 9999px (full pill)
-- Use: Navigation pills, secondary actions
+### What to avoid
 
-**Dark Large Pill**
-- Background: `#181818`
-- Text: `#ffffff`
-- Padding: 0px 43px
-- Radius: 500px
-- Use: Primary app navigation buttons
+- Generic equalizer animation, fabricated audio waveform, or spinning record.
+- Real gig posters, copyrighted tour branding, artist photography, or album art before the answer.
+- Coral body text on cream: its contrast is too low.
+- All caps for Vietnamese sentences, long song names, artist names, or form labels.
+- Tilted buttons and text fields. A slight card rotation can appear in editorial artwork, but interactive controls must stay aligned and readable.
+- Shadows on every chip and panel; reserve the offset shadow for the main card and primary pressable surfaces.
 
-**Light Pill**
-- Background: `#eeeeee`
-- Text: `#181818`
-- Radius: 500px
-- Use: Light-mode CTAs (cookie consent, marketing)
+## 4. Foundations
 
-**Outlined Pill**
-- Background: transparent
-- Text: `#ffffff`
-- Border: `1px solid #7c7c7c`
-- Padding: 4px 16px 4px 36px (asymmetric for icon)
-- Radius: 9999px
-- Use: Follow buttons, secondary actions
+### 4.1 Color tokens
 
-**Circular Play**
-- Background: `#1f1f1f`
-- Text: `#ffffff`
-- Padding: 12px
-- Radius: 50% (circle)
-- Use: Play/pause controls
+| Token | Hex | Meaning |
+|---|---|---|
+| color.wall | #F9E549 | Page background and high energy field |
+| color.paper | #FFF9E9 | Game card, result card, dialogs where appropriate |
+| color.ink | #172533 | Primary text, outlines, dark buttons |
+| color.ink.soft | #485562 | Secondary text on cream |
+| color.coral | #F46A48 | Play, current clue, result decoration, pressed detail |
+| color.coral.soft | #F4A88E | Large decorative coral surface |
+| color.coral.text | #A83227 | Small red text on cream, errors, negative result copy |
+| color.line | #172533 | Structural rules and control borders |
+| color.stage.rest | #CED4CA | Future stages and neutral chips |
+| color.success | #196B56 | Correct result text on cream |
+| color.focus | #174EB8 | Keyboard focus outline, chosen to stand apart from ink and coral |
 
-### Cards & Containers
-- Background: `#181818` or `#1f1f1f`
-- Radius: 6px–8px
-- No visible borders on most cards
-- Hover: slight background lightening
-- Shadow: `rgba(0,0,0,0.3) 0px 8px 8px` on elevated
+The four main measured pairs are ink on yellow **12.11:1**, ink on cream **14.81:1**, ink on coral **5.19:1**, and dark red text on cream **6.34:1**. Coral on cream is only **2.85:1**, so use coral for large shapes, borders, or backgrounds and use ink or dark red for small text. Recheck composited colors and disabled states in the rendered UI. The values are starting specifications, not a claim that every future use automatically passes contrast.
 
-### Inputs
-- Search input: `#1f1f1f` background, `#ffffff` text
-- Radius: 500px (pill)
-- Padding: 12px 96px 12px 48px (icon-aware)
-- Focus: border becomes `#000000`, outline `1px solid`
+**Distribution:** about 60% yellow or open wall, 30% cream game surface, and 10% ink/coral highlights. On small screens the cream card naturally occupies a larger proportion. Keep result artwork inside the result card; do not allow album art colors to recolor the whole UI.
 
-### Navigation
-- Dark sidebar with SpotifyMixUI 14px weight 700 for active, 400 for inactive
-- `#b3b3b3` muted color for inactive items, `#ffffff` for active
-- Circular icon buttons (50% radius)
-- Wordmark top-left in green
+### 4.2 Typography
 
-## 5. Layout Principles
+| Role | Typeface | Desktop / phone | Weight and line height | Rule |
+|---|---|---|---|---|
+| Poster display | Anton | 80–112 / 42–60px | 400 / 0.95–1.0 | Short English brand or one short heading; never clip glyphs |
+| Round heading | Be Vietnam Pro | 30 / 25px | 800 / 1.25 | Question or status within the card |
+| Result song title | Be Vietnam Pro | 32 / 26px | 800 / 1.25 | Wrap freely; preserve Vietnamese diacritics |
+| Section heading | Be Vietnam Pro | 20 / 18px | 700 / 1.3 | Drawer, result details |
+| Body | Be Vietnam Pro | 16 / 16px | 400 / 1.5 | Instructions and account copy |
+| Control | Be Vietnam Pro | 15 / 15px | 700 / 1.3 | Buttons, filters, tabs |
+| Label | Be Vietnam Pro | 12 / 12px | 700 / 1.4 | Short metadata, stage labels |
+| Duration / score | Be Vietnam Pro | 48 / 36px | 900 / 1.1 | Tabular numerals for changing numbers |
 
-### Spacing System
-- Base unit: 8px
-- Scale: 1px, 2px, 3px, 4px, 5px, 6px, 8px, 10px, 12px, 14px, 15px, 16px, 20px
+Self host font files with Vietnamese coverage and include their license notices. Use font-display: swap and a system sans fallback. Review the actual output with titles such as “Nơi Này Có Anh”, “Chúng Ta Của Hiện Tại”, and long artist credits. Never force song titles into a single fixed-height line. Reserve expanded tracking for short metadata. Do not track Vietnamese body text widely.
 
-### Grid & Container
-- Sidebar (fixed) + main content area
-- Grid-based album/playlist cards
-- Full-width now-playing bar at bottom
-- Responsive content area fills remaining space
+### 4.3 Space, shape, and depth
 
-### Whitespace Philosophy
-- **Dark compression**: Spotify packs content densely — playlist grids, track lists, and navigation are all tightly spaced. The dark background provides visual rest between elements without needing large gaps.
-- **Content density over breathing room**: This is an app, not a marketing site. Every pixel serves the listening experience.
+- Space scale: 4, 8, 12, 16, 20, 24, 32, 40, 48, and 64px.
+- Main card width: 480–520px maximum. Outer page width: 1120px maximum.
+- Page gutters: 16px below 600px, 24px on tablet, 32px on desktop.
+- Main card: 4px ink border, cream fill, 10px ink offset shadow on desktop and 6px on phone. Use 0–4px radius for printed panels, with a subtle 8–12px radius only where physical card corners help.
+- Primary controls: straight edges or 4px radius and a 3–4px ink border. Inputs keep a stable rectangle. Small genre and tier chips can use 4px corners.
+- Form controls: at least 48px high. Menu and close controls at least 44×44px.
+- Ink separators: 2–4px for section divisions; 1px only for quiet inner rules.
+- Interaction elevation: pressing a raised button shifts it 2–3px toward its shadow. The control remains in the same reading order.
 
-### Border Radius Scale
-- Minimal (2px): Badges, explicit tags
-- Subtle (4px): Inputs, small elements
-- Standard (6px): Album art containers, cards
-- Comfortable (8px): Sections, dialogs
-- Medium (10px–20px): Panels, overlay elements
-- Large (100px): Large pill buttons
-- Pill (500px): Primary buttons, search input
-- Full Pill (9999px): Navigation pills, search
-- Circle (50%): Play buttons, avatars, icons
+### 4.4 Icons and graphic motifs
 
-## 6. Depth & Elevation
+Use a limited 20–24px icon set: play, stop, search, menu, close, share, arrow, check, cross. Icons are ink silhouettes or sturdy strokes that suit the poster weight. Text names every action. A starburst or stamp can appear once in a result or desktop poster area; it cannot overlap the answer form. Halftone texture is decorative and must disappear in forced colors and reduced data contexts if delivered as an asset.
 
-| Level | Treatment | Use |
-|-------|-----------|-----|
-| Base (Level 0) | `#121212` background | Deepest layer, page background |
-| Surface (Level 1) | `#181818` or `#1f1f1f` | Cards, sidebar, containers |
-| Elevated (Level 2) | `rgba(0,0,0,0.3) 0px 8px 8px` | Dropdown menus, hover cards |
-| Dialog (Level 3) | `rgba(0,0,0,0.5) 0px 8px 24px` | Modals, overlays, menus |
-| Inset (Border) | `rgb(18,18,18) 0px 1px 0px, rgb(124,124,124) 0px 0px 0px 1px inset` | Input borders |
+## 5. Responsive compositions
 
-**Shadow Philosophy**: Spotify uses notably heavy shadows for a dark-themed app. The 0.5 opacity shadow at 24px blur creates a dramatic "floating in darkness" effect for dialogs and menus, while the 0.3 opacity at 8px blur provides a more subtle card lift. The unique inset border-shadow combination on inputs creates a recessed, tactile quality.
+### Active round, mobile first
 
-## 7. Do's and Don'ts
+At 320–599px, show a compact header, optional one-line filter context, then the printed card and answer form. The card contains the question, current stage, reveal strip, play control, and current clip length. Put the search field and its changing action immediately after the card. Streak stays quiet below. The large editorial headline from the preview should not push play below the first view.
 
-### Do
-- Use near-black backgrounds (`#121212`–`#1f1f1f`) — depth through shade variation
-- Apply the green accent (`#1ed760`) only for play controls, active states, and primary CTAs
-- Use pill shape (500px–9999px) for all buttons — circular (50%) for play controls
-- Apply uppercase + wide letter-spacing (1.4px–2px) on button labels
-- Keep typography compact (10px–24px range) — this is an app, not a magazine
-- Use heavy shadows (`0.3–0.5 opacity`) for elevated elements on dark backgrounds
-- Let content provide color — the UI itself is achromatic
+~~~text
+menu  what the song           account
+genre / difficulty context
+╔════════════════════════════════════╗
+║ WTS / LIVE ROUND       VIETNAMESE   ║
+║ Clue 1 of 5                        ║
+║ GUESS THE TRACK                    ║
+║ [0.1][0.5][2][8][16]              ║
+║ [  PLAY  ]     0.1s               ║
+╚════════════════════════════════════╝
+[ Song or artist... ][ Skip / Guess ]
+streak · best
+~~~
 
-### Don't
-- Don't use the green accent decoratively or on backgrounds — it's functional only
-- Don't use light backgrounds for primary surfaces — the dark immersion is core
-- Don't skip the pill/circle geometry on buttons — square buttons break the identity
-- Don't use thin/subtle shadows — on dark backgrounds, shadows need to be heavy to be visible
-- Don't add additional brand colors — green + achromatic grays is the complete palette
-- Don't use relaxed line-heights — the typography is compact and dense
-- Don't expose raw gray borders — use shadow-based or inset borders instead
+This is a hierarchy diagram, not final copy. Stage count and length come from the actual round. There is no invented overall round number. The interface does not reveal the song's genre if that information would narrow the answer beyond the player's chosen filter.
 
-## 8. Responsive Behavior
+### Desktop
 
-### Breakpoints
-| Name | Width | Key Changes |
-|------|-------|-------------|
-| Mobile Small | <425px | Compact mobile layout |
-| Mobile | 425–576px | Standard mobile |
-| Tablet | 576–768px | 2-column grid |
-| Tablet Large | 768–896px | Expanded layout |
-| Desktop Small | 896–1024px | Sidebar visible |
-| Desktop | 1024–1280px | Full desktop layout |
-| Large Desktop | >1280px | Expanded grid |
+At 900px and wider, the play card remains the central 480–520px column. A poster headline and a short “how to play” statement may sit to its left. The page should feel like one composed flyer rather than a dashboard. A secondary stats rail is optional only if it does not compete with the clue. Do not create a sidebar or album grid for this scope.
 
-### Collapsing Strategy
-- Sidebar: full → collapsed → hidden
-- Album grid: 5 columns → 3 → 2 → 1
-- Now-playing bar: maintained at all sizes
-- Search: pill input maintained, width adjusts
-- Navigation: sidebar → bottom bar on mobile
+### Result
 
-## 9. Agent Prompt Guide
+Replace the active card in place with a result poster. Place a correct/incorrect text stamp, cover or typographic fallback, title, artist, score, stage history, replay, share, and the prominent next-round action. A loss shows the answer and zero points plainly. The result should read in this order on a phone: outcome, song, score, actions. Share is secondary; Next song or Try again is the main CTA. The existing share squares remain available and their meanings should be explained through adjacent text or accessible names.
 
-### Quick Color Reference
-- Background: Near Black (`#121212`)
-- Surface: Dark Card (`#181818`)
-- Text: White (`#ffffff`)
-- Secondary text: Silver (`#b3b3b3`)
-- Accent: Green (`#1ed760`)
-- Border: `#4d4d4d`
-- Error: Negative Red (`#f3727f`)
+### Drawer, account, and secondary screens
 
-### Example Component Prompts
-- "Create a dark card: #181818 background, 8px radius. Title at 16px weight 700, white text. Subtitle at 14px weight 400, #b3b3b3. Shadow rgba(0,0,0,0.3) 0px 8px 8px on hover."
-- "Design a pill button: #1f1f1f background, white text, 9999px radius, 8px 16px padding. 14px weight 700, uppercase, letter-spacing 1.4px."
-- "Build a circular play button: green (#1ed760) background, #000000 icon, 50% radius, 12px padding."
-- "Create search input: #1f1f1f background, white text, 500px radius, 12px 48px padding. Inset border: rgb(124,124,124) 0px 0px 0px 1px inset."
-- "Design navigation sidebar: #121212 background. Active items: 14px weight 700, white. Inactive: 14px weight 400, #b3b3b3."
+The drawer is the “back of the flyer”: how to play, genre, stats, leaderboard, and language. Use a cream or ink surface with clear grouping and generous reading space; avoid a decorative headline in every subsection. The account dialog uses labeled fields, visible error copy, and one primary submit button. If the account service is unavailable, the game remains playable as a guest. These states use the same palette and type system.
 
-### Iteration Guide
-1. Start with #121212 — everything lives in near-black darkness
-2. Green for functional highlights only (play, active, CTA)
-3. Pill everything — 500px for large, 9999px for small, 50% for circular
-4. Uppercase + wide tracking on buttons — the systematic label voice
-5. Heavy shadows (0.3–0.5 opacity) for elevation — light shadows are invisible on dark
-6. Content provides all the color — the UI stays achromatic
+## 6. Component specifications
+
+| Component | Default and hierarchy | State behavior |
+|---|---|---|
+| Play button | Coral fill, ink glyph and border, about 112×112px on desktop and at least 88×88px on phone. The real clip length sits beside it. | Play and stop have distinct symbols and accessible names. Loading shows a stable busy state. Press shifts toward its offset shadow. No autoplay. |
+| Reveal strip | One segment per actual stage, labeled with duration. Future stages are neutral; current is ink filled or strongly outlined; unlocked history uses coral. | On unlock, mark the new stage and show its actual duration. A brief 180–240ms transition is enough. The strip is informational, not a seek control. |
+| Difficulty choices | Be Vietnam Pro labels, full names, and selected ink treatment. | Available, selected, focus, and unavailable states differ by text/shape as well as color. Zero-song tier stays understandable. |
+| Genre picker | In the drawer, grouped or searchable when the 20-genre catalogue is populated. | The chosen genre appears in the round context. Selection can start a new round under current behavior; do not silently imply the current song merely changed label. |
+| Guess field | 48px or taller, ink border on cream, visible label, search icon optional. | Suggestions show title and artist on separate lines. A picked item is obvious; typing again clears the pick. Keyboard arrows, Enter, and Escape remain supported. |
+| Changing action | A single companion button labelled Skip, Guess, or Give up. | Guess uses ink fill or coral fill with ink text; Skip is neutral; Give up uses dark red text and a strong outline. The label communicates the action without icon decoding. |
+| Result cover | 160–176px square, only after round resolves. | Missing art becomes a typographic print tile using song initials. Keep title and artist as text outside the image. |
+| Result stamp | Bold outcome word plus check/cross shape. | Correct, wrong, and give up are distinct in words and color. Animate only on entry; no ongoing pulse. |
+| Next / Try again | Highest priority result action, full width on phone if space is tight. | Visible at 200% zoom with scrolling. Disabled only during actual transition. |
+| Leaderboard | Tabular numerals, row rules, rank emphasis in ink/coral. | Loading, empty, guest, error, and current-user rows retain clear text. Avoid color as the sole rank cue. |
+| Menu / account dialog | Strong ink header rule, spacious field labels, stable close target. | Escape closes; focus remains visible and returns to the trigger. Errors appear beside the relevant form region. |
+
+## 7. Copy, language, and accessibility
+
+### Voice
+
+Short, lively, and clear. Gig poster energy belongs in headings and visual rhythm. Functional copy remains plain: the player should immediately understand Play, Skip, Guess, Give up, Listen again, Share, and Next song. Keep the existing Vietnamese and English message catalogue as the source of functional strings. New text gets both translations in the same change.
+
+Use natural Vietnamese casing, for example “Đoán bài hát”, “Bỏ qua”, and “Bài tiếp”. Do not apply CSS uppercase to Vietnamese body labels or song metadata. The English marketing style “HEAR IT. NAME IT.” from the preview is optional on desktop; its Vietnamese version should be written as natural copy, not a literal shout.
+
+### Accessibility acceptance rules
+
+- Follow [WCAG 2.2 AA](https://www.w3.org/TR/wcag/): at least 4.5:1 for ordinary text, 3:1 for large text and meaningful nontext boundaries, visible focus, keyboard operation, and reflow.
+- Aim for 44×44px touch targets in the play flow. The WCAG AA floor is 24×24px with its documented spacing exceptions. Avoid tiny close and filter targets.
+- Focus ring uses the blue focus token at 3px with an offset, or an equivalent high-contrast treatment on yellow, cream, coral, and ink surfaces. Never remove a browser focus outline without replacement.
+- The stage text announces the new unlocked duration once. Do not stream live playback progress into an aria-live region.
+- Give the play button a changing accessible name for play/stop and a true disabled/loading state. The result status is announced politely once.
+- Implement the suggestions according to the [WAI ARIA combobox pattern](https://www.w3.org/WAI/ARIA/apg/patterns/combobox/): active descendant, keyboard movement, visible active option, Escape, and selection.
+- Respect prefers-reduced-motion. Remove halftone in forced colors if it harms readability. Support 200% text zoom, long titles, and the mobile on-screen keyboard without clipping actions.
+- The clue is inherently audio based, so visual status does not replace audio; it makes the interface and result usable to players who cannot perceive color or decorative motion.
+
+## 8. Motion and interaction principles
+
+Motion should behave like print coming alive: a card enters once, a stage inks in, a button presses, and the result receives one stamp. Suggested durations are 120ms for press/hover, 180–240ms for stage changes, and 250–320ms for a result entry. Use transform and opacity where possible. Reduce motion to immediate state changes under the user's preference.
+
+The sample audio is the sole sound cue. Do not add applause, clicks, countdown ticks, or background music. Playing and replaying remain explicit user actions. The demo's simulated playback is only a visual preview and should not be copied as actual audio behavior.
+
+## 9. Token structure and implementation map
+
+Separate primitive palette values from semantic roles. Components should ask for an action, text, surface, or status token rather than directly reading an arbitrary color. A future token set could start like this:
+
+~~~css
+:root {
+  --yellow-300: #f9e549;
+  --cream-100: #fff9e9;
+  --ink-900: #172533;
+  --coral-500: #f46a48;
+  --red-700: #a83227;
+
+  --color-page: var(--yellow-300);
+  --color-card: var(--cream-100);
+  --color-text: var(--ink-900);
+  --color-action: var(--coral-500);
+  --color-action-text: var(--ink-900);
+  --color-error-text: var(--red-700);
+  --color-focus: #174eb8;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --border-card: 4px solid var(--ink-900);
+  --shadow-card: 10px 10px 0 var(--ink-900);
+}
+~~~
+
+| Current file | Implementation responsibilities |
+|---|---|
+| apps/web/app/tokens.css | New primitive and semantic colors, type, spacing, border, shadow, and interaction tokens. |
+| apps/web/app/globals.css | Page surface, button and form states, card, drawer, dialog, focus, responsive behavior, reduced motion. |
+| apps/web/app/page.tsx | Mobile-first header and editorial desktop composition; loading and empty states. |
+| apps/web/app/components/Game.tsx | Round composition and the position of filters, stage, play, guess, and result. Preserve game logic. |
+| Timeline.tsx and PlayButton.tsx | Actual stage strip and primary playback affordance, including state text and accessible names. |
+| GuessBar.tsx and ResultCard.tsx | Answer form, suggestion list, result poster, art fallback, replay, share, and next action. |
+| TierChips.tsx and PillRow.tsx | Available, selected, unavailable, and responsive choices. |
+| GameMenu.tsx, StreakBar.tsx, Leaderboard.tsx | Secondary information in the flyer language. |
+| AuthDialog.tsx, AccountBar.tsx, GuestNotice.tsx | Dialog and account affordances in the new visual system. |
+| apps/web/lib/i18n/messages.ts | Every new label in Vietnamese and English. |
+
+### Implementation and review order
+
+1. Make final 360px and 1280px compositions with real Vietnamese titles, a long artist credit, and a non-default clip ladder.
+2. Add fonts and tokens, then page and card foundations.
+3. Build the play flow: stage strip, button, answer form, filter context, and all states.
+4. Build result, drawer, leaderboard, and account surfaces.
+5. Review phone keyboards, keyboard navigation, screen reader names, 200% zoom, reduced motion, forced colors, actual browser audio, and no pre-answer art leak.
+
+**Definition of done:** the shipped round is immediately playable and recognizably Gig Poster; every current game state uses the same system; Vietnamese text remains legible; the stage display reflects actual game data; interactions meet the accessibility rules above. The implementation task may refine exact spacing after seeing it in a browser, with any material design decision recorded in this document.

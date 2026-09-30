@@ -1,7 +1,9 @@
 'use client';
 
+import { radioKeys } from './radioKeys';
+
 /**
- * A row of selectable pills — DESIGN.md §4 "Dark Pill", accent when active.
+ * Genre choices with a clear selected ink treatment.
  *
  * Shared by both pickers so they cannot drift apart visually. Rendered as a
  * radiogroup so keyboard and screen-reader users get the right semantics for
@@ -19,12 +21,10 @@ export function PillRow<T extends string | null>({
   onChange: (v: T) => void;
 }) {
   return (
-    <div role="radiogroup" aria-label={label}>
+    <div role="radiogroup" aria-label={label} onKeyDown={radioKeys}>
       <p
         style={{
           font: 'var(--t-small-bold)',
-          letterSpacing: '1.4px',
-          textTransform: 'uppercase',
           color: 'var(--text-muted)',
           margin: '0 0 var(--s-2)',
         }}
@@ -39,13 +39,14 @@ export function PillRow<T extends string | null>({
               key={String(opt.value)}
               role="radio"
               aria-checked={active}
+              tabIndex={active || (!options.some((o) => o.value === value) && opt === options[0]) ? 0 : -1}
               title={opt.hint}
               onClick={() => onChange(opt.value)}
               className={active ? 'pill pill--accent' : 'pill pill--muted'}
             >
               {opt.label}
               {opt.count !== undefined && (
-                <span style={{ opacity: 0.6, marginLeft: 6 }}>{opt.count}</span>
+                <span style={{ marginLeft: 6 }}>({opt.count})</span>
               )}
             </button>
           );

@@ -732,6 +732,48 @@ def load_seeds(path: Path) -> list[Seed]:
 DEFAULT_OUT = Path(__file__).resolve().parent.parent / "apps" / "web" / "public" / "clips"
 
 
+def completed_records(seeds: list[Seed], out: Path) -> list[dict | None]:
+    """Recover completed songs in seed order, including current seed metadata."""
+    records: list[dict | None] = []
+    for seed in seeds:
+        clip_dir = out / seed.id
+        done = clip_dir / "done.json"
+        record = None
+        if done.exists():
+            try:
+                cached = json.loads(done.read_text(encoding="utf-8"))
+                clips = cached.get("clips") if isinstance(cached, dict) else None
+                if (isinstance(cached, dict) and cached.get("id") == seed.id
+                        and isinstance(clips, dict) and clips
+                        and all(isinstance(name, str) and (clip_dir / name).is_file()
+                                for name in clips.values())):
+                    record = apply_seed_metadata(cached, seed)
+                else:
+                    print(f"  [omit] {seed.id}: incomplete clip manifest", file=sys.stderr)
+            except (OSError, ValueError) as e:
+                print(f"  [omit] {seed.id}: {e}", file=sys.stderr)
+        records.append(record)
+    return records
+
+
+def write_catalogue(out: Path, records: list[dict | None]) -> Path:
+    """Publish a complete JSON snapshot so readers never see a partial write."""
+    out.mkdir(parents=True, exist_ok=True)
+    catalogue = out / "catalogue.json"
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(
+            mode="w", encoding="utf-8", dir=out, suffix=".tmp", delete=False,
+        ) as f:
+            temporary = Path(f.name)
+            json.dump([r for r in records if r is not None], f, ensure_ascii=False, indent=2)
+        temporary.replace(catalogue)
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+    return catalogue
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("seed", type=Path, help="JSONL seed file")
@@ -740,6 +782,12 @@ def main() -> int:
         type=Path,
         default=DEFAULT_OUT,
         help="Clip library root (default: apps/web/public/clips)",
+    )
+    ap.add_argument(
+        "--catalogue-only",
+        action="store_true",
+        help="Rebuild catalogue.json from completed songs in the seed file,"
+        " without downloading audio or requiring yt-dlp/ffmpeg.",
     )
     ap.add_argument(
         "--cookies-from-browser",
@@ -775,6 +823,14 @@ def main() -> int:
         help="Netscape cookies.txt, exported from your browser.",
     )
     args = ap.parse_args()
+
+    if args.catalogue_only:
+        seeds = load_seeds(args.seed)
+        records = completed_records(seeds, args.out)
+        catalogue = write_catalogue(args.out, records)
+        count = sum(r is not None for r in records)
+        print(f"catalogue: {catalogue} ({count} completed songs, {len(seeds) - count} not built)")
+        return 0
 
     if args.cookie_file and not args.cookie_file.exists():
         print(f"cookie file not found: {args.cookie_file}", file=sys.stderr)
@@ -815,25 +871,22 @@ def main() -> int:
     seeds = load_seeds(args.seed)
     print(f"{len(seeds)} songs in seed file")
 
+    # Recover songs from an interrupted run before any slow download starts.
+    # Keep later completed songs visible while earlier ones are being retried.
+    records = completed_records(seeds, args.out)
+    catalogue = write_catalogue(args.out, records)
+
     built, failed, review = [], [], []
-    for seed in seeds:
+    for i, seed in enumerate(seeds):
         rec = process(seed, args.out, browser, args.cookie_file, ladder, covers=args.covers)
         if rec is None:
             failed.append(seed)
         else:
             built.append(rec)
+            records[i] = rec
+            write_catalogue(args.out, records)
             if rec.get("needs_review"):
                 review.append(rec)
-
-    # cut_clips creates per-song dirs as a side effect, but if every song
-    # failed nothing has made --out yet and the write below would crash —
-    # losing the failure report, which is the one useful thing left.
-    args.out.mkdir(parents=True, exist_ok=True)
-
-    catalogue = args.out / "catalogue.json"
-    catalogue.write_text(
-        json.dumps(built, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
 
     print(f"\nbuilt {len(built)}, failed {len(failed)}")
     print(f"catalogue: {catalogue}")

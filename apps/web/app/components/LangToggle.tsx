@@ -2,6 +2,7 @@
 
 import { LANGUAGES } from '@/lib/i18n/detect';
 import { useI18n } from './I18nProvider';
+import { radioKeys } from './radioKeys';
 
 const NAMES: Record<string, string> = { vi: 'Tiếng Việt', en: 'English' };
 
@@ -9,12 +10,13 @@ const NAMES: Record<string, string> = { vi: 'Tiếng Việt', en: 'English' };
 export function LangToggle() {
   const { lang, setLang, t } = useI18n();
   return (
-    <div role="radiogroup" aria-label={t('app.language')} style={{ display: 'flex', gap: 'var(--s-1)' }}>
+    <div role="radiogroup" aria-label={t('app.language')} onKeyDown={radioKeys} style={{ display: 'flex', gap: 'var(--s-1)' }}>
       {LANGUAGES.map((l) => (
         <button
           key={l}
           role="radio"
           aria-checked={l === lang}
+          tabIndex={l === lang ? 0 : -1}
           aria-label={NAMES[l]}
           onClick={() => setLang(l)}
           className={l === lang ? 'pill pill--accent' : 'pill pill--muted'}

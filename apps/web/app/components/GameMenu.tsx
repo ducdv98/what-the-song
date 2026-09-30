@@ -55,7 +55,7 @@ export function MenuDrawer({ children }: { children: React.ReactNode }) {
         if (e.target === e.currentTarget) setOpen(false);
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--s-5)' }}>
+      <div className="drawer-header">
         <h2 id="menu-title" style={{ margin: 0, font: 'var(--t-feature)' }}>
           {t('menu.title')}
         </h2>
@@ -63,7 +63,7 @@ export function MenuDrawer({ children }: { children: React.ReactNode }) {
           ✕
         </button>
       </div>
-      <div style={{ display: 'grid', gap: 'var(--s-6)' }}>{children}</div>
+      <div className="drawer-content">{children}</div>
     </dialog>
   );
 }

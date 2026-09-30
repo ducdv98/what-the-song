@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState } from 'react';
 import { coverUrl, TIERS, tierOf, type Round, type Song } from '@wts/game';
@@ -6,10 +6,7 @@ import type { PlaybackState } from '@/lib/audio/engine';
 import { formatSeconds } from './PlayButton';
 import { useI18n } from './I18nProvider';
 
-/**
- * One square per stage, spoiler-free: 🟥 wrong guess, ⬛ skipped, 🟩 guessed,
- * ⬜ not reached. The row alone says how the round went.
- */
+/** Spoiler-free history: wrong, skipped, correct, and not reached. */
 export function shareSquares(round: Round<Song>): string {
   return round.stages
     .map((_, i) => {
@@ -21,10 +18,6 @@ export function shareSquares(round: Round<Song>): string {
     .join('');
 }
 
-/**
- * The end of a round: the song, big, with a stamp saying how it went.
- * Replaces the round screen, so there is nothing else to look at.
- */
 export function ResultCard({
   round,
   playback,
@@ -38,12 +31,12 @@ export function ResultCard({
 }) {
   const { t, lang } = useI18n();
   const [copied, setCopied] = useState(false);
+  const [failedCover, setFailedCover] = useState<string | null>(null);
   const won = round.status === 'won';
   const song = round.song;
   const cover = coverUrl(song);
   const at = formatSeconds(round.stages[round.stageIndex]);
   const longest = round.stages[round.stages.length - 1];
-  const glow = won ? 'rgba(30, 215, 96, 0.45)' : 'rgba(243, 114, 127, 0.45)';
   const tier = TIERS.find((x) => x.slug === tierOf(song))!;
 
   async function share() {
@@ -61,62 +54,130 @@ export function ResultCard({
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
-      // Share sheet dismissed, or clipboard blocked: nothing to report.
+      /* Share dismissed or clipboard blocked. */
     }
   }
 
   return (
     <section
-      aria-live="polite"
+      className="play-card result-card"
       data-testid="result"
       data-status={round.status}
-      style={{ display: 'grid', justifyItems: 'center', gap: 'var(--s-3)', textAlign: 'center' }}
+      aria-labelledby="result-title"
     >
-      <div
-        style={{
-          width: 176,
-          height: 176,
-          borderRadius: 'var(--r-panel)',
-          overflow: 'hidden',
-          boxShadow: `0 0 48px ${glow}`,
-          background: 'linear-gradient(135deg, #2a2a2a, #161616)',
-          display: 'grid',
-          placeItems: 'center',
-        }}
+      <div className="card-masthead">
+        <strong>WTS / {t('result.heading')}</strong>
+        <span className="card-ticket">
+          {lang === 'vi' ? tier.label : tier.gloss}
+        </span>
+      </div>
+      <span
+        className={`stamp ${won ? 'stamp--won' : 'stamp--lost'}`}
+        role="status"
       >
-        {cover ? (
-          // Plain <img>: the app is a static export, next/image cannot optimise.
-          <img src={cover} alt="" width={176} height={176} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <span aria-hidden="true">{won ? '✓' : '×'}</span>
+        {won ? t('result.guessedIn', { at }) : t('result.lost')}
+      </span>
+      <div className="result-cover">
+        {cover && cover !== failedCover ? (
+          // Static export: native image, with a fallback for missing cover files.
+          <img
+            src={cover}
+            alt=""
+            width={160}
+            height={160}
+            onError={() => setFailedCover(cover)}
+          />
         ) : (
-          <span data-testid="cover-fallback" aria-hidden="true" style={{ font: '800 56px/1 var(--font-ui)', color: 'var(--text-muted)' }}>
+          <span
+            className="cover-initials"
+            data-testid="cover-fallback"
+            aria-hidden="true"
+          >
             {initials(song.title)}
           </span>
         )}
       </div>
-
-      {!won && (
-        <p style={{ margin: 0, font: 'var(--t-small-bold)', letterSpacing: '3px', textTransform: 'uppercase', color: 'var(--text-negative)' }}>
-          {t('result.itWas')}
-        </p>
-      )}
       <div>
-        <h2 style={{ margin: 0, font: '800 26px/1.2 var(--font-ui)' }}>{song.title}</h2>
-        <p style={{ margin: '4px 0 0', font: 'var(--t-caption)', color: 'var(--text-muted)' }}>{song.artist}</p>
+        {!won && (
+          <p className="field-label" style={{ marginBottom: 8 }}>
+            {t('result.itWas')}
+          </p>
+        )}
+        <h2 id="result-title" className="result-title">
+          {song.title}
+        </h2>
+        <p className="result-artist">{song.artist}</p>
       </div>
-
-      <span className="stamp" style={{ color: won ? 'var(--accent)' : 'var(--text-negative)', margin: 'var(--s-2) 0' }}>
-        {won ? t('result.guessedIn', { at }) : t('result.lost')}
-      </span>
-
-      <div style={{ display: 'flex', gap: 'var(--s-2)', flexWrap: 'wrap', justifyContent: 'center' }}>
-        <button className="pill" onClick={onListen} disabled={playback === 'loading'}>
-          {playback === 'playing' ? '■' : '▶'} {t('result.listen', { seconds: formatSeconds(longest) })}
+      <p className="result-score">
+        {t('round.points', { n: won ? round.score : 0 })}
+      </p>
+      <div
+        className="result-history"
+        role="list"
+        aria-label={t('result.history')}
+      >
+        {round.stages.map((seconds, i) => {
+          const attempt = round.attempts[i];
+          const kind = !attempt
+            ? 'unreached'
+            : attempt.kind === 'skip'
+              ? 'skip'
+              : attempt.quality === 'none'
+                ? 'wrong'
+                : 'correct';
+          const outcome = t(
+            kind === 'skip'
+              ? 'result.skipped'
+              : kind === 'wrong'
+                ? 'result.wrong'
+                : kind === 'correct'
+                  ? 'result.correct'
+                  : 'result.unreached',
+          );
+          return (
+            <span
+              key={seconds}
+              className="history-stage"
+              data-kind={kind}
+              role="listitem"
+              aria-label={t('result.stage', {
+                n: i + 1,
+                seconds: formatSeconds(seconds),
+                outcome,
+              })}
+              title={`${formatSeconds(seconds)} · ${outcome}`}
+            >
+              <span aria-hidden="true">
+                {kind === 'skip'
+                  ? '–'
+                  : kind === 'wrong'
+                    ? '×'
+                    : kind === 'correct'
+                      ? '✓'
+                      : '·'}
+              </span>
+            </span>
+          );
+        })}
+      </div>
+      <div className="result-actions">
+        <button
+          className="pill"
+          onClick={onListen}
+          disabled={playback === 'loading'}
+        >
+          <span aria-hidden="true">{playback === 'playing' ? '■' : '▶'}</span>{' '}
+          {playback === 'playing'
+            ? t('round.stopLabel')
+            : t('result.listen', { seconds: formatSeconds(longest) })}
         </button>
         <button className="pill" onClick={() => void share()}>
           {copied ? t('result.copied') : t('result.share')}
         </button>
-        <button className="pill pill--accent" onClick={onNext} autoFocus>
-          {won ? t('result.next') : t('result.tryAgain')}
+        <button className="pill next-button" onClick={onNext} autoFocus>
+          {won ? t('result.next') : t('result.tryAgain')}{' '}
+          <span aria-hidden="true">↗</span>
         </button>
       </div>
     </section>

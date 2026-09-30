@@ -43,7 +43,7 @@ export function StreakBar({ stats, syncFailed }: { stats: Stats; syncFailed?: bo
             <div
               style={{
                 font: 'var(--t-section-title)',
-                color: it.accent ? 'var(--accent)' : 'var(--text-base)',
+                color: it.accent ? 'var(--color-success)' : 'var(--text-base)',
                 lineHeight: 1.1,
               }}
             >

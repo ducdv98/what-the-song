@@ -152,6 +152,16 @@ karaoke, beat, lyric-video and cover reuploads make YouTube metadata unreliable,
 so the catalogue stays under your control.
 
 Re-running skips songs already built, so you can grow the seed file over time.
+The catalogue is saved after each completed song, so those songs are available
+on reload even if the batch is still running or gets interrupted. To recover a
+stale catalogue from existing clips without downloading anything:
+
+```sh
+python tools/ingest.py seed.jsonl --catalogue-only
+```
+
+This includes completed songs in the seed file and uses their current metadata.
+
 ### Where the clue starts
 
 This matters more than clip length. Vietnamese pop usually opens with 8–30s of

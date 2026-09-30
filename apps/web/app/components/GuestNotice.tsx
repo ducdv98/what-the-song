@@ -40,29 +40,35 @@ export function GuestNotice() {
   }
 
   return (
-    <section
-      className="card"
-      aria-labelledby="guest-notice-title"
-      style={{
-        maxWidth: 560,
-        display: 'grid',
-        gap: 'var(--s-3)',
-        borderLeft: '3px solid var(--accent)',
-      }}
-    >
-      <h2 id="guest-notice-title" style={{ font: 'var(--t-body-bold)', margin: 0 }}>
-        {t('guest.title')}
-      </h2>
-      <p style={{ font: 'var(--t-caption)', color: 'var(--text-near-white)', margin: 0 }}>
-        {t('guest.body')}
-      </p>
-      {!available && (
-        <p style={{ font: 'var(--t-small)', color: 'var(--text-warning)', margin: 0 }}>
-          {t('guest.offline')}
+    <section className="guest-notice" aria-labelledby="guest-notice-title">
+      <details>
+        <summary id="guest-notice-title">{t('guest.title')}</summary>
+        <p
+          style={{
+            font: 'var(--t-caption)',
+            color: 'var(--text-near-white)',
+            margin: 0,
+          }}
+        >
+          {t('guest.body')}
         </p>
-      )}
-      <div style={{ display: 'flex', gap: 'var(--s-2)', flexWrap: 'wrap' }}>
-        <button className="pill pill--accent" onClick={() => openDialog('register')}>
+        {!available && (
+          <p
+            style={{
+              font: 'var(--t-small)',
+              color: 'var(--text-warning)',
+              margin: 0,
+            }}
+          >
+            {t('guest.offline')}
+          </p>
+        )}
+      </details>
+      <div className="guest-actions">
+        <button
+          className="pill pill--accent"
+          onClick={() => openDialog('register')}
+        >
           {t('auth.createAccount')}
         </button>
         <button className="pill" onClick={() => openDialog('login')}>

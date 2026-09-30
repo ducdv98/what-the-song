@@ -2,13 +2,30 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  availableGenres, clipUrl, createRound, filterByGenre, filterByTier, giveUp, indexCatalogue,
-  isLastStage, ladderFor, playableSongs, revealedSeconds, skip, submitGuess, tierCounts, tierOf,
-  type IndexedSong, type Round, type Song, type TierSlug,
+  availableGenres,
+  clipUrl,
+  createRound,
+  filterByGenre,
+  filterByTier,
+  giveUp,
+  indexCatalogue,
+  isLastStage,
+  ladderFor,
+  playableSongs,
+  revealedSeconds,
+  scoreForStep,
+  skip,
+  submitGuess,
+  tierCounts,
+  tierOf,
+  type IndexedSong,
+  type Round,
+  type Song,
+  type TierSlug,
 } from '@wts/game';
 import { loadPrefs, savePrefs } from '@/lib/storage/prefs';
 import { useAudioEngine } from './useAudioEngine';
-import { PlayButton } from './PlayButton';
+import { PlayButton, formatSeconds } from './PlayButton';
 import { Timeline } from './Timeline';
 import { TierChips } from './TierChips';
 import { GuessBar } from './GuessBar';
@@ -39,7 +56,10 @@ function pickRandom(items: Song[], excludeId?: string): Song | undefined {
 export function Game({ catalogue }: { catalogue: Song[] }) {
   // Drop songs with a gap in their clip ladder up front, rather than throwing
   // two reveals into a round.
-  const [allSongs, skipped] = useMemo(() => playableSongs(catalogue), [catalogue]);
+  const [allSongs, skipped] = useMemo(
+    () => playableSongs(catalogue),
+    [catalogue],
+  );
 
   const [genre, setGenre] = useState<string | null>(null);
   const [savedTier, setSavedTier] = useState<TierSlug | null>(null);
@@ -60,11 +80,15 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
   }, []);
 
   const genreOptions = useMemo(() => availableGenres(allSongs), [allSongs]);
-  const inGenre = useMemo(() => filterByGenre(allSongs, genre), [allSongs, genre]);
+  const inGenre = useMemo(
+    () => filterByGenre(allSongs, genre),
+    [allSongs, genre],
+  );
   const tiers = useMemo(() => tierCounts(inGenre), [inGenre]);
   // The saved tier if it has songs here, else the easiest tier that does.
   const tier: TierSlug =
-    (savedTier && tiers.find((x) => x.tier.slug === savedTier && x.count > 0)?.tier.slug) ||
+    (savedTier &&
+      tiers.find((x) => x.tier.slug === savedTier && x.count > 0)?.tier.slug) ||
     tiers.find((x) => x.count > 0)?.tier.slug ||
     'medium';
   const songs = useMemo(() => filterByTier(inGenre, tier), [inGenre, tier]);
@@ -148,10 +172,20 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
 
   if (allSongs.length === 0) {
     return (
-      <div className="card" style={{ maxWidth: 480 }}>
-        <p style={{ font: 'var(--t-body-bold)', margin: '0 0 var(--s-2)' }}>{t('empty.noPlayable')}</p>
-        <p style={{ font: 'var(--t-caption)', color: 'var(--text-muted)', margin: 0 }}>
-          {skipped.length > 0 ? t('empty.incomplete', { n: skipped.length }) : t('empty.catalogue')}
+      <div className="state-card">
+        <p style={{ font: 'var(--t-body-bold)', margin: '0 0 var(--s-2)' }}>
+          {t('empty.noPlayable')}
+        </p>
+        <p
+          style={{
+            font: 'var(--t-caption)',
+            color: 'var(--text-muted)',
+            margin: 0,
+          }}
+        >
+          {skipped.length > 0
+            ? t('empty.incomplete', { n: skipped.length })
+            : t('empty.catalogue')}
         </p>
       </div>
     );
@@ -159,43 +193,104 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
 
   const seconds = round ? revealedSeconds(round) : 0;
   const over = round !== null && round.status !== 'playing';
+  const selectedGenre = genreOptions.find((g) => g.genre.slug === genre)?.genre;
+  const genreLabel = selectedGenre
+    ? lang === 'vi'
+      ? selectedGenre.label
+      : selectedGenre.gloss
+    : t('picker.all');
+  const nextSeconds = round?.stages[round.stageIndex + 1];
 
   return (
-    // minmax(0, 1fr): without it the grid's column grows to its widest
-    // child's natural width and pushes past a phone's screen edge.
-    // marginBlock auto centres the game in the space under the header, as
-    // SongSpot does, instead of leaving it stuck to the top of a tall screen.
-    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 'var(--s-6)', width: '100%', maxWidth: 480, marginBlock: 'auto' }}>
+    <div className="game">
+      <p className="filter-context">
+        {t('picker.genre')}: <strong>{genreLabel}</strong>
+      </p>
       {!over && <TierChips tiers={tiers} value={tier} onChange={onTier} />}
 
       {!round && (
-        <p style={{ font: 'var(--t-caption)', color: 'var(--text-muted)', margin: 0, textAlign: 'center' }}>
+        <p
+          style={{
+            font: 'var(--t-caption)',
+            color: 'var(--text-muted)',
+            margin: 0,
+            textAlign: 'center',
+          }}
+        >
           {inGenre.length === 0 ? t('empty.genre') : t('difficulty.empty')}
         </p>
       )}
 
       {round && !over && (
         <>
-          <Timeline
-            stages={round.stages}
-            stageIndex={round.stageIndex}
-            playing={state === 'playing'}
-            progress={progress}
-          />
-          <PlayButton
-            state={state}
-            seconds={seconds}
-            onPlay={() => void playClip(round.song, seconds)}
-            onStop={() => engine.stop()}
-          />
-          <GuessBar
-            key={round.song.id}
-            index={index}
-            lastStage={isLastStage(round)}
-            onGuess={(song: IndexedSong) => apply(submitGuess(round, { id: song.id, title: song.title }))}
-            onSkip={() => apply(skip(round))}
-            onGiveUp={() => apply(giveUp(round))}
-          />
+          <section className="play-card" aria-labelledby="round-title">
+            <div className="card-masthead">
+              <strong>WTS / {t('round.live')}</strong>
+              <span className="card-ticket">{t('app.editionShort')}</span>
+            </div>
+            <div className="clue-heading">
+              <p>
+                {t('round.clue', {
+                  n: round.stageIndex + 1,
+                  total: round.stages.length,
+                })}
+              </p>
+              <span className="points-tag">
+                {t('round.points', {
+                  n: scoreForStep(round.stageIndex, round.stages.length),
+                })}
+              </span>
+            </div>
+            <h2 id="round-title" className="round-title">
+              {t('round.title')}
+            </h2>
+            <p className="visually-hidden" role="status">
+              {t('round.stageAnnouncement', {
+                n: round.stageIndex + 1,
+                total: round.stages.length,
+                seconds: formatSeconds(seconds),
+              })}
+            </p>
+            <Timeline
+              stages={round.stages}
+              stageIndex={round.stageIndex}
+              playing={state === 'playing'}
+              progress={progress}
+            />
+            <PlayButton
+              state={state}
+              seconds={seconds}
+              onPlay={() => void playClip(round.song, seconds)}
+              onStop={() => engine.stop()}
+            />
+            <p className="play-hint">{t('round.playHint')}</p>
+          </section>
+          <div className="answer-block">
+            <label htmlFor="guess" className="field-label">
+              {t('round.answer')}
+            </label>
+            <GuessBar
+              key={round.song.id}
+              index={index}
+              lastStage={isLastStage(round)}
+              onGuess={(song: IndexedSong) =>
+                apply(submitGuess(round, { id: song.id, title: song.title }))
+              }
+              onSkip={() => apply(skip(round))}
+              onGiveUp={() => apply(giveUp(round))}
+            />
+            <p className="answer-hint">
+              {nextSeconds !== undefined
+                ? t('round.skipCost', {
+                    seconds: formatSeconds(nextSeconds),
+                    points: scoreForStep(
+                      round.stageIndex + 1,
+                      round.stages.length,
+                    ),
+                  })
+                : t('round.finalHint')}
+            </p>
+          </div>
         </>
       )}
 
@@ -205,31 +300,46 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
           playback={state}
           onListen={() => {
             if (state === 'playing') engine.stop();
-            else void playClip(round.song, round.stages[round.stages.length - 1]);
+            else
+              void playClip(round.song, round.stages[round.stages.length - 1]);
           }}
           onNext={() => newRound(round.song.id)}
         />
       )}
 
       {error && (
-        <p role="alert" style={{ font: 'var(--t-caption)', color: 'var(--text-negative)', margin: 0, textAlign: 'center' }}>
+        <p role="alert" className="inline-error">
           {error}
         </p>
       )}
 
       {/* One quiet line of stats; the full numbers are in the menu. */}
-      <p style={{ margin: 0, textAlign: 'center', font: 'var(--t-small)', color: 'var(--text-muted)' }}>
-        {t('stats.streak')} <strong style={{ color: stats.currentStreak > 0 ? 'var(--accent)' : 'var(--text-base)' }}>{stats.currentStreak}</strong>
+      <p className="game-stats">
+        <span>
+          {t('stats.streak')} <strong>{stats.currentStreak}</strong>
+        </span>
         {' · '}
-        {t('stats.best')} <strong style={{ color: 'var(--text-base)' }}>{stats.bestStreak}</strong>
+        <span>
+          {t('stats.best')} <strong>{stats.bestStreak}</strong>
+        </span>
       </p>
 
       <MenuDrawer>
         <section>
-          <h3 style={{ margin: '0 0 var(--s-2)', font: 'var(--t-small-bold)', letterSpacing: '1.4px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
+          <h3
+            style={{ margin: '0 0 var(--s-2)', font: 'var(--t-caption-bold)' }}
+          >
             {t('menu.howTo')}
           </h3>
-          <p style={{ margin: 0, font: 'var(--t-caption)', color: 'var(--text-near-white)' }}>{t('menu.howToBody')}</p>
+          <p
+            style={{
+              margin: 0,
+              font: 'var(--t-caption)',
+              color: 'var(--text-near-white)',
+            }}
+          >
+            {t('menu.howToBody')}
+          </p>
         </section>
         <PillRow
           label={t('picker.genre')}
@@ -249,10 +359,14 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
         />
         <StreakBar stats={stats} syncFailed={syncFailed} />
         <Leaderboard version={synced} />
-        <section style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ font: 'var(--t-small-bold)', letterSpacing: '1.4px', textTransform: 'uppercase', color: 'var(--text-muted)' }}>
-            {t('app.language')}
-          </span>
+        <section
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <span className="field-label">{t('app.language')}</span>
           <LangToggle />
         </section>
       </MenuDrawer>

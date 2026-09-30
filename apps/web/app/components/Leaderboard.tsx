@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { authApi, type LeaderboardPeriod, type LeaderboardResponse } from '@/lib/auth/client';
 import { useAuth } from './AuthProvider';
 import { useI18n } from './I18nProvider';
+import { radioKeys } from './radioKeys';
 
 /** Rows shown before the list is cut; the player's own row is always shown. */
 const TOP = 10;
@@ -48,7 +49,7 @@ export function Leaderboard({ version }: { version: number }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 'var(--s-2)', flexWrap: 'wrap' }}>
         <h3
           id="board-title"
-          style={{ margin: 0, font: 'var(--t-small-bold)', letterSpacing: '1.4px', textTransform: 'uppercase', color: 'var(--text-muted)' }}
+          style={{ margin: 0, font: 'var(--t-caption-bold)' }}
         >
           {t('board.title')}
         </h3>
@@ -98,6 +99,7 @@ export function Leaderboard({ version }: { version: number }) {
                   padding: 'var(--s-2) var(--s-3)',
                   borderRadius: 'var(--r-standard)',
                   background: mineRow ? 'var(--surface-card)' : 'transparent',
+                  borderBottom: '1px solid var(--separator)',
                   // Separate a far-down own row from the top of the list.
                   marginTop: i === TOP ? 'var(--s-2)' : 0,
                 }}
@@ -105,7 +107,7 @@ export function Leaderboard({ version }: { version: number }) {
                 <span
                   style={{
                     font: 'var(--t-caption-bold)',
-                    color: row.rank === 1 ? 'var(--accent)' : 'var(--text-muted)',
+                    color: row.rank === 1 ? 'var(--text-negative)' : 'var(--text-muted)',
                     textAlign: 'right',
                   }}
                 >
@@ -166,12 +168,13 @@ function Toggle<T extends string | number>({
   options: { value: T; label: string }[];
 }) {
   return (
-    <div role="radiogroup" aria-label={label} style={{ display: 'flex', gap: 'var(--s-1)' }}>
+    <div role="radiogroup" aria-label={label} onKeyDown={radioKeys} style={{ display: 'flex', gap: 'var(--s-1)' }}>
       {options.map((opt) => (
         <button
           key={String(opt.value)}
           role="radio"
           aria-checked={opt.value === value}
+          tabIndex={opt.value === value ? 0 : -1}
           onClick={() => onChange(opt.value)}
           className={opt.value === value ? 'pill pill--accent' : 'pill pill--muted'}
           style={{ padding: '6px 12px' }}

@@ -563,6 +563,89 @@ class TestOutputLayout(unittest.TestCase):
             self.assertFalse((out / "clips").exists(), "stray 'clips' path segment")
 
 
+class TestCatalogueProgress(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.out = Path(self.tmp.name) / "clips"
+        self.seed_file = Path(self.tmp.name) / "seed.jsonl"
+        self.seeds = [
+            {"id": slug, "title": f"Song {slug}", "artist": "A", "url": "u", "tier": "easy"}
+            for slug in ("a", "b", "c")
+        ]
+        self.seed_file.write_text(
+            "\n".join(json.dumps(s) for s in self.seeds), encoding="utf-8",
+        )
+
+    def complete(self, slug):
+        folder = self.out / slug
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "x.mp3").write_bytes(b"audio")
+        record = {"id": slug, "title": "Old title", "artist": "A", "clips": {"100": "x.mp3"}}
+        (folder / "done.json").write_text(json.dumps(record), encoding="utf-8")
+        return record
+
+    def catalogue(self):
+        return json.loads((self.out / "catalogue.json").read_text(encoding="utf-8"))
+
+    def run_main(self, *flags):
+        argv = ["ingest.py", str(self.seed_file), "--out", str(self.out), *flags]
+        with mock.patch.object(sys, "argv", argv), mock.patch("builtins.print"):
+            return ingest.main()
+
+    def test_rebuild_recovers_completed_songs_without_external_tools(self):
+        for slug in ("a", "b", "c", "old-demo"):
+            self.complete(slug)
+        ingest.write_catalogue(self.out, [{"id": "old-demo"}])
+        with mock.patch.object(ingest.shutil, "which", return_value=None), \
+             mock.patch.object(ingest, "process") as process:
+            self.assertEqual(self.run_main("--catalogue-only"), 0)
+        self.assertFalse(process.called)
+        records = self.catalogue()
+        self.assertEqual([r["id"] for r in records], ["a", "b", "c"])
+        self.assertEqual([r["title"] for r in records], ["Song a", "Song b", "Song c"])
+        self.assertTrue(all(r["tier"] == "easy" for r in records))
+
+    def test_rebuild_omits_incomplete_and_malformed_songs(self):
+        self.complete("a")
+        self.complete("b")
+        (self.out / "b" / "x.mp3").unlink()
+        self.complete("c")
+        for malformed in ("{", "[]"):
+            with self.subTest(malformed=malformed):
+                (self.out / "c" / "done.json").write_text(malformed, encoding="utf-8")
+                self.assertEqual(self.run_main("--catalogue-only"), 0)
+                self.assertEqual([r["id"] for r in self.catalogue()], ["a"])
+
+    def test_interruption_keeps_new_and_previously_completed_songs_visible(self):
+        self.complete("c")
+        ingest.write_catalogue(self.out, [])
+
+        def process(seed, *args, **kwargs):
+            if seed.id == "a":
+                # Previously completed songs later in the seed are restored
+                # before we start downloading the first missing song.
+                self.assertEqual([r["id"] for r in self.catalogue()], ["c"])
+                return self.complete("a")
+            self.assertEqual([r["id"] for r in self.catalogue()], ["a", "c"])
+            raise KeyboardInterrupt
+
+        with mock.patch.object(ingest.shutil, "which", return_value="tool"), \
+             mock.patch.object(ingest, "process", side_effect=process):
+            with self.assertRaises(KeyboardInterrupt):
+                self.run_main("--no-cookies")
+        self.assertEqual([r["id"] for r in self.catalogue()], ["a", "c"])
+
+    def test_failed_publication_preserves_previous_catalogue_and_cleans_temp_file(self):
+        original = [{"id": "a"}]
+        ingest.write_catalogue(self.out, original)
+        with mock.patch.object(Path, "replace", side_effect=OSError("replace failed")):
+            with self.assertRaises(OSError):
+                ingest.write_catalogue(self.out, [{"id": "b"}])
+        self.assertEqual(self.catalogue(), original)
+        self.assertEqual(list(self.out.glob("*.tmp")), [])
+
+
 class TestMainWiring(unittest.TestCase):
     """
     Runs main() end to end with the tools faked present and the per-song work

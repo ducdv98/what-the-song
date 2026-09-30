@@ -22,14 +22,7 @@ export function AccountBar() {
 
   return (
     <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 'var(--s-2)',
-        flexWrap: 'nowrap',
-        justifyContent: 'flex-end',
-        minHeight: 32,
-      }}
+      className="account-bar"
       aria-busy={status === 'loading'}
     >
       {expired && (
@@ -39,7 +32,7 @@ export function AccountBar() {
       )}
       {status === 'user' && user ? (
         <>
-          <span style={{ font: 'var(--t-caption-bold)', color: 'var(--text-base)' }}>{user.username}</span>
+          <span className="account-name">{user.username}</span>
           <button className="pill pill--outlined pill--muted" style={small} onClick={() => void logout()}>
             {t('auth.signOut')}
           </button>

@@ -89,11 +89,11 @@ export function AuthDialog({
 
   return (
     <dialog ref={ref} className="dialog" onClose={onClose} aria-labelledby={`${id}-title`}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--s-2)' }}>
+      <div className="dialog-header">
         <h2 id={`${id}-title`} style={{ font: 'var(--t-section-title)', margin: 0 }}>
           {t('auth.title')}
         </h2>
-        <button className="pill pill--muted" onClick={onClose} aria-label={t('auth.close')} style={{ padding: '4px 10px' }}>
+        <button className="icon-btn" onClick={onClose} aria-label={t('auth.close')}>
           ✕
         </button>
       </div>

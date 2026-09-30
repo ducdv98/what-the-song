@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState } from 'react';
 import type { Song } from '@wts/game';
@@ -6,91 +6,109 @@ import { Game } from './components/Game';
 import { useI18n } from './components/I18nProvider';
 import { AccountBar } from './components/AccountBar';
 import { GuestNotice } from './components/GuestNotice';
+import { LangToggle } from './components/LangToggle';
 import { MenuButton, MenuProvider } from './components/GameMenu';
 
-/**
- * The catalogue is fetched at runtime rather than imported, because
- * tools/ingest.py writes it alongside the clips and neither is committed.
- * That keeps the build independent of whatever is in the clip library.
- */
+/** Runtime catalogue keeps the static build independent of the clip library. */
 export default function Page() {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [catalogue, setCatalogue] = useState<Song[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
+  const [error, setError] = useState(false);
+  const [reloadVersion, setReloadVersion] = useState(0);
   useEffect(() => {
-    fetch('/clips/catalogue.json')
+    setError(false);
+    setCatalogue(null);
+    const controller = new AbortController();
+    fetch('/clips/catalogue.json', {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
       .then((r) => {
-        if (!r.ok) throw new Error(`catalogue.json returned ${r.status}`);
+        if (!r.ok) throw new Error('Catalogue unavailable');
         return r.json();
       })
-      .then((data: Song[]) => setCatalogue(data))
-      .catch((err: unknown) =>
-        setError(err instanceof Error ? err.message : t('empty.noLibrary')),
-      );
-  }, []);
-
+      .then((data: unknown) => {
+        if (!Array.isArray(data)) throw new Error('Invalid catalogue');
+        setCatalogue(data as Song[]);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setError(true);
+      });
+    return () => controller.abort();
+  }, [reloadVersion]);
   const playable = catalogue !== null && catalogue.length > 0;
 
   return (
     <MenuProvider>
-      <main
-        style={{
-          minHeight: '100dvh',
-          padding: 'var(--s-4) var(--s-4) var(--s-10)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 'var(--s-6)',
-          // A soft spotlight from above, behind the game.
-          background:
-            'radial-gradient(ellipse 60% 45% at 50% 0%, rgba(30, 215, 96, 0.07), transparent 70%), var(--bg-base)',
-        }}
-      >
-        <header
-          style={{
-            width: '100%',
-            maxWidth: 480,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 'var(--s-3)',
-          }}
-        >
+      <main className="app-shell">
+        <header className="app-header">
           {playable && <MenuButton />}
-          <p
-            style={{
-              font: 'italic 800 20px/1 var(--font-ui)',
-              letterSpacing: '-0.5px',
-              color: 'var(--text-base)',
-              margin: 0,
-              marginRight: 'auto',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            what the <span style={{ color: 'var(--accent)' }}>song</span>
+          <p className="wordmark">
+            what the <span>song</span>
+            <span aria-hidden="true">?</span>
           </p>
-          {/* Outside <Game>, so signing in works even with no clip library. */}
+          <span className="header-edition">{t('app.edition')}</span>
           <AccountBar />
         </header>
-
-        <div style={{ width: '100%', maxWidth: 480, display: 'grid' }}>
-          <GuestNotice />
-        </div>
-
-        {error && (
-          <div className="card" style={{ width: '100%', maxWidth: 480 }}>
-            <p style={{ font: 'var(--t-body-bold)', margin: '0 0 var(--s-2)' }}>{t('empty.noLibrary')}</p>
-            <p style={{ font: 'var(--t-caption)', color: 'var(--text-muted)', margin: 0 }}>
-              {t('empty.buildFirst')}
+        <div className="poster-layout">
+          <section className="poster-intro" aria-labelledby="poster-title">
+            <span className="edition-label">{t('app.edition')}</span>
+            <h1
+              id="poster-title"
+              className={`poster-headline${lang === 'vi' ? ' poster-headline--vi' : ''}`}
+            >
+              <span>{t('app.headlineOne')}</span>
+              <span className="headline-coral">{t('app.headlineTwo')}</span>
+            </h1>
+            <p className="poster-copy">{t('app.intro')}</p>
+            <p className="poster-footnote">{t('app.footnote')}</p>
+            <div className="poster-burst" aria-hidden="true">
+              VIET
               <br />
-              <code style={{ color: 'var(--text-near-white)' }}>./tools/ingest.py seed.jsonl</code>
-            </p>
-            <p style={{ font: 'var(--t-small)', color: 'var(--text-muted)', margin: 'var(--s-3) 0 0' }}>{error}</p>
+              HITS
+            </div>
+          </section>
+          <div className="game-column">
+            {playable && <Game catalogue={catalogue} />}
+            {!playable && (
+              <section
+                className="state-card"
+                aria-live="polite"
+                aria-busy={catalogue === null && !error}
+              >
+                <div className="card-masthead">
+                  <strong>WHAT THE SONG?</strong>
+                  <span className="card-ticket">{t('app.editionShort')}</span>
+                </div>
+                <h2>
+                  {error
+                    ? t('empty.noLibrary')
+                    : catalogue
+                      ? t('empty.catalogue')
+                      : t('loading')}
+                </h2>
+                <p>
+                  {error || catalogue
+                    ? t('empty.libraryHelp')
+                    : t('loading.body')}
+                </p>
+                {(error || catalogue) && (
+                  <button
+                    className="pill pill--accent"
+                    onClick={() => setReloadVersion((version) => version + 1)}
+                  >
+                    {t('empty.retry')}
+                  </button>
+                )}
+              </section>
+            )}
+            <GuestNotice />
           </div>
-        )}
-
-        {playable && <Game catalogue={catalogue} />}
-        {catalogue && catalogue.length === 0 && <p style={{ color: 'var(--text-muted)' }}>{t('empty.catalogue')}</p>}
+        </div>
+        <footer className="page-footer">
+          <p>{t('app.footer')}</p>
+          <LangToggle />
+        </footer>
       </main>
     </MenuProvider>
   );
