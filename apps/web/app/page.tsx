@@ -6,7 +6,7 @@ import { Game } from './components/Game';
 import { useI18n } from './components/I18nProvider';
 import { AccountBar } from './components/AccountBar';
 import { GuestNotice } from './components/GuestNotice';
-import { LangToggle } from './components/LangToggle';
+import { SiteFooter } from './components/SiteFooter';
 import { MenuButton, MenuProvider } from './components/GameMenu';
 
 /** Runtime catalogue keeps the static build independent of the clip library. */
@@ -105,10 +105,7 @@ export default function Page() {
             <GuestNotice />
           </div>
         </div>
-        <footer className="page-footer">
-          <p>{t('app.footer')}</p>
-          <LangToggle />
-        </footer>
+        <SiteFooter />
       </main>
     </MenuProvider>
   );
