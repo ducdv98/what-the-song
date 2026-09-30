@@ -1,8 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { clipUrl, indexCatalogue, playableSongs, type Song } from '@/lib/catalogue';
-import { REVEAL_LADDER } from '@/lib/audio/engine';
+import { clipUrl, indexCatalogue, ladderFor, playableSongs, type Song } from '@/lib/catalogue';
+import { DEFAULT_LADDER } from '@/lib/audio/engine';
 import {
   createRound, giveUp, revealedSeconds, skip, submitGuess, type Round,
 } from '@/lib/game/round';
@@ -23,10 +23,7 @@ function pickRandom(items: Song[], excludeId?: string): Song | undefined {
 export function Game({ catalogue }: { catalogue: Song[] }) {
   // A song with a gap in its clip ladder would throw mid-round, so drop it up
   // front rather than discovering it two reveals in.
-  const [songs, skipped] = useMemo(
-    () => playableSongs(catalogue, REVEAL_LADDER),
-    [catalogue],
-  );
+  const [songs, skipped] = useMemo(() => playableSongs(catalogue), [catalogue]);
   const index = useMemo(() => indexCatalogue(songs), [songs]);
   const { engine, state } = useAudioEngine();
   const [round, setRound] = useState<Round<Song> | null>(null);
@@ -38,7 +35,7 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
       if (!song) return;
       setError(null);
       engine.stop();
-      setRound(createRound(song));
+      setRound(createRound(song, ladderFor(song)));
     },
     [songs, engine],
   );
@@ -47,12 +44,12 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
     if (!round && songs.length > 0) startRound();
   }, [round, songs, startRound]);
 
-  const seconds = round ? revealedSeconds(round) : REVEAL_LADDER[0];
+  const seconds = round ? revealedSeconds(round) : DEFAULT_LADDER[0];
 
   // Warm the next rung so revealing feels immediate.
   useEffect(() => {
     if (!round || round.status !== 'playing') return;
-    const next = REVEAL_LADDER[round.stepIndex + 1];
+    const next = round.ladder[round.stepIndex + 1];
     if (next === undefined) return;
     try {
       engine.prefetch(clipUrl(round.song, next));
@@ -104,7 +101,7 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
 
       <div className="card card--elevated" style={{ display: 'grid', gap: 'var(--s-5)' }}>
         <PlayButton state={state} seconds={seconds} onPlay={play} disabled={over} />
-        <RevealLadder stepIndex={round.stepIndex} />
+        <RevealLadder stepIndex={round.stepIndex} ladder={round.ladder} />
       </div>
 
       {error && (

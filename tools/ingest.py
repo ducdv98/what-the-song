@@ -80,8 +80,15 @@ class Seed:
     # Seconds into the track to anchor clips. Set this by hand when the
     # automatic choice lands somewhere useless.
     start_at: float | None = None
-    # "intro": just after the music starts. "hook": deterministic mid-track.
-    anchor: str = "intro"
+    # "hook" (default): a deterministic point ~30-45% in. Crude but robust —
+    #   past the intro on essentially every pop song, no detection required.
+    # "body": loudness-step heuristic, aims at the vocal entry. Unvalidated
+    #   against real music; see the docstring before relying on it.
+    # "intro": just past leading silence. Keeps the song's real opening, which
+    #   for most Vietnamese pop means a generic instrumental clue.
+    anchor: str = "hook"
+    # Per-song reveal ladder in seconds. None uses the run's ladder.
+    ladder: list[float] | None = None
 
 
 def run(cmd: list[str]) -> subprocess.CompletedProcess:
@@ -140,17 +147,97 @@ def detect_music_onset(path: Path, threshold_db: int = -35) -> float:
     return 0.0
 
 
-def choose_anchor(seed: Seed, duration: float, onset: float) -> float:
+def detect_body_onset(
+    path: Path,
+    drop_db: float = 6.0,
+    sustain: float = 1.0,
+    max_fraction: float = 0.5,
+) -> float:
+    """
+    Find where the song's full arrangement kicks in — a usable proxy for the
+    vocal entry.
+
+    Vietnamese pop, ballads and nhạc trẻ especially, routinely opens with 8 to
+    30 seconds of generic instrumental: piano arpeggio, synth pad, strings. That
+    material is interchangeable between songs, so a clue taken from it is
+    unguessable however long it runs. The identifying moment is the vocal, and
+    in pop production the vocal arriving comes with a step up in level.
+
+    Method: measure the track's own mean volume, then treat anything more than
+    `drop_db` below it as "not the body yet" and ask silencedetect where that
+    stops. Using a threshold relative to the track is what makes this work
+    across wildly different masters — a fixed dB threshold cannot.
+
+    `sustain` stops a single cymbal or a spoken word in an MV intro triggering
+    it. `max_fraction` rejects an implausibly late answer (a song that only gets
+    loud in its final chorus), falling back rather than anchoring near the end.
+
+    ⚠️ UNVALIDATED against real music. It was only ever exercised against
+    synthetic tones, which are a poor model: real intros differ from choruses in
+    arrangement and spectral density, not only in level. It is therefore NOT the
+    default — "hook" is. Try it on your own catalogue, listen to the result, and
+    use start_at for anything it gets wrong. For true vocal onset you need
+    source separation; see docs/RESEARCH.md §10.7.
+    """
+    level = run(["ffmpeg", "-i", str(path), "-af", "volumedetect", "-f", "null", "-"])
+    m = re.search(r"mean_volume:\s*(-?[\d.]+) dB", level.stderr)
+    if not m:
+        return 0.0
+    try:
+        threshold = float(m.group(1)) - drop_db
+    except ValueError:
+        return 0.0
+
+    out = run([
+        "ffmpeg", "-i", str(path),
+        "-af", f"silencedetect=noise={threshold:.1f}dB:d={sustain}",
+        "-f", "null", "-",
+    ])
+    starts = [float(x) for x in re.findall(r"silence_start: ([\d.]+)", out.stderr)]
+    ends = [float(x) for x in re.findall(r"silence_end: ([\d.]+)", out.stderr)]
+
+    # A leading stretch below the relative threshold is the intro; it ends where
+    # the body begins. No leading stretch means the song starts at full level.
+    if not (starts and ends and starts[0] < 0.5):
+        return 0.0
+
+    body = ends[0]
+    duration = probe_duration(path)
+    if duration > 0 and body > duration * max_fraction:
+        return 0.0
+    return body
+
+
+def choose_anchor(
+    seed: Seed,
+    duration: float,
+    onset: float,
+    body_onset: float = 0.0,
+) -> float:
     """Where the reveal ladder starts."""
     if seed.start_at is not None:
         return seed.start_at
     if seed.anchor == "hook":
-        # Deterministic point in the middle third: dodges intros entirely and
-        # stops players memorising songs by their first hi-hat. Harder, though
-        # — a 0.1s clip from mid-song is a real step up in difficulty.
-        frac = 0.25 + (int(hashlib.sha256(seed.id.encode()).hexdigest(), 16) % 1000) / 1000 * 0.35
+        # A deterministic point between 30% and 45% in.
+        #
+        # This is the default because it is the only option that needs no
+        # detection and no tuning. Vietnamese pop routinely opens with 8-30s of
+        # generic instrumental — piano arpeggio, synth pad, strings — which is
+        # interchangeable between songs and therefore unguessable however long
+        # the clue runs. On a 4-minute track, 35% in is around 84s: verse two or
+        # a chorus, i.e. past the intro and usually on or near the hook.
+        #
+        # Deterministic per song, so the anchor is stable across re-runs and
+        # players cannot memorise a song by its first hi-hat.
+        frac = 0.30 + (int(hashlib.sha256(seed.id.encode()).hexdigest(), 16) % 1000) / 1000 * 0.15
         return duration * frac
-    return onset
+    if seed.anchor == "intro":
+        # Just past leading silence. Keeps the song's actual opening, at the
+        # cost of landing on generic instrumental for most Vietnamese pop.
+        return onset
+    # "body" (default): where the arrangement fills out, i.e. roughly the vocal
+    # entry. Falls back to the silence trim when the detector finds nothing.
+    return body_onset if body_onset > 0 else onset
 
 
 def measure_loudness(path: Path) -> dict[str, str] | None:
@@ -186,7 +273,11 @@ def normalise(src: Path, dst: Path) -> None:
 
 
 def cut_clips(
-    src: Path, anchor: float, out_dir: Path, salt: str
+    src: Path,
+    anchor: float,
+    out_dir: Path,
+    salt: str,
+    ladder: list[float] | None = None,
 ) -> tuple[dict[str, str], list[str]]:
     """
     Cut the reveal ladder into opaque, metadata-free files.
@@ -207,7 +298,7 @@ def cut_clips(
     manifest: dict[str, str] = {}
     warnings: list[str] = []
 
-    for seconds in CLIP_LADDER:
+    for seconds in (ladder or CLIP_LADDER):
         name = hashlib.sha256(f"{salt}:{seconds}".encode()).hexdigest()[:24] + ".m4a"
         dest = out_dir / name
         run([
@@ -394,6 +485,7 @@ def process(
     out_root: Path,
     browser: str | None = None,
     cookie_file: Path | None = None,
+    ladder: list[float] | None = None,
 ) -> dict | None:
     # --out IS the clips root, so no extra "clips" segment here: the layout
     # must be <out>/catalogue.json alongside <out>/<id>/<hash>.m4a, because the
@@ -421,14 +513,19 @@ def process(
             return None
 
         onset = detect_music_onset(raw)
-        anchor = choose_anchor(seed, duration, onset)
+        # Only the "body" mode uses this, and it is an extra ffmpeg pass.
+        body_onset = detect_body_onset(raw) if seed.anchor == "body" else 0.0
+        anchor = choose_anchor(seed, duration, onset, body_onset)
 
         levelled = work / "levelled.wav"
         normalise(raw, levelled)
         if not levelled.exists():
             levelled = raw
 
-        manifest, clip_warnings = cut_clips(levelled, anchor, clip_dir, salt=seed.id)
+        rungs = seed.ladder or ladder or CLIP_LADDER
+        manifest, clip_warnings = cut_clips(
+            levelled, anchor, clip_dir, salt=seed.id, ladder=rungs
+        )
 
     if not manifest:
         print("    rejected: ffmpeg produced no clips", file=sys.stderr)
@@ -441,13 +538,25 @@ def process(
         "aliases": seed.aliases,
         "genre": seed.genre,
         "anchor_seconds": round(anchor, 3),
+        "anchor_mode": seed.anchor,
         "detected_onset": round(onset, 3),
+        "detected_body_onset": round(body_onset, 3),
+        "ladder": rungs,
         "source_duration": round(duration, 1),
         "clips": manifest,
         "clip_warnings": clip_warnings,
-        # Long detected onset usually means a spoken or cinematic intro that
-        # silencedetect could not see past. Worth an ear before you trust it.
-        "needs_review": onset > 8.0 or (seed.start_at is None and seed.anchor == "intro" and onset > 4.0),
+        # Flag anything where the anchor choice was unusual enough to deserve
+        # an ear: a very long intro, or a detector that found nothing and fell
+        # back to the silence trim.
+        "needs_review": (
+            seed.start_at is None
+            and (
+                # The heuristic found nothing and silently fell back.
+                (seed.anchor == "body" and body_onset <= 0)
+                # A long intro means an "intro" clue is probably generic.
+                or (seed.anchor == "intro" and onset > 4.0)
+            )
+        ),
     }
     (clip_dir / "done.json").write_text(
         json.dumps(record, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -480,6 +589,13 @@ def main() -> int:
         " Chromium browsers cannot be read at all — use firefox or --cookies.",
     )
     ap.add_argument(
+        "--ladder",
+        metavar="SECONDS",
+        help="Comma-separated reveal ladder, e.g. 0.5,1,2,4,8,16,30. Default"
+        f" {','.join(str(x) for x in CLIP_LADDER)}. A song can override it with"
+        ' its own "ladder" field.',
+    )
+    ap.add_argument(
         "--no-cookies",
         action="store_true",
         help="Skip cookies entirely. Often fine from a home connection.",
@@ -496,6 +612,17 @@ def main() -> int:
     if args.cookie_file and not args.cookie_file.exists():
         print(f"cookie file not found: {args.cookie_file}", file=sys.stderr)
         return 1
+
+    ladder: list[float] | None = None
+    if args.ladder:
+        try:
+            ladder = sorted({float(x) for x in args.ladder.split(",") if x.strip()})
+        except ValueError:
+            print(f"could not parse --ladder: {args.ladder}", file=sys.stderr)
+            return 1
+        if not ladder or ladder[0] <= 0:
+            print("--ladder needs at least one positive duration", file=sys.stderr)
+            return 1
 
     host_os = detect_os()
 
@@ -521,7 +648,7 @@ def main() -> int:
 
     built, failed, review = [], [], []
     for seed in seeds:
-        rec = process(seed, args.out, browser, args.cookie_file)
+        rec = process(seed, args.out, browser, args.cookie_file, ladder)
         if rec is None:
             failed.append(seed)
         else:
@@ -545,11 +672,25 @@ def main() -> int:
         print("\nfailed:")
         for s in failed:
             print(f"  - {s.artist} — {s.title}  ({s.url})")
+    if built:
+        print("\nanchors (where each clue starts):")
+        for r in built:
+            flag = "  <-- check" if r.get("needs_review") else ""
+            # .get throughout: this summary is the last thing to run, so a
+            # record missing a field must not cost the whole report.
+            dur = r.get("source_duration") or 0
+            pct = f"{r.get('anchor_seconds', 0) / dur * 100:4.0f}%" if dur else "   ?"
+            print(f"  {r.get('anchor_seconds', 0):>7.2f}s ({pct} in)  "
+                  f"[{r.get('anchor_mode', '?')}]  "
+                  f"{r.get('artist', '?')} — {r.get('title', '?')}{flag}")
+
     if review:
-        print("\nlisten to these; the clip may start on dialogue or an intro."
-              "\nset \"start_at\" in the seed file to fix:")
+        print("\nthese anchors look questionable — have a listen, and set"
+              "\n\"start_at\" in the seed file if the clue is not identifiable:")
         for r in review:
-            print(f"  - {r['artist']} — {r['title']}  onset={r['detected_onset']}s")
+            print(f"  - {r.get('artist', '?')} — {r.get('title', '?')}  "
+                  f"anchor={r.get('anchor_seconds')}s "
+                  f"body={r.get('detected_body_onset')}s")
 
     # Clip length problems are a pipeline fault, not a catalogue one: they mean
     # ffmpeg is not cutting what was asked for.

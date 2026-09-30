@@ -79,10 +79,43 @@ karaoke, beat, lyric-video and cover reuploads make YouTube metadata unreliable,
 so the catalogue stays under your control.
 
 Re-running skips songs already built, so you can grow the seed file over time.
-The run ends with a **review list** of tracks whose clip may start on an intro
-or dialogue — Vietnamese MVs often open with a skit, and silence detection
-cannot see past speech. Fix those with `start_at`, or set `anchor: "hook"` to
-pick a mid-track point instead.
+### Where the clue starts
+
+This matters more than clip length. Vietnamese pop usually opens with 8–30s of
+generic instrumental — piano, pads, strings — which is interchangeable between
+songs, so a clue taken from the start is unguessable *however long it runs*.
+
+The default therefore anchors at a deterministic point **30–45% into the track**
+(`anchor: "hook"`), which on a 4-minute song is verse two or a chorus. The run
+prints every anchor with its position so you can see it cleared the intro:
+
+```
+anchors (where each clue starts):
+    31.33s (  35% in)  [hook]  Sơn Tùng M-TP — Nơi Này Có Anh
+    28.38s (  32% in)  [hook]  Binz — Bigcityboi
+```
+
+Per song, in the seed file:
+
+| Field | Effect |
+|---|---|
+| `"anchor": "hook"` | 30–45% in. **Default.** No detection, nothing to tune. |
+| `"anchor": "intro"` | Just past leading silence — the song's real opening. |
+| `"anchor": "body"` | Loudness-step heuristic aiming at the vocal entry. **Experimental and unvalidated** — listen before trusting it. |
+| `"start_at": 42.0` | Exact offset. Beats every mode; the reliable fix. |
+| `"ladder": [0.5,1,2,4,8,16]` | This song's own reveal steps. |
+
+For accurate automated vocal onset you want source separation — see
+`docs/RESEARCH.md` §11.2.
+
+### Flexible ladders
+
+The ladder is per song, not a global constant. `--ladder 0.5,1,2,4,8,16` sets
+the run default; a seed row's own `ladder` overrides it, so a hard song can open
+with a 2s clue while a distinctive one still starts at 0.1s. The client derives
+each song's rungs from its clip manifest, so whatever clips exist *are* the
+ladder — there is no constant to keep in sync. Scoring scales to the ladder's
+length, so the first rung is always worth the most.
 
 Budget roughly **0.5 MB per song** for the full seven-step reveal ladder.
 

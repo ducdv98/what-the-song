@@ -1,8 +1,9 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { REVEAL_LADDER } from '../audio/engine.ts';
+import { DEFAULT_LADDER } from '../audio/engine.ts';
 import {
   createRound, submitGuess, skip, giveUp, revealedSeconds, isLastStep, MAX_LIVES,
+  scoreForStep,
 } from './round.ts';
 
 const song = { id: 'nnca', title: 'Nơi Này Có Anh', aliases: ['Right Here'] };
@@ -83,12 +84,12 @@ describe('skipping', () => {
 
   test('skipping past the last rung loses the round', () => {
     let r = createRound(song);
-    for (let i = 0; i < REVEAL_LADDER.length - 1; i++) {
+    for (let i = 0; i < DEFAULT_LADDER.length - 1; i++) {
       r = skip(r);
       assert.equal(r.status, 'playing', `ended early at step ${i}`);
     }
     assert.ok(isLastStep(r));
-    assert.equal(revealedSeconds(r), REVEAL_LADDER.at(-1));
+    assert.equal(revealedSeconds(r), DEFAULT_LADDER.at(-1));
     r = skip(r);
     assert.equal(r.status, 'lost', 'no ladder left should end the round');
   });
@@ -96,7 +97,7 @@ describe('skipping', () => {
   test('the reveal never runs off the end of the ladder', () => {
     let r = createRound(song);
     for (let i = 0; i < 50; i++) r = skip(r);
-    assert.ok(r.stepIndex < REVEAL_LADDER.length);
+    assert.ok(r.stepIndex < DEFAULT_LADDER.length);
     assert.equal(Number.isFinite(revealedSeconds(r)), true);
   });
 });
@@ -127,9 +128,39 @@ describe('immutability', () => {
   });
 });
 
-describe('ladder agrees with the ingest pipeline', () => {
-  test('seven rungs starting at 0.1s', () => {
-    // tools/ingest.py CLIP_LADDER must match, or clip lookups will 404.
-    assert.deepEqual([...REVEAL_LADDER], [0.1, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0]);
+describe('per-song ladders', () => {
+  test('the default fallback is the seven-rung ladder', () => {
+    assert.deepEqual([...DEFAULT_LADDER], [0.1, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0]);
+  });
+
+  test('a round honours a song\'s own shorter ladder', () => {
+    // A track with a long generic intro starts later and has fewer rungs.
+    const r = createRound(song, [2, 4, 8]);
+    assert.equal(revealedSeconds(r), 2);
+    const after = skip(r);
+    assert.equal(revealedSeconds(after), 4);
+    assert.ok(isLastStep(skip(after)), 'three rungs means the third is last');
+  });
+
+  test('an empty ladder falls back rather than breaking the round', () => {
+    const r = createRound(song, []);
+    assert.equal(revealedSeconds(r), DEFAULT_LADDER[0]);
+  });
+
+  test('scoring scales to the ladder length', () => {
+    // First rung always best, last always worst, whatever the length.
+    for (const n of [3, 5, 7, 12]) {
+      assert.equal(scoreForStep(0, n), 1000, `n=${n}`);
+      assert.equal(scoreForStep(n - 1, n), 50, `n=${n}`);
+      for (let i = 1; i < n; i++) {
+        assert.ok(scoreForStep(i, n) < scoreForStep(i - 1, n), `n=${n} i=${i}`);
+      }
+    }
+  });
+
+  test('winning on a short ladder still awards the top score', () => {
+    const r = submitGuess(createRound(song, [2, 4, 8]), 'Nơi Này Có Anh');
+    assert.equal(r.status, 'won');
+    assert.equal(r.score, 1000);
   });
 });

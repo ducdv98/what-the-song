@@ -681,3 +681,87 @@ of which are sharper for a Vietnamese catalogue:
 - **Web Audio playback** per §4.2 — the client side is not written yet.
 - **The game loop**, per the build order in §8.
 
+
+
+---
+
+## 11. Where the clue should start (the intro problem)
+
+**[assessment]** Reported from real play: the clips were unguessable, and the
+reason was not their length. §10.4.1 anticipated the cause but the first
+implementation still got it wrong.
+
+### 11.1 Why anchoring at the start fails
+
+Vietnamese pop — ballads and nhạc trẻ above all — routinely opens with **8 to
+30 seconds of generic instrumental**: piano arpeggio, synth pad, strings.
+That material is close to interchangeable between songs. A clue taken from it is
+unguessable *however long it runs*, so tuning the ladder cannot fix it. The
+identifying moment is the **vocal entry**, or better the hook.
+
+This is sharper here than for Anglophone pop, where a recognisable production
+signature often lands in the first bar.
+
+### 11.2 Three ways to find a good anchor
+
+| Approach | Accuracy | Cost | Status |
+|---|---|---|---|
+| Fraction of duration ("hook") | good enough | none | **shipped, default** |
+| Loudness step ("body") | unknown | 1 extra ffmpeg pass | shipped, **unvalidated** |
+| Per-song `start_at` | perfect | your ears, once per song | shipped |
+| Source separation (Demucs) | high | a model + minutes/song | **recommended next** |
+
+**1. Fraction of duration — the default.** Anchor at a deterministic point
+between **30% and 45%** into the track. On a 4-minute song that is 72–108s:
+verse two or a chorus, i.e. comfortably past the intro and often on the hook.
+Crude, but it needs no detection and nothing to tune, and it is right far more
+often than a silence trim. Deterministic per song id, so anchors are stable
+across re-runs and cannot be memorised as "the one starting on a hi-hat".
+
+**2. Loudness step — available, not trusted.** Measure the track's own level,
+treat anything more than ~6 dB below it as "not the body yet", and take the
+first point that clears it. In pop production the vocal entry usually coincides
+with a step up in level, so this *should* approximate it.
+
+⚠️ **This is unvalidated.** It could only be exercised against synthetic tones
+here, which are a poor model — real intros differ from choruses in arrangement
+and spectral density, not merely in level. An earlier attempt using `ebur128`
+momentary loudness failed outright because the filter emits no per-frame lines
+in this build, and the fallback masked it. Hence `anchor: "body"` is opt-in, not
+the default. Try it, listen, keep it if it works on your catalogue.
+
+**3. `start_at` per song — the accurate option today.** For a hand-curated
+catalogue of a few hundred songs, listening once and writing an offset is a few
+hours of work and beats every heuristic. It is also how you fix the songs the
+default gets wrong, so it is needed regardless.
+
+**4. Source separation — the real automated answer.** Run a separator
+(Demucs is the usual choice) to isolate the vocal stem, then take the first
+point of sustained energy *in that stem*. Because it looks at the vocal alone,
+a quiet vocal over a loud arrangement no longer confuses it, and the instrumental
+intro contributes nothing. Costs a model download and roughly a minute or two of
+CPU per song — irrelevant for an offline batch run over a few hundred songs done
+once. **This is what I would build next** if the anchor is still wrong often
+enough to annoy.
+
+### 11.3 Flexible ladders
+
+The reveal ladder is now **per song**, not a global constant:
+
+- `--ladder 0.5,1,2,4,8,16` sets the run's default.
+- A seed row's own `"ladder": [...]` overrides it, so a hard song can open with
+  a 2s clue while a distinctive one still starts at 0.1s.
+- The client derives each song's rungs from the keys of its clip manifest, so
+  **whatever clips exist are the ladder**. This also removed the duplicated
+  constant that had to be kept in step with `tools/ingest.py` by hand — the
+  source of two separate bugs already.
+- Scoring is computed from position in the ladder rather than a fixed table, so
+  the first rung is always worth the most whatever the ladder's length.
+
+### 11.4 A design idea worth considering
+
+Rather than one window that grows from a single anchor, give the round a
+**separate "hear the intro" hint** late on — one extra clip cut from 0:00.
+The intro is poor for identification but good for *confirmation*, so it works
+well as a hint rather than as the opening clue. One more clip per song, no new
+machinery, and it turns the intro problem into a feature.

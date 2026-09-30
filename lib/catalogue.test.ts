@@ -2,7 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   indexCatalogue, searchCatalogue, clipUrl, clipKey, playableSongs,
-  isExactSpelling, type Song,
+  isExactSpelling, ladderFor, type Song,
 } from './catalogue.ts';
 
 const songs: Song[] = [
@@ -112,32 +112,43 @@ describe('clip keys agree with tools/ingest.py', () => {
   });
 });
 
-describe('incomplete clip ladders are filtered out', () => {
-  const ladder = [0.1, 0.5, 1.0];
+describe('per-song ladders derived from the manifest', () => {
   const full: Song = {
     id: 'full', title: 'Full', artist: 'A',
     clips: { '100': 'a.m4a', '500': 'b.m4a', '1000': 'c.m4a' },
   };
-  const partial: Song = {
-    id: 'partial', title: 'Partial', artist: 'A',
-    clips: { '100': 'a.m4a' },
-  };
 
-  test('a complete song is playable', () => {
-    const [ok, bad] = playableSongs([full], ladder);
-    assert.deepEqual(ok.map((s) => s.id), ['full']);
+  test('ladder comes back in seconds, ascending', () => {
+    assert.deepEqual(ladderFor(full), [0.1, 0.5, 1.0]);
+  });
+
+  test('manifest key order does not matter', () => {
+    const jumbled: Song = {
+      id: 'j', title: 'J', artist: 'A',
+      clips: { '2000': 'd.m4a', '100': 'a.m4a', '16000': 'e.m4a', '500': 'b.m4a' },
+    };
+    assert.deepEqual(ladderFor(jumbled), [0.1, 0.5, 2.0, 16.0]);
+  });
+
+  test('a song may have its own shorter ladder — that is the point', () => {
+    // A track with a long generic intro can start at 2s instead of 0.1s.
+    const late: Song = {
+      id: 'late', title: 'Late', artist: 'A',
+      clips: { '2000': 'a.m4a', '4000': 'b.m4a', '8000': 'c.m4a' },
+    };
+    assert.deepEqual(ladderFor(late), [2.0, 4.0, 8.0]);
+    const [ok, bad] = playableSongs([late]);
+    assert.equal(ok.length, 1, 'a short ladder is still playable');
     assert.equal(bad.length, 0);
   });
 
-  test('a song missing rungs is skipped, not offered', () => {
-    const [ok, bad] = playableSongs([full, partial], ladder);
+  test('songs with no usable clips are skipped', () => {
+    const [ok, bad] = playableSongs([
+      full,
+      { id: 'empty', title: 'E', artist: 'A', clips: {} },
+      { id: 'junk', title: 'J', artist: 'A', clips: { notanumber: 'x.m4a' } },
+    ]);
     assert.deepEqual(ok.map((s) => s.id), ['full']);
-    assert.deepEqual(bad.map((s) => s.id), ['partial']);
-  });
-
-  test('a song with no clips at all is skipped', () => {
-    const [ok, bad] = playableSongs([{ id: 'e', title: 'E', artist: 'A', clips: {} }], ladder);
-    assert.equal(ok.length, 0);
-    assert.equal(bad.length, 1);
+    assert.deepEqual(bad.map((s) => s.id), ['empty', 'junk']);
   });
 });

@@ -6,7 +6,7 @@
  * drifts once it is tangled up with playback.
  */
 
-import { REVEAL_LADDER } from '../audio/engine.ts';
+import { DEFAULT_LADDER } from '../audio/engine.ts';
 import { matchGuess, type MatchQuality, type SongLike } from '../vietnamese.ts';
 
 export const MAX_LIVES = 3;
@@ -14,8 +14,22 @@ export const MAX_LIVES = 3;
 /** Minimum shape a round needs from a song. */
 type AnySong = SongLike & { id: string };
 
-/** Points for winning at each rung. Guessing off 0.1s should feel special. */
-const STEP_SCORES = [1000, 700, 500, 350, 200, 100, 50] as const;
+const BEST_SCORE = 1000;
+const WORST_SCORE = 50;
+
+/**
+ * Points for winning at a given rung.
+ *
+ * Computed rather than tabulated, because ladders now vary in length per song.
+ * Decays geometrically from BEST_SCORE on the first rung to WORST_SCORE on the
+ * last, so guessing off the shortest clue always feels special regardless of
+ * how many rungs that particular song has.
+ */
+export function scoreForStep(stepIndex: number, rungs: number): number {
+  if (rungs <= 1) return BEST_SCORE;
+  const frac = Math.min(stepIndex, rungs - 1) / (rungs - 1);
+  return Math.round(BEST_SCORE * (WORST_SCORE / BEST_SCORE) ** frac);
+}
 
 export type RoundStatus = 'playing' | 'won' | 'lost';
 
@@ -28,6 +42,8 @@ export interface Attempt {
 
 export interface Round<S extends AnySong = AnySong> {
   readonly song: S;
+  /** This song's reveal ladder, in seconds, ascending. */
+  readonly ladder: readonly number[];
   /** Index into REVEAL_LADDER — how much audio is unlocked. */
   stepIndex: number;
   livesLeft: number;
@@ -36,9 +52,13 @@ export interface Round<S extends AnySong = AnySong> {
   score: number;
 }
 
-export function createRound<S extends AnySong>(song: S): Round<S> {
+export function createRound<S extends AnySong>(
+  song: S,
+  ladder: readonly number[] = DEFAULT_LADDER,
+): Round<S> {
   return {
     song,
+    ladder: ladder.length > 0 ? ladder : DEFAULT_LADDER,
     stepIndex: 0,
     livesLeft: MAX_LIVES,
     status: 'playing',
@@ -49,11 +69,11 @@ export function createRound<S extends AnySong>(song: S): Round<S> {
 
 /** Seconds of audio currently unlocked. */
 export function revealedSeconds(round: Round<AnySong>): number {
-  return REVEAL_LADDER[Math.min(round.stepIndex, REVEAL_LADDER.length - 1)];
+  return round.ladder[Math.min(round.stepIndex, round.ladder.length - 1)];
 }
 
 export function isLastStep(round: Round<AnySong>): boolean {
-  return round.stepIndex >= REVEAL_LADDER.length - 1;
+  return round.stepIndex >= round.ladder.length - 1;
 }
 
 /**
@@ -87,7 +107,7 @@ export function submitGuess<S extends AnySong>(round: Round<S>, text: string): R
     return {
       ...round,
       status: 'won',
-      score: STEP_SCORES[Math.min(round.stepIndex, STEP_SCORES.length - 1)],
+      score: scoreForStep(round.stepIndex, round.ladder.length),
       attempts: [...round.attempts, { text: trimmed, kind: 'guess', quality }],
     };
   }

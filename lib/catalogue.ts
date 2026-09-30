@@ -113,20 +113,31 @@ export function clipUrl(song: Song, seconds: number, base = '/clips'): string {
 }
 
 /**
- * Drop songs whose clip ladder is incomplete.
+ * The reveal ladder for one song, in seconds, ascending.
  *
- * A song missing rungs would throw mid-round, so it is better to never offer
- * it. Returns [playable, skipped] so the caller can say what it dropped.
+ * Derived from the clip manifest rather than a shared constant, so ingest is
+ * free to give each song its own ladder — a track with a long generic intro can
+ * start at 2s while a distinctive one starts at 0.1s. It also means there is
+ * only one source of truth: whatever clips exist are the rungs.
  */
-export function playableSongs(
-  songs: Song[],
-  ladder: readonly number[],
-): [Song[], Song[]] {
+export function ladderFor(song: Song): number[] {
+  return Object.keys(song.clips ?? {})
+    .map((k) => Number(k) / 1000)
+    .filter((n) => Number.isFinite(n) && n > 0)
+    .sort((a, b) => a - b);
+}
+
+/**
+ * Split out songs that cannot be played: no clips, or a manifest whose keys do
+ * not parse. A song with *some* rungs is fine — its ladder is simply shorter.
+ *
+ * Returns [playable, skipped] so the caller can say what it dropped.
+ */
+export function playableSongs(songs: Song[]): [Song[], Song[]] {
   const playable: Song[] = [];
   const skipped: Song[] = [];
   for (const song of songs) {
-    const complete = ladder.every((s) => Boolean(song.clips?.[clipKey(s)]));
-    (complete ? playable : skipped).push(song);
+    (ladderFor(song).length > 0 ? playable : skipped).push(song);
   }
   return [playable, skipped];
 }

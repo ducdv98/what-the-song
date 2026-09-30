@@ -34,7 +34,8 @@ class TestModuleSurface(unittest.TestCase):
             "install_hint", "cookie_args", "download_audio", "cut_clips",
             "process", "load_seeds", "main", "run", "probe_duration",
             "choose_anchor", "normalise", "measure_loudness",
-            "detect_music_onset", "CLIP_LADDER", "_BROWSER_PROFILES",
+            "detect_music_onset", "detect_body_onset", "clip_key",
+            "CLIP_LADDER", "_BROWSER_PROFILES",
         ):
             self.assertTrue(hasattr(ingest, name), f"missing: {name}")
 
@@ -156,8 +157,18 @@ class TestAnchor(unittest.TestCase):
     def test_explicit_start_at_wins(self):
         self.assertEqual(ingest.choose_anchor(self._seed(start_at=42.0), 240.0, 3.2), 42.0)
 
-    def test_intro_uses_detected_onset(self):
-        self.assertEqual(ingest.choose_anchor(self._seed(), 240.0, 3.2), 3.2)
+    def test_intro_mode_uses_detected_onset(self):
+        seed = self._seed(anchor="intro")
+        self.assertEqual(ingest.choose_anchor(seed, 240.0, 3.2), 3.2)
+
+    def test_default_is_hook_and_clears_the_intro(self):
+        # The whole point: a clue taken from the opening of a Vietnamese pop
+        # song is generic instrumental, so the default must land well past it.
+        seed = self._seed()
+        self.assertEqual(seed.anchor, "hook")
+        a = ingest.choose_anchor(seed, 240.0, 3.2)
+        self.assertGreaterEqual(a, 240.0 * 0.30)
+        self.assertLessEqual(a, 240.0 * 0.45)
 
     def test_hook_is_deterministic_and_mid_track(self):
         seed = self._seed(anchor="hook")
@@ -165,6 +176,69 @@ class TestAnchor(unittest.TestCase):
         self.assertEqual(a, ingest.choose_anchor(seed, 240.0, 0.0))
         self.assertGreaterEqual(a, 240.0 * 0.25)
         self.assertLessEqual(a, 240.0 * 0.60)
+
+
+class TestSummaryRobustness(unittest.TestCase):
+    """The end-of-run summary must survive an incomplete record: it is the last
+    thing to print, so crashing there throws away the whole report."""
+
+    def test_summary_tolerates_a_sparse_record(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "clips"
+            argv = ["i", str(ROOT / "tools" / "seed.example.jsonl"), "--out", str(out)]
+            sparse = {"id": "a"}          # nothing else at all
+            with mock.patch.object(sys, "argv", argv), \
+                 mock.patch.object(ingest.shutil, "which", return_value="/usr/bin/x"), \
+                 mock.patch.object(ingest, "process", return_value=sparse):
+                self.assertEqual(ingest.main(), 0)
+
+
+class TestLadder(unittest.TestCase):
+    def test_per_song_ladder_overrides_the_run(self):
+        seed = ingest.Seed(id="a", title="T", artist="A", url="u", ladder=[2.0, 4.0])
+        captured = {}
+
+        def fake_cut(src, anchor, out_dir, salt, ladder=None):
+            captured["ladder"] = ladder
+            out_dir.mkdir(parents=True, exist_ok=True)
+            return ({ingest.clip_key(s): f"{s}.m4a" for s in ladder}, [])
+
+        with tempfile.TemporaryDirectory() as tmp, \
+             mock.patch.object(ingest, "download_audio", return_value=Path("x.wav")), \
+             mock.patch.object(ingest, "probe_duration", return_value=200.0), \
+             mock.patch.object(ingest, "detect_music_onset", return_value=0.0), \
+             mock.patch.object(ingest, "detect_body_onset", return_value=11.0), \
+             mock.patch.object(ingest, "normalise"), \
+             mock.patch.object(ingest, "cut_clips", side_effect=fake_cut):
+            rec = ingest.process(seed, Path(tmp), ladder=[0.1, 0.5, 1.0])
+
+        # The song's own ladder wins over the run-wide one.
+        self.assertEqual(captured["ladder"], [2.0, 4.0])
+        self.assertEqual(sorted(rec["clips"].keys()), ["2000", "4000"])
+
+    def test_body_mode_prefers_the_detected_vocal_entry(self):
+        seed = ingest.Seed(id="a", title="T", artist="A", url="u", anchor="body")
+        # Body onset at 11s must win over a silence trim at 0.4s.
+        self.assertEqual(ingest.choose_anchor(seed, 200.0, 0.4, 11.0), 11.0)
+
+    def test_body_mode_falls_back_to_silence_trim_when_undetected(self):
+        seed = ingest.Seed(id="a", title="T", artist="A", url="u", anchor="body")
+        self.assertEqual(ingest.choose_anchor(seed, 200.0, 0.4, 0.0), 0.4)
+
+    def test_hook_is_stable_across_runs_but_varies_by_song(self):
+        a1 = ingest.choose_anchor(ingest.Seed(id="one", title="T", artist="A", url="u"), 240.0, 0.0)
+        a2 = ingest.choose_anchor(ingest.Seed(id="one", title="T", artist="A", url="u"), 240.0, 0.0)
+        b = ingest.choose_anchor(ingest.Seed(id="two", title="T", artist="A", url="u"), 240.0, 0.0)
+        self.assertEqual(a1, a2, "same song must anchor identically on re-run")
+        self.assertNotEqual(a1, b, "different songs should not share an anchor")
+
+    def test_intro_mode_still_uses_the_silence_trim(self):
+        seed = ingest.Seed(id="a", title="T", artist="A", url="u", anchor="intro")
+        self.assertEqual(ingest.choose_anchor(seed, 200.0, 0.4, 11.0), 0.4)
+
+    def test_start_at_beats_every_detector(self):
+        seed = ingest.Seed(id="a", title="T", artist="A", url="u", start_at=33.0)
+        self.assertEqual(ingest.choose_anchor(seed, 200.0, 0.4, 11.0), 33.0)
 
 
 class TestOutputLayout(unittest.TestCase):
@@ -186,7 +260,7 @@ class TestOutputLayout(unittest.TestCase):
                  mock.patch.object(ingest, "normalise"), \
                  mock.patch.object(
                      ingest, "cut_clips",
-                     side_effect=lambda src, anchor, out_dir, salt: (
+                     side_effect=lambda src, anchor, out_dir, salt, ladder=None: (
                          out_dir.mkdir(parents=True, exist_ok=True),
                          ({"100": "deadbeef.m4a"}, []),
                      )[1],
@@ -210,7 +284,13 @@ class TestMainWiring(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp) / "clips"
             argv = ["ingest.py", str(ROOT / "tools" / "seed.example.jsonl"), "--out", str(out)]
-            fake = {"id": "a", "title": "T", "artist": "A", "clips": {}, "clip_warnings": []}
+            fake = {
+                "id": "a", "title": "T", "artist": "A",
+                "anchor_seconds": 12.5, "anchor_mode": "body",
+                "detected_onset": 0.0, "detected_body_onset": 12.5,
+                "ladder": [0.1, 0.5], "clips": {"100": "x.m4a"},
+                "clip_warnings": [], "needs_review": False,
+            }
             with mock.patch.object(sys, "argv", argv), \
                  mock.patch.object(ingest.shutil, "which", return_value="/usr/bin/x"), \
                  mock.patch.object(ingest, "process", return_value=fake):
