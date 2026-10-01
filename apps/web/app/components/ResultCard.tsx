@@ -44,6 +44,7 @@ export function ResultCard({
       tier: lang === 'vi' ? tier.label : tier.gloss,
       squares: shareSquares(round),
       outcome: won ? t('result.shareWon', { at }) : t('result.shareLost'),
+      score: round.score,
     });
     try {
       if (navigator.share) {
@@ -76,7 +77,7 @@ export function ResultCard({
         role="status"
       >
         <span aria-hidden="true">{won ? '✓' : '×'}</span>
-        {won ? t('result.guessedIn', { at }) : t('result.lost')}
+        {won ? t('result.guessedIn') : t('result.lost')}
       </span>
       <div className="result-cover">
         {cover && cover !== failedCover ? (
@@ -109,9 +110,12 @@ export function ResultCard({
         </h2>
         <p className="result-artist">{song.artist}</p>
       </div>
-      <p className="result-score">
-        {t('round.points', { n: won ? round.score : 0 })}
-      </p>
+      <div className="result-summary">
+        {won && <p className="result-clip">{t('result.wonAt', { at })}</p>}
+        <p className="result-score">
+          {t('round.points', { n: won ? round.score : 0 })}
+        </p>
+      </div>
       <div
         className="result-history"
         role="list"

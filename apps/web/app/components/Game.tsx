@@ -223,7 +223,11 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
 
       {round && !over && (
         <>
-          <section className="play-card" aria-labelledby="round-title">
+          <section
+            key={`${round.song.id}-${round.stageIndex}`}
+            className={`play-card round-card${round.attempts[round.stageIndex - 1]?.kind === 'skip' ? ' round-card--skip' : ''}`}
+            aria-labelledby="round-title"
+          >
             <div className="card-masthead">
               <strong>WTS / {t('round.live')}</strong>
               <span className="card-ticket">{t('app.editionShort')}</span>

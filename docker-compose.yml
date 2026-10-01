@@ -6,9 +6,11 @@ services:
     build:
       context: .
       dockerfile: docker/web.Dockerfile
+      args:
+        SITE_URL: "${SITE_URL:-}"
     image: what-the-song:local
     ports:
-      - "${PORT:-3000}:80"
+      - "127.0.0.1:${PORT:-3000}:80"
     volumes:
       # The clip library stays on the host. Add songs with tools/ingest.py and
       # reload the page — no image rebuild needed.

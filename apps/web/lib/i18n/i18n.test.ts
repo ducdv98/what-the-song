@@ -82,8 +82,8 @@ describe('message catalogue', () => {
       '2s unlocked of 16s',
     );
     assert.equal(
-      translate('vi', 'result.guessedIn', { at: '0.1s' }),
-      'Đoán đúng ở 0.1s!',
+      translate('vi', 'result.wonAt', { at: '0.1s' }),
+      'Đoạn 0.1s',
     );
   });
 

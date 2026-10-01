@@ -2,8 +2,12 @@ import type { Metadata } from 'next';
 import { TermsContent } from './TermsContent';
 
 export const metadata: Metadata = {
-  title: 'Terms & conditions · what the song',
-  description: 'Music license status, Vietnamese copyright rules, and terms for personal use.',
+  title: 'Điều khoản sử dụng',
+  description: 'Điều khoản sử dụng và thông tin về giấy phép âm nhạc của what the song.',
+  openGraph: {
+    title: 'Điều khoản sử dụng · what the song',
+    description: 'Điều khoản sử dụng và thông tin về giấy phép âm nhạc của what the song.',
+  },
 };
 
 export default function TermsPage() {

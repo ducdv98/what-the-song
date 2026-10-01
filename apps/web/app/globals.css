@@ -454,6 +454,19 @@ button:disabled {
   padding: 26px;
   box-shadow: 10px 10px 0 var(--ink-900);
 }
+.round-card--skip {
+  animation: skip-reveal 260ms ease-out both;
+}
+@keyframes skip-reveal {
+  from {
+    opacity: 0.75;
+    transform: translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
 .card-masthead {
   display: flex;
   flex-wrap: wrap;
@@ -521,6 +534,13 @@ button:disabled {
   border-color: var(--ink-900);
   background: var(--yellow-300);
   color: var(--ink-900);
+}
+.round-card--skip .stage-marker--current {
+  animation: clue-ink 260ms ease-out both;
+}
+@keyframes clue-ink {
+  from { transform: scaleY(0.88); }
+  to { transform: scaleY(1); }
 }
 .stage-marker small {
   font: var(--t-micro);
@@ -845,6 +865,13 @@ button:disabled {
 .result-card .card-masthead {
   text-align: left;
 }
+.result-card[data-status='won'] {
+  animation: win-enter 320ms ease-out both;
+}
+@keyframes win-enter {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 .stamp {
   justify-self: center;
   display: inline-flex;
@@ -860,6 +887,22 @@ button:disabled {
 }
 .stamp--won {
   color: var(--color-success);
+  position: relative;
+  animation: stamp-in 320ms 80ms ease-out both;
+}
+.stamp--won::before,
+.stamp--won::after {
+  content: '✦';
+  position: absolute;
+  color: var(--coral-500);
+  font: 28px/1 var(--font-ui);
+  animation: win-spark 440ms 180ms ease-out both;
+}
+.stamp--won::before { top: -24px; left: -28px; }
+.stamp--won::after { right: -26px; bottom: -22px; font-size: 21px; }
+@keyframes win-spark {
+  from { opacity: 0; transform: scale(0.2) rotate(-30deg); }
+  to { opacity: 1; transform: scale(1) rotate(0); }
 }
 .stamp--lost {
   color: var(--text-negative);
@@ -904,10 +947,26 @@ button:disabled {
   color: var(--text-muted);
   overflow-wrap: anywhere;
 }
+.result-summary {
+  display: grid;
+  gap: 4px;
+}
+.result-clip {
+  margin: 0;
+  font: var(--t-small-bold);
+  color: var(--text-muted);
+}
 .result-score {
   margin: 0;
   font: 800 23px/1.3 var(--font-ui);
   font-variant-numeric: tabular-nums;
+}
+.result-card[data-status='won'] .result-score {
+  animation: score-pop 300ms 200ms ease-out both;
+}
+@keyframes score-pop {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
 }
 .result-history {
   display: flex;

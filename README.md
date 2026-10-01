@@ -750,6 +750,11 @@ above (a nightly `pg_dump` cron is enough).
 
 ### Before going public
 
+Set `SITE_URL` in `.env` to the final origin (for example,
+`https://your-domain.example`) before building the web image. The static export
+uses it for absolute social preview image URLs. Without it, page titles and
+descriptions still render, but image preview tags are omitted.
+
 1. **Put TLS in front.** The bundled Caddy listens on plain HTTP (`:80`,
    auto-HTTPS is off). Terminate HTTPS with a reverse proxy on the host (Caddy,
    nginx, or a Cloudflare Tunnel) that forwards your domain to
@@ -761,4 +766,3 @@ above (a nightly `pg_dump` cron is enough).
    `docker compose up -d`.
 3. Decide on the site-wide password (`AUTH_USER` / `AUTH_PASSWORD`, see "Putting it behind a password").
    Privacy is what keeps this in personal-use territory.
-

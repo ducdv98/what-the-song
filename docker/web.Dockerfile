@@ -14,6 +14,8 @@ RUN turbo prune @wts/web --docker
 
 # ── Stage 2: build the static export ─────────────────────────────────────────
 FROM base AS build
+ARG SITE_URL
+ENV SITE_URL=$SITE_URL
 # Manifests and lockfile first, so editing source does not invalidate the
 # dependency layer.
 COPY --from=prune /app/out/json/ .
