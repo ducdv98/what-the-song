@@ -114,6 +114,12 @@ prints genre coverage against the targets so you can see what to fill next.
 
 Exit code is 1 on errors, 0 on warnings only.
 
+After validation, ingest the new rows on the laptop. For a COS deployment,
+use `--publish` with that ingest run; existing assets are skipped and the new
+catalogue appears on reload. No VPS file transfer is needed. For local Caddy
+serving, ingest without `--publish` and copy assets to the VPS with the
+catalogue last.
+
 ## Building the clip library
 
 **macOS / Linux:**
@@ -162,6 +168,11 @@ python tools/ingest.py seed.jsonl --catalogue-only
 ```
 
 This includes completed songs in the seed file and uses their current metadata.
+For a private COS deployment, append `--publish` to the ingest command after
+adding seed rows. The script publishes missing clips and covers before the
+catalogue; see [Private Tencent COS assets](#private-tencent-cos-assets-optional)
+for the one-time uploader setup. `--publish` without a seed mirrors an existing
+library without yt-dlp or ffmpeg.
 
 ### Where the clue starts
 
@@ -610,23 +621,62 @@ private COS mirror, create a bucket in the region nearest players, keep its ACL
 **private**, and copy the bucket name (including the app ID suffix) and region
 to `COS_BUCKET` and `COS_REGION`. Set the bucket CORS rule to allow `GET` and
 `HEAD` from the **production site origin only** (for example
-`https://game.example`); do not use `*` or add unrelated origins. Upload
-`catalogue.json` with `Cache-Control: no-store`. Keep the local library as the
-master copy and upload only `*.mp3` and `cover-*.jpg`, then publish the
-catalogue last. Never upload ingest metadata such as `done.json`.
+`https://game.example`); do not use `*` or add unrelated origins. Keep the
+bucket without versioning so COS can enforce the publisher's
+`x-cos-forbid-overwrite` guard on asset uploads. Keep the local library as the
+master copy. Publishing uploads missing `*.mp3` and
+`cover-*.jpg` files, verifies all catalogue assets, then uploads
+`catalogue.json` with `Cache-Control: no-store`. It never uploads ingest
+metadata such as `done.json`.
 
 Create two bucket-scoped CAM sub-accounts. Give the API account only object
 read permission for this bucket; put its secret ID and key in `COS_SECRET_ID`
-and `COS_SECRET_KEY` on the API host. Give the uploader account object write
-permission for this bucket and keep its credentials on the ingest laptop only.
+and `COS_SECRET_KEY` on the API host. Give the uploader account object listing,
+write and delete permissions for this bucket and keep its credentials on the
+ingest laptop only as `COS_UPLOAD_SECRET_ID` and `COS_UPLOAD_SECRET_KEY`.
 Do not use root credentials or put either secret in the browser. The API signs
 one Round's assets per request; the browser receives URLs valid for 30 minutes
 (five minutes for a catalogue). The bucket stays private and signing needs no
 COS network call. With the site-wide gate enabled, guests inside the gate can
-request signed URLs through the same Caddy proxy as the rest of the API.
+request signed URLs through the same Caddy proxy as the rest of the API. The
+site gate covers clips through the signing endpoint; a public COS bucket would
+bypass that gate.
+
+On the laptop, install `cos-python-sdk-v5` and set `COS_BUCKET`, `COS_REGION`,
+`COS_UPLOAD_SECRET_ID` and `COS_UPLOAD_SECRET_KEY` in the shell environment.
+Do not put uploader credentials in the repo or the VPS `.env`.
+
+```sh
+python -m pip install cos-python-sdk-v5
+./tools/ingest.py --out apps/web/public/assets/songs --publish --dry-run
+./tools/ingest.py --out apps/web/public/assets/songs --publish
+```
+
+The seedless command publishes an existing library without yt-dlp or ffmpeg.
+For new songs, run `./tools/ingest.py seed.jsonl --out
+apps/web/public/assets/songs --publish` on the laptop; it ingests and then
+publishes. A bare ingest stays local. Running publish again skips existing
+assets and refreshes the catalogue. `--prune` removes keys absent from the
+current catalogue, including old clips and covers. Preview the deletion list
+with `--publish --prune --dry-run` first; a real `--publish --prune` also prints
+the full deletion plan before deleting anything. Leave pruning off for normal
+publishes.
+
+**First COS migration (manual, after the current ingest completes):**
+
+1. Create the private bucket, its CORS rule and the two CAM sub-accounts above.
+2. Run a full publish of the existing laptop library (about 401 songs, 2,400
+   files and 185 MB); review the dry run first.
+3. Compare the COS object count with the local uploadable asset count plus one
+   catalogue, and fetch a few API-signed asset URLs from the VPS.
+4. Put `COS_BUCKET`, `COS_REGION`, `COS_SECRET_ID` and `COS_SECRET_KEY` in the
+   VPS `.env`, then restart the API.
+5. Keep the VPS copy and Caddy bind mount for at least a week of soak. Delete
+   them only after deciding the migration is stable.
 
 Set all four `COS_*` values in `.env` and restart the API with
-`docker compose up -d api`. To roll back, clear all four and restart the API;
+`docker compose up -d api`. To roll back, unset those four `COS_*` values in
+the VPS `.env` and restart the API;
 the browser resumes using local Caddy URLs. Keep the local bind mount populated
 if you need that rollback.
 
@@ -667,12 +717,16 @@ docker compose exec -T db psql -U wts wts < backup.sql      # restore
 ```
 
 **The clip library is a bind mount, not part of the image.** `apps/web/public/assets` on
-the host is mounted read-only at `/srv/assets`. So adding songs is:
+the host is mounted read-only at `/srv/assets` for local serving and COS
+rollback. With COS enabled, adding songs is:
 
 ```sh
-./tools/ingest.py seed.jsonl --out apps/web/public/assets/songs   # add more rows first
-# reload the page — no rebuild, no restart
+./tools/ingest.py seed.jsonl --out apps/web/public/assets/songs --publish  # laptop
+# reload the page — no SSH, rsync, rebuild or restart
 ```
+
+Without COS, ingest locally and copy the new assets and catalogue to the VPS,
+with `catalogue.json` copied last.
 
 `catalogue.json` is served `no-store` precisely so new songs appear on reload;
 clips have content-hashed names and are served `immutable` with a one-year TTL.
@@ -708,8 +762,9 @@ docker compose up -d
 
 The entrypoint bcrypt-hashes the password at startup and generates the
 `basic_auth` block; with the variables unset it writes an empty snippet and logs
-a warning instead. Auth covers **every** route, the clips included — gating the
-page while leaving the audio open would be pointless.
+a warning instead. Auth covers **every** Caddy route, including local clips;
+with private COS it also gates the API endpoint that issues signed clip and
+cover URLs.
 
 `robots` is set to `noindex, nofollow` and Caddy sends `X-Robots-Tag` to match,
 but those are requests to crawlers, not access control. The password is the
@@ -762,10 +817,9 @@ git pull
 docker compose up -d --build     # rebuilds only what changed; the database volume is kept
 ```
 
-**Updating clips needs no rebuild and no restart.** `apps/web/public/assets/songs` is
-bind-mounted read-only into the container, so rsync/ingest new files into it
-and reload the page. Keep `catalogue.json` in sync with the audio files you
-copy (copy it last).
+**Updating clips needs no rebuild and no restart.** With COS enabled, publish
+from the laptop as above and reload the page. With local Caddy serving,
+rsync new files to the bind mount and copy `catalogue.json` last.
 
 ### Operations
 

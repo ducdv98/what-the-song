@@ -774,9 +774,122 @@ def write_catalogue(out: Path, records: list[dict | None]) -> Path:
     return catalogue
 
 
+def cos_client_from_env():
+    """Create the uploader client only when a publish command needs COS."""
+    names = ("COS_BUCKET", "COS_REGION", "COS_UPLOAD_SECRET_ID", "COS_UPLOAD_SECRET_KEY")
+    missing = [name for name in names if not os.environ.get(name)]
+    if missing:
+        raise ValueError(f"missing uploader environment variable(s): {', '.join(missing)}")
+    try:
+        from qcloud_cos import CosConfig, CosS3Client
+    except ImportError as exc:
+        raise RuntimeError("publish requires cos-python-sdk-v5 (pip install cos-python-sdk-v5)") from exc
+    config = CosConfig(
+        Region=os.environ["COS_REGION"],
+        SecretId=os.environ["COS_UPLOAD_SECRET_ID"],
+        SecretKey=os.environ["COS_UPLOAD_SECRET_KEY"],
+    )
+    return CosS3Client(config), os.environ["COS_BUCKET"]
+
+
+def publish_library(out: Path, client, bucket: str, *, dry_run: bool = False,
+                    prune: bool = False) -> list[str]:
+    """Mirror local assets, verify the catalogue, then publish it.
+
+    The injected client uses the small COS SDK surface: list_objects,
+    put_object and delete_object. The local folder is the master.
+    """
+    catalogue = out / "catalogue.json"
+    snapshot = catalogue.read_bytes()
+    records = json.loads(snapshot)
+    if not isinstance(records, list):
+        raise ValueError(f"catalogue must contain a list: {catalogue}")
+    topic = out.name
+    if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", topic):
+        raise ValueError(f"invalid topic directory name: {topic}")
+    prefix = f"{topic}/"
+
+    def listed_keys() -> set[str]:
+        keys: set[str] = set()
+        marker = ""
+        while True:
+            page = client.list_objects(Bucket=bucket, Prefix=prefix, Marker=marker)
+            keys.update(item["Key"] for item in page.get("Contents", []))
+            if page.get("IsTruncated") not in (True, "true", "True"):
+                return keys
+            contents = page.get("Contents", [])
+            next_marker = page.get("NextMarker") or (contents[-1]["Key"] if contents else None)
+            if not next_marker or next_marker == marker:
+                raise RuntimeError("COS listing did not advance")
+            marker = next_marker
+
+    existing = listed_keys()
+    local: dict[str, Path] = {}
+    for song_dir in out.iterdir():
+        if not song_dir.is_dir():
+            continue
+        for path in song_dir.iterdir():
+            if path.is_file() and (path.suffix == ".mp3" or
+                                   (path.name.startswith("cover-") and path.suffix == ".jpg")):
+                local[f"{topic}/{path.relative_to(out).as_posix()}"] = path
+    wanted = set()
+    for record in records:
+        slug = record["id"]
+        names = list(record["clips"].values())
+        if record.get("cover"):
+            names.append(record["cover"])
+        for name in names:
+            if (not isinstance(slug, str) or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", slug)
+                    or not isinstance(name, str) or
+                    not (re.fullmatch(r"[a-f0-9]{24}\.mp3", name) or
+                         re.fullmatch(r"cover-[a-f0-9]{16}\.jpg", name))):
+                raise ValueError(f"invalid catalogue asset: {slug}/{name}")
+            wanted.add(f"{topic}/{slug}/{name}")
+
+    added = sorted(local.keys() - existing)
+    orphans = sorted(key for key in existing | local.keys()
+                     if key != f"{topic}/catalogue.json" and key not in wanted)
+    print(f"publish plan for {topic}: {len(added)} asset(s) to upload")
+    for key in added:
+        print(f"  + {key}")
+    if prune:
+        print(f"prune dry-run: {len(orphans)} orphaned key(s) to delete")
+        for key in orphans:
+            print(f"  - {key}")
+    if dry_run:
+        print("dry-run: no changes made")
+        return added
+
+    for key in added:
+        # Metadata is the SDK's pass-through for request headers. COS rejects
+        # a collision even if another publisher creates the key after our list.
+        with local[key].open("rb") as body:
+            client.put_object(Bucket=bucket, Key=key, Body=body,
+                              Metadata={"x-cos-forbid-overwrite": "true"})
+    available = listed_keys()
+    missing = sorted(wanted - available)
+    if missing:
+        raise RuntimeError("catalogue not published; missing COS asset(s): " + ", ".join(missing))
+    client.put_object(Bucket=bucket, Key=f"{topic}/catalogue.json",
+                      Body=snapshot, CacheControl="no-store")
+    print(f"published {topic}/catalogue.json; added {len(added)} asset(s)")
+    for key in added:
+        print(f"  + {key}")
+    if prune:
+        for key in orphans:
+            client.delete_object(Bucket=bucket, Key=key)
+        print(f"pruned {len(orphans)} orphaned key(s)")
+    return added
+
+
+def publish_from_env(out: Path, *, dry_run: bool = False, prune: bool = False) -> None:
+    client, bucket = cos_client_from_env()
+    publish_library(out, client, bucket, dry_run=dry_run, prune=prune)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("seed", type=Path, help="JSONL seed file")
+    ap.add_argument("seed", type=Path, nargs="?", help="JSONL seed file (optional with --publish)")
     ap.add_argument(
         "--out",
         type=Path,
@@ -789,6 +902,9 @@ def main() -> int:
         help="Rebuild catalogue.json from completed songs in the seed file,"
         " without downloading audio or requiring yt-dlp/ffmpeg.",
     )
+    ap.add_argument("--publish", action="store_true", help="Mirror assets and publish the catalogue to private COS")
+    ap.add_argument("--dry-run", action="store_true", help="List publish changes without writing to COS")
+    ap.add_argument("--prune", action="store_true", help="List then delete orphaned COS keys after publishing")
     ap.add_argument(
         "--cookies-from-browser",
         dest="browser",
@@ -824,12 +940,33 @@ def main() -> int:
     )
     args = ap.parse_args()
 
+    if (args.dry_run or args.prune) and not args.publish:
+        ap.error("--dry-run and --prune require --publish")
+    if not args.seed and not args.publish:
+        ap.error("seed is required unless --publish is used")
+    if args.catalogue_only and not args.seed:
+        ap.error("--catalogue-only requires a seed")
+
+    if args.publish and (not args.seed or args.dry_run):
+        try:
+            publish_from_env(args.out, dry_run=args.dry_run, prune=args.prune)
+        except (OSError, ValueError, RuntimeError) as exc:
+            print(f"publish failed: {exc}", file=sys.stderr)
+            return 1
+        return 0
+
     if args.catalogue_only:
         seeds = load_seeds(args.seed)
         records = completed_records(seeds, args.out)
         catalogue = write_catalogue(args.out, records)
         count = sum(r is not None for r in records)
         print(f"catalogue: {catalogue} ({count} completed songs, {len(seeds) - count} not built)")
+        if args.publish:
+            try:
+                publish_from_env(args.out, prune=args.prune)
+            except (OSError, ValueError, RuntimeError) as exc:
+                print(f"publish failed: {exc}", file=sys.stderr)
+                return 1
         return 0
 
     if args.cookie_file and not args.cookie_file.exists():
@@ -945,6 +1082,12 @@ def main() -> int:
         print("  The input should be PCM WAV, where -ss is exact. If clips are")
         print("  off, check that normalise() produced a .wav and not something")
         print("  compressed, where -ss before -i would snap to a keyframe.")
+    if args.publish:
+        try:
+            publish_from_env(args.out, prune=args.prune)
+        except (OSError, ValueError, RuntimeError) as exc:
+            print(f"publish failed: {exc}", file=sys.stderr)
+            return 1
     return 0
 
 

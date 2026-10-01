@@ -78,6 +78,119 @@ class TestClipLibraryLocation(unittest.TestCase):
         self.assertIn("./apps/web/public/assets:/srv/assets:ro", compose)
 
 
+class FakeCos:
+    def __init__(self, keys=()):
+        self.keys = set(keys)
+        self.calls = []
+        self.drop_uploads = False
+
+    def list_objects(self, **kw):
+        self.calls.append(("list", kw["Prefix"]))
+        return {"Contents": [{"Key": key} for key in sorted(self.keys)
+                             if key.startswith(kw["Prefix"])]}
+
+    def put_object(self, **kw):
+        if "Metadata" in kw:
+            self.calls.append(("upload", kw))
+            if kw["Key"] in self.keys:
+                raise RuntimeError("overwrite forbidden")
+            if not self.drop_uploads:
+                self.keys.add(kw["Key"])
+        else:
+            self.calls.append(("put", kw))
+            self.keys.add(kw["Key"])
+
+    def delete_object(self, **kw):
+        self.calls.append(("delete", kw["Key"]))
+        self.keys.remove(kw["Key"])
+
+
+class TestCosPublish(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.out = Path(self.tmp.name) / "songs"
+        song = self.out / "song-one"
+        song.mkdir(parents=True)
+        self.clip = "a" * 24 + ".mp3"
+        self.cover = "cover-" + "b" * 16 + ".jpg"
+        (song / self.clip).write_bytes(b"clip")
+        (song / self.cover).write_bytes(b"cover")
+        (song / "done.json").write_text("{}", encoding="utf-8")
+        (song / "notes.txt").write_text("private", encoding="utf-8")
+        (self.out / "catalogue.json").write_text(json.dumps([{
+            "id": "song-one", "clips": {"100": self.clip}, "cover": self.cover,
+        }]), encoding="utf-8")
+        self.cos = FakeCos()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def publish(self, **kw):
+        with mock.patch.object(sys, "stdout", io.StringIO()):
+            return ingest.publish_library(self.out, self.cos, "bucket-123", **kw)
+
+    def test_second_run_uploads_nothing_and_metadata_never_uploads(self):
+        self.publish()
+        self.assertEqual(sorted(k["Key"] for op, k in self.cos.calls if op == "upload"),
+                         [f"songs/song-one/{self.clip}", f"songs/song-one/{self.cover}"])
+        self.assertTrue(all(k["Metadata"] == {"x-cos-forbid-overwrite": "true"}
+                            for op, k in self.cos.calls if op == "upload"))
+        self.cos.calls.clear()
+        self.assertEqual(self.publish(), [])
+        self.assertFalse(any(op == "upload" for op, _ in self.cos.calls))
+        self.assertNotIn("songs/song-one/done.json", self.cos.keys)
+
+    def test_catalogue_not_published_when_uploaded_asset_is_missing(self):
+        self.cos.drop_uploads = True
+        with self.assertRaisesRegex(RuntimeError, "missing COS asset"):
+            self.publish()
+        self.assertFalse(any(op == "put" for op, _ in self.cos.calls))
+
+    def test_missing_local_asset_blocks_catalogue(self):
+        (self.out / "song-one" / self.cover).unlink()
+        with self.assertRaisesRegex(RuntimeError, self.cover):
+            self.publish()
+        self.assertFalse(any(op == "put" for op, _ in self.cos.calls))
+
+    def test_existing_object_is_never_overwritten(self):
+        self.cos.keys.add(f"songs/song-one/{self.clip}")
+        self.publish()
+        self.assertFalse(any(op == "upload" and data["Key"] == f"songs/song-one/{self.clip}"
+                             for op, data in self.cos.calls))
+        put = next(data for op, data in self.cos.calls if op == "put")
+        self.assertEqual(put["CacheControl"], "no-store")
+
+    def test_dry_run_uploads_nothing(self):
+        self.assertEqual(len(self.publish(dry_run=True)), 2)
+        self.assertEqual([op for op, _ in self.cos.calls], ["list"])
+
+    def test_prune_lists_before_deleting(self):
+        orphan = "songs/old-song/old.mp3"
+        self.cos.keys.add(orphan)
+        out = io.StringIO()
+        with mock.patch.object(sys, "stdout", out):
+            ingest.publish_library(self.out, self.cos, "bucket-123", prune=True)
+        self.assertIn(f"  - {orphan}", out.getvalue())
+        self.assertIn("prune dry-run", out.getvalue())
+        self.assertLess(out.getvalue().index("prune dry-run"), out.getvalue().index("pruned"))
+        self.assertNotIn(orphan, self.cos.keys)
+
+    def test_prune_dry_run_keeps_orphans(self):
+        orphan = "songs/old-song/old.mp3"
+        self.cos.keys.add(orphan)
+        self.publish(prune=True, dry_run=True)
+        self.assertIn(orphan, self.cos.keys)
+        self.assertFalse(any(op == "delete" for op, _ in self.cos.calls))
+
+    def test_publish_existing_library_bypasses_media_tools_and_seed(self):
+        argv = ["ingest.py", "--out", str(self.out), "--publish"]
+        with mock.patch.object(sys, "argv", argv), \
+             mock.patch.object(ingest, "publish_from_env") as publish, \
+             mock.patch.object(ingest.shutil, "which", side_effect=AssertionError("media tool lookup")):
+            self.assertEqual(ingest.main(), 0)
+        publish.assert_called_once_with(self.out, dry_run=False, prune=False)
+
+
 class TestClipFormat(unittest.TestCase):
     """
     Clips must be MP3. AAC cannot be decoded by decodeAudioData in Chromium

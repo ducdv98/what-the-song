@@ -1,7 +1,7 @@
 name: what-the-song
 
 services:
-  # Caddy: the static game, the clip library, and /api proxied to the API.
+  # Caddy: the static game, local/rollback clip library, and /api proxy.
   web:
     build:
       context: .
@@ -12,8 +12,8 @@ services:
     ports:
       - "127.0.0.1:${PORT:-3000}:80"
     volumes:
-      # The clip library stays on the host. Add songs with tools/ingest.py and
-      # reload the page — no image rebuild needed.
+      # Keep the local library for default serving and COS rollback. With COS
+      # enabled, publish from the laptop; the API signs private COS URLs.
       - ./apps/web/public/assets:/srv/assets:ro
     environment:
       # Optional site-wide gate, separate from player accounts. Leave both unset
@@ -42,7 +42,8 @@ services:
       # Leaderboard weeks start Monday 00:00 and months on the 1st, at this
       # many hours from UTC. 7 is Vietnam.
       LEADERBOARD_UTC_OFFSET: "${LEADERBOARD_UTC_OFFSET:-7}"
-      # Optional private COS library. All four must be set together.
+      # Optional private COS library. Set all four together on the VPS; uploader
+      # COS_UPLOAD_* credentials stay on the laptop and never enter Compose.
       COS_BUCKET: "${COS_BUCKET:-}"
       COS_REGION: "${COS_REGION:-}"
       COS_SECRET_ID: "${COS_SECRET_ID:-}"
