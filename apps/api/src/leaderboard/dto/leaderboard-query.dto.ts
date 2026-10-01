@@ -4,7 +4,7 @@ import {
   LEADERBOARD_PERIODS,
   type LeaderboardBack,
   type LeaderboardPeriod,
-} from '@wts/game';
+} from '@wts/core';
 import { Transform } from 'class-transformer';
 import { IsIn } from 'class-validator';
 

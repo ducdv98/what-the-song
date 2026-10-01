@@ -1,6 +1,6 @@
 'use client';
 
-import type { Tier, TierSlug } from '@wts/game';
+import type { Tier, TierSlug } from '@wts/core';
 import { useI18n } from './I18nProvider';
 import { radioKeys } from './radioKeys';
 

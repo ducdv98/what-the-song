@@ -18,7 +18,7 @@ COPY --from=prune /app/out/json/ .
 RUN npm ci
 COPY --from=prune /app/out/full/ .
 COPY tsconfig.base.json ./
-# Builds @wts/game and @wts/contracts first, then the API.
+# Builds @wts/core and @wts/contracts first, then the API.
 RUN npx turbo run build --filter=@wts/api && npm prune --omit=dev
 
 # ── Stage 3: run ─────────────────────────────────────────────────────────────

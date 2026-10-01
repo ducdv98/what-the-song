@@ -1,5 +1,5 @@
 {
-  "name": "@wts/game",
+  "name": "@wts/core",
   "version": "0.0.1",
   "private": true,
   "description": "Game rules shared by the web app and the API: Vietnamese matching, catalogue, rounds, difficulty, genres, streaks",

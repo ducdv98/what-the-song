@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@wts/contracts": "*",
-    "@wts/game": "*",
+    "@wts/core": "*",
     "next": "^15.5.4",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"

@@ -1,6 +1,6 @@
 'use client';
 
-import { winRate, type Stats } from '@wts/game';
+import { winRate, type Stats } from '@wts/core';
 import { useAuth } from './AuthProvider';
 import { useI18n } from './I18nProvider';
 

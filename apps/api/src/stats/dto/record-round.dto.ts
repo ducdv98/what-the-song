@@ -3,7 +3,7 @@ import {
   SONG_ID_PATTERN,
   type RoundReport,
 } from '@wts/contracts';
-import { BEST_SCORE, TIER_SLUGS } from '@wts/game';
+import { BEST_SCORE, TIER_SLUGS } from '@wts/core';
 import {
   IsBoolean,
   IsIn,

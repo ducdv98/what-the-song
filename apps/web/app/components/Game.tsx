@@ -20,7 +20,7 @@ import {
   type Round,
   type Song,
   type TierSlug,
-} from '@wts/game';
+} from '@wts/core';
 import { loadPrefs, savePrefs } from '@/lib/storage/prefs';
 import { useAudioEngine } from './useAudioEngine';
 import { PlayButton, formatSeconds } from './PlayButton';

@@ -54,7 +54,7 @@ class TestModuleSurface(unittest.TestCase):
     def test_clip_keys_match_javascript(self):
         # str(2.0) is "2.0" in Python but String(2.0) is "2" in JS, which
         # silently broke every whole-second rung. Milliseconds are integers in
-        # both. The mirror of this lives in packages/game/src/catalogue.test.ts.
+        # both. The mirror of this lives in packages/core/src/catalogue.test.ts.
         self.assertEqual(
             [ingest.clip_key(s) for s in ingest.CLIP_LADDER],
             ["100", "500", "2000", "8000", "16000"],

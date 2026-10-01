@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { useEffect, useState } from 'react';
-import type { Song } from '@wts/game';
+import type { Song } from '@wts/core';
 import { Game } from './components/Game';
 import { useI18n } from './components/I18nProvider';
 import { AccountBar } from './components/AccountBar';

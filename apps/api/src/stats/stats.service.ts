@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import type { PlayerStats as StatsView } from '@wts/contracts';
-import { WORST_SCORE } from '@wts/game';
+import { WORST_SCORE } from '@wts/core';
 import { DataSource } from 'typeorm';
 import type { RecordRoundDto } from './dto/record-round.dto.js';
 import { PlayerStats } from './player-stats.entity.js';

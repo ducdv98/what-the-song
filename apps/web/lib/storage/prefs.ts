@@ -7,7 +7,7 @@
  * player on the server (apps/api).
  */
 
-import { isTier, type TierSlug } from '@wts/game';
+import { isTier, type TierSlug } from '@wts/core';
 
 const KEY = 'what-the-song:prefs:v1';
 

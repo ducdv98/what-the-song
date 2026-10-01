@@ -5,7 +5,7 @@ import {
   periodRange,
   type LeaderboardBack,
   type LeaderboardPeriod,
-} from '@wts/game';
+} from '@wts/core';
 import { DataSource } from 'typeorm';
 import type { Env } from '../config/env.validation.js';
 

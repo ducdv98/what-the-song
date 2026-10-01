@@ -42,7 +42,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 # Reveal ladder, in seconds: exactly the five stages a round plays. Mirrors
-# STAGE_TARGETS in packages/game/src/ladder.ts (a test asserts they agree), so
+# STAGE_TARGETS in packages/core/src/ladder.ts (a test asserts they agree), so
 # no clip is cut that the game never requests.
 CLIP_LADDER = [0.1, 0.5, 2.0, 8.0, 16.0]
 
@@ -51,7 +51,7 @@ CLIP_LADDER = [0.1, 0.5, 2.0, 8.0, 16.0]
 MAX_STAGES = 5
 
 
-# Genre slugs accepted in the seed file. Mirrors GENRES in packages/game/src/genres.ts —
+# Genre slugs accepted in the seed file. Mirrors GENRES in packages/core/src/genres.ts —
 # tools/test_ingest.py parses that file and asserts the two agree, because a
 # silent mismatch would quietly file songs under "Khác" in the picker.
 KNOWN_GENRES = [
@@ -64,7 +64,7 @@ KNOWN_GENRES = [
 
 
 # Difficulty tiers: how well known a song is. Mirrors TIER_SLUGS in
-# packages/game/src/difficulty.ts (a test asserts they agree). A song with no
+# packages/core/src/difficulty.ts (a test asserts they agree). A song with no
 # tier, or an unknown one, plays as "medium".
 KNOWN_TIERS = ["easy", "medium", "hard", "expert", "impossible"]
 
@@ -81,7 +81,7 @@ def clip_key(seconds: float) -> str:
     Must not be str(seconds): Python renders 1.0 as "1.0" while JavaScript's
     String(1.0) is "1", so the client would miss every whole-second rung.
     Milliseconds are integers in both languages, so there is nothing to
-    disagree about. packages/game/src/catalogue.ts clipKey() is the other half of this.
+    disagree about. packages/core/src/catalogue.ts clipKey() is the other half of this.
     """
     return str(round(seconds * 1000))
 

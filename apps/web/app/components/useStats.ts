@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { authApi, AuthError, type RoundReport } from '@/lib/auth/client';
-import { EMPTY_STATS, recordResult, type Stats } from '@wts/game';
+import { EMPTY_STATS, recordResult, type Stats } from '@wts/core';
 import { loadStats, saveStats } from '@/lib/storage/guest-stats';
 import { useAuth } from './AuthProvider';
 

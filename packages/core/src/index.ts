@@ -10,4 +10,5 @@ export * from './ladder.ts';
 export * from './leaderboard.ts';
 export * from './round.ts';
 export * from './stats.ts';
+export * from './topic.ts';
 export * from './vietnamese.ts';

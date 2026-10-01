@@ -1,12 +1,12 @@
 /**
  * A guest's stats, in the browser tab.
  *
- * A thin adapter around the pure reducer in @wts/game. Storage is the part
+ * A thin adapter around the pure reducer in @wts/core. Storage is the part
  * that fails in interesting ways (private windows, blocked site data,
  * thumbnail capture), so it is kept apart from the counting.
  */
 
-import { coerceStats, EMPTY_STATS, type Stats } from '@wts/game';
+import { coerceStats, EMPTY_STATS, type Stats } from '@wts/core';
 
 /**
  * Guests keep their stats in sessionStorage: they survive a reload but end with

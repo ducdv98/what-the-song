@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { useState } from 'react';
-import { coverUrl, TIERS, tierOf, type Round, type Song } from '@wts/game';
+import { coverUrl, TIERS, tierOf, type Round, type Song } from '@wts/core';
 import type { PlaybackState } from '@/lib/audio/engine';
 import { formatSeconds } from './PlayButton';
 import { useI18n } from './I18nProvider';

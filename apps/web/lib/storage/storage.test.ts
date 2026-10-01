@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { EMPTY_STATS } from '@wts/game';
+import { EMPTY_STATS } from '@wts/core';
 import { loadStats, saveStats, clearStats } from './guest-stats.ts';
 import { loadPrefs, savePrefs, DEFAULT_PREFS } from './prefs.ts';
 

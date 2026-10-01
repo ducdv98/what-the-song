@@ -11,7 +11,7 @@ It depends on two workspace packages:
   implements. The DTOs `implements` its request types, and the controllers
   return its response types, so the web client and this service are checked
   against one definition.
-- **`@wts/game`** — the game's own rules. Round reports are validated against
+- **`@wts/core`** — the game's own rules. Round reports are validated against
   the real `TIER_SLUGS`, `BEST_SCORE` and `WORST_SCORE` the browser played
   with, not a copy.
 
@@ -120,7 +120,7 @@ changes only happen through migrations. When you add one, list it in
 ## Running it
 
 Needs Node 22+ and Postgres 14+. Install from the **repo root** — this is an
-npm workspace, and `@wts/game` / `@wts/contracts` must be built before it runs,
+npm workspace, and `@wts/core` / `@wts/contracts` must be built before it runs,
 which turbo handles.
 
 ```sh

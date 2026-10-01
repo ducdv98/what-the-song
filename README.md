@@ -12,10 +12,10 @@ commercial, not public.
 | Piece | Status |
 |---|---|
 | Technical research | done — [`docs/RESEARCH.md`](docs/RESEARCH.md) |
-| Vietnamese answer matching | done, tested — `packages/game/src/vietnamese.ts` |
+| Vietnamese answer matching | done, tested — `packages/core/src/vietnamese.ts` |
 | Clip ingest pipeline | written, **not yet run against real audio** — `tools/ingest.py` |
 | Web Audio playback | done — `apps/web/lib/audio/engine.ts` |
-| Round rules | done, tested — `packages/game/src/round.ts` |
+| Round rules | done, tested — `packages/core/src/round.ts` |
 | Free-text answer matching | done, tested — [ADR-0001](docs/adr/0001-free-text-guesses.md) |
 | Game UI | done — Next.js + [`DESIGN.md`](DESIGN.md) |
 | Round + result screens (SongSpot-style) | done, verified in a browser — see [How a round works](#how-a-round-works) |
@@ -32,7 +32,7 @@ the account service end to end against a real Postgres. The game still builds
 to a static export.
 
 Read [`docs/RESEARCH.md`](docs/RESEARCH.md) before changing anything in
-`packages/game/src/vietnamese.ts` or `tools/ingest.py`. Both exist in the shape
+`packages/core/src/vietnamese.ts` or `tools/ingest.py`. Both exist in the shape
 they do for specific reasons, and §10 records the decisions that got them here.
 
 ## Repository layout
@@ -46,7 +46,7 @@ apps/
                                 i18n, browser storage, the API client
   api/          @wts/api        accounts and player records — NestJS + Postgres
 packages/
-  game/         @wts/game       the rules, with no DOM, audio, storage or network:
+  game/         @wts/core       the rules, with no DOM, audio, storage or network:
                                 Vietnamese matching, rounds,
                                 scoring, difficulty, genres, streaks
   contracts/    @wts/contracts  the API's wire format: request/response shapes,
@@ -59,7 +59,7 @@ docs/                           research and the catalogue guide
 Dependencies only point one way: apps depend on packages, never the reverse,
 and the two packages do not depend on each other.
 
-- **`@wts/game` is shared by both apps.** The browser plays with it and the
+- **`@wts/core` is shared by both apps.** The browser plays with it and the
   API judges reported rounds with the same code — the difficulty list and score
   bounds the server validates against are the ones the game used, not a copy.
 - **`@wts/contracts` is the API's wire format.** The NestJS DTOs implement its
@@ -196,13 +196,13 @@ For accurate automated vocal onset you want source separation — see
 
 By default ingest cuts exactly the five clips a round plays — **0.1 · 0.5 · 2 ·
 8 · 16 s** (`CLIP_LADDER` in `tools/ingest.py`, mirroring `STAGE_TARGETS` in
-`packages/game/src/ladder.ts`; a test fails if they disagree). About **26.6 s of
+`packages/core/src/ladder.ts`; a test fails if they disagree). About **26.6 s of
 audio, ~0.43 MB per song** at 128 kbps.
 
 The ladder is per song. `--ladder 0.5,2,8,16` sets the run default; a seed row's
 own `ladder` overrides it, so a hard song can open with a 2s clue while a
 distinctive one still starts at 0.1s. The client derives each song's clips from
-its manifest, and `stagesFor` (`packages/game/src/round.ts`) plays at most five
+its manifest, and `stagesFor` (`packages/core/src/round.ts`) plays at most five
 of them — all of them for a ladder of five or fewer, otherwise the ones nearest
 each stage. A longer ladder only costs storage, so ingest and the validator
 warn about it.
@@ -316,7 +316,7 @@ the fix is usually just a newer version.
 ## Answer matching
 
 Vietnamese input breaks naive string comparison in about ten different ways, so
-`packages/game/src/vietnamese.ts` handles them explicitly and the tests are numbered against
+`packages/core/src/vietnamese.ts` handles them explicitly and the tests are numbered against
 `docs/RESEARCH.md` §3.1:
 
 - players type with no diacritics at all (`em cua ngay hom qua` must count)
@@ -395,7 +395,7 @@ worse than a short one. Unknown or missing tags fall under **Khác**, so no song
 becomes unreachable, and ingest warns about an unrecognised slug because it is
 almost always a typo.
 
-The slug list exists in both `tools/ingest.py` and `packages/game/src/genres.ts`; a test
+The slug list exists in both `tools/ingest.py` and `packages/core/src/genres.ts`; a test
 parses the TypeScript and asserts they agree, since a silent drift would file
 songs under Khác with no error.
 
@@ -500,7 +500,7 @@ menu, under the stats.
 - **Weeks run Monday 00:00 to Monday 00:00, months from the 1st**, at UTC+7
   (Vietnam, no daylight saving) — so a round at 00:30 on Monday counts for the
   new week even though UTC still says Sunday. `LEADERBOARD_UTC_OFFSET` on the
-  API changes it. The period arithmetic is `packages/game/src/leaderboard.ts`,
+  API changes it. The period arithmetic is `packages/core/src/leaderboard.ts`,
   shared by the API and the browser.
 - **Ranked by points**: the sum of every round's score in the period. A loss or
   a give-up adds 0 but counts as a round played. Equal points share a rank
@@ -549,7 +549,7 @@ simply stays in guest mode.
 
 To work on one app, filter: `npx turbo run dev --filter=@wts/web` (plus the
 packages it needs, which turbo builds first). Running a single workspace's
-script directly also works: `npm run test --workspace @wts/game`.
+script directly also works: `npm run test --workspace @wts/core`.
 
 The TypeScript tests use Node's built-in runner (`packages/*`, `apps/web`) and
 Vitest (`apps/api`); `test:ingest` is Python's unittest over `tools/`. Nothing
