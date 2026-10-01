@@ -13,6 +13,32 @@ describe('validateEnv', () => {
     expect(env.REFRESH_TTL_DAYS).toBe(30);
     expect(env.TRUST_PROXY).toBe(false);
     expect(env.DB_MIGRATIONS_RUN).toBe(true);
+    expect(env.COS_BUCKET).toBeUndefined();
+  });
+
+  it('accepts a complete COS read-only configuration and rejects partial or blank values', () => {
+    const cos = {
+      COS_BUCKET: 'library-1250000000',
+      COS_REGION: 'ap-hongkong',
+      COS_SECRET_ID: 'read-id',
+      COS_SECRET_KEY: 'read-key',
+    };
+    expect(validateEnv({ ...base, ...cos }).COS_BUCKET).toBe(cos.COS_BUCKET);
+    expect(
+      validateEnv({
+        ...base,
+        COS_BUCKET: '',
+        COS_REGION: '',
+        COS_SECRET_ID: '',
+        COS_SECRET_KEY: '',
+      }).COS_BUCKET,
+    ).toBeUndefined();
+    for (const key of Object.keys(cos)) {
+      const partial = { ...cos };
+      delete partial[key as keyof typeof partial];
+      expect(() => validateEnv({ ...base, ...partial })).toThrow(/COS_/);
+      expect(() => validateEnv({ ...base, ...cos, [key]: '' })).toThrow(/COS_/);
+    }
   });
 
   it('parses strings from the environment', () => {

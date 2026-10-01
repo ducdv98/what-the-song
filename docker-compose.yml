@@ -42,6 +42,11 @@ services:
       # Leaderboard weeks start Monday 00:00 and months on the 1st, at this
       # many hours from UTC. 7 is Vietnam.
       LEADERBOARD_UTC_OFFSET: "${LEADERBOARD_UTC_OFFSET:-7}"
+      # Optional private COS library. All four must be set together.
+      COS_BUCKET: "${COS_BUCKET:-}"
+      COS_REGION: "${COS_REGION:-}"
+      COS_SECRET_ID: "${COS_SECRET_ID:-}"
+      COS_SECRET_KEY: "${COS_SECRET_KEY:-}"
     expose:
       - "4000"
     depends_on:

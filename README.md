@@ -602,6 +602,34 @@ uses its own wordmark rather than any Spotify branding.
 
 ## Running it with Docker
 
+### Private Tencent COS assets (optional)
+
+The default is Caddy: leave all `COS_*` variables empty and clips, covers and
+catalogues keep using `/assets/<topic>/...` from the local bind mount. To use a
+private COS mirror, create a bucket in the region nearest players, keep its ACL
+**private**, and copy the bucket name (including the app ID suffix) and region
+to `COS_BUCKET` and `COS_REGION`. Set the bucket CORS rule to allow `GET` and
+`HEAD` from the **production site origin only** (for example
+`https://game.example`); do not use `*` or add unrelated origins. Upload
+`catalogue.json` with `Cache-Control: no-store`. Keep the local library as the
+master copy and upload only `*.mp3` and `cover-*.jpg`, then publish the
+catalogue last. Never upload ingest metadata such as `done.json`.
+
+Create two bucket-scoped CAM sub-accounts. Give the API account only object
+read permission for this bucket; put its secret ID and key in `COS_SECRET_ID`
+and `COS_SECRET_KEY` on the API host. Give the uploader account object write
+permission for this bucket and keep its credentials on the ingest laptop only.
+Do not use root credentials or put either secret in the browser. The API signs
+one Round's assets per request; the browser receives URLs valid for 30 minutes
+(five minutes for a catalogue). The bucket stays private and signing needs no
+COS network call. With the site-wide gate enabled, guests inside the gate can
+request signed URLs through the same Caddy proxy as the rest of the API.
+
+Set all four `COS_*` values in `.env` and restart the API with
+`docker compose up -d api`. To roll back, clear all four and restart the API;
+the browser resumes using local Caddy URLs. Keep the local bind mount populated
+if you need that rollback.
+
 ```sh
 ./tools/ingest.py seed.jsonl --out apps/web/public/assets/songs   # build clips first (host)
 cp .env.example .env                  # set POSTGRES_PASSWORD and JWT_ACCESS_SECRET

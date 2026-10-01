@@ -1,9 +1,10 @@
 ﻿'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { TIERS, tierOf, type Round } from '@wts/core';
 import { coverUrl, type Song } from '@wts/topic-songs';
 import type { PlaybackState } from '@/lib/audio/engine';
+import { assetUrls } from '@/lib/assets/urls';
 import { formatSeconds } from './PlayButton';
 import { useI18n } from './I18nProvider';
 
@@ -33,9 +34,21 @@ export function ResultCard({
   const { t, lang } = useI18n();
   const [copied, setCopied] = useState(false);
   const [failedCover, setFailedCover] = useState<string | null>(null);
+  const [resolvedCover, setResolvedCover] = useState<string | null>(null);
+  const [retriedCover, setRetriedCover] = useState(false);
   const won = round.status === 'won';
   const song = round.subject;
   const cover = coverUrl(song);
+  useEffect(() => {
+    let active = true;
+    setResolvedCover(null);
+    setFailedCover(null);
+    setRetriedCover(false);
+    if (cover) void assetUrls.resolve(cover).then((url) => {
+      if (active) setResolvedCover(url);
+    }).catch(() => { if (active) setFailedCover(cover); });
+    return () => { active = false; };
+  }, [cover]);
   const at = formatSeconds(round.stages[round.stageIndex]);
   const longest = round.stages[round.stages.length - 1];
   const tier = TIERS.find((x) => x.slug === tierOf(song))!;
@@ -81,14 +94,21 @@ export function ResultCard({
         {won ? t('result.guessedIn') : t('result.lost')}
       </span>
       <div className="result-cover">
-        {cover && cover !== failedCover ? (
+        {cover && resolvedCover && cover !== failedCover ? (
           // Static export: native image, with a fallback for missing cover files.
           <img
-            src={cover}
+            src={resolvedCover}
             alt=""
             width={160}
             height={160}
-            onError={() => setFailedCover(cover)}
+            onError={() => {
+              if (retriedCover) { setFailedCover(cover); return; }
+              setRetriedCover(true);
+              void assetUrls.resolve(cover, true).then((url) => {
+                if (url === resolvedCover) setFailedCover(cover);
+                else setResolvedCover(url);
+              }).catch(() => setFailedCover(cover));
+            }}
           />
         ) : (
           <span

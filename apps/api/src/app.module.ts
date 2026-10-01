@@ -4,6 +4,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from './auth/auth.module.js';
+import { AssetsModule } from './assets/assets.module.js';
 import { SameOriginMiddleware } from './common/same-origin.middleware.js';
 import { validateEnv, type Env } from './config/env.validation.js';
 import { typeormOptions } from './database/typeorm.options.js';
@@ -33,6 +34,7 @@ import { UsersModule } from './users/users.module.js';
     ThrottlerModule.forRoot([{ name: 'default', ttl: 60_000, limit: 120 }]),
     UsersModule,
     AuthModule,
+    AssetsModule,
     StatsModule,
     LeaderboardModule,
     HealthModule,

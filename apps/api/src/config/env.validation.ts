@@ -3,6 +3,7 @@ import {
   IsBoolean,
   IsEnum,
   IsInt,
+  Matches,
   IsOptional,
   IsString,
   Max,
@@ -19,6 +20,8 @@ export enum NodeEnv {
 
 const toBool = ({ value }: { value: unknown }) =>
   value === true || value === 'true' || value === '1';
+const emptyToUndefined = ({ value }: { value: unknown }) =>
+  value === '' ? undefined : value;
 
 /**
  * Every setting the service reads, validated once at boot. A missing secret or
@@ -91,6 +94,29 @@ export class Env {
   @Max(14)
   @Transform(({ value }) => Number(value))
   LEADERBOARD_UTC_OFFSET = 7;
+
+  /** Read-only API credentials for a private COS bucket. Omit all four for Caddy. */
+  @IsOptional()
+  @Matches(/^[a-z0-9-]+-\d+$/)
+  @Transform(emptyToUndefined)
+  COS_BUCKET?: string;
+
+  @IsOptional()
+  @Matches(/^[a-z0-9-]+$/)
+  @Transform(emptyToUndefined)
+  COS_REGION?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @Transform(emptyToUndefined)
+  COS_SECRET_ID?: string;
+
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  @Transform(emptyToUndefined)
+  COS_SECRET_KEY?: string;
 }
 
 export function validateEnv(raw: Record<string, unknown>): Env {
@@ -110,6 +136,20 @@ export function validateEnv(raw: Record<string, unknown>): Env {
       )
       .join('\n');
     throw new Error(`Invalid environment:\n${detail}`);
+  }
+  const cosValues = [
+    env.COS_BUCKET,
+    env.COS_REGION,
+    env.COS_SECRET_ID,
+    env.COS_SECRET_KEY,
+  ];
+  if (
+    cosValues.some((value) => value !== undefined) &&
+    cosValues.some((value) => !value)
+  ) {
+    throw new Error(
+      'Invalid environment: COS_BUCKET, COS_REGION, COS_SECRET_ID and COS_SECRET_KEY must be set together',
+    );
   }
   return env;
 }

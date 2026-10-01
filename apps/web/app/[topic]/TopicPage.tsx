@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { SONGS_ASSET_BASE, type Song } from '@wts/topic-songs';
 import { getTopic, type TopicId } from '@wts/topics';
 import { renderers } from '@/lib/topics/renderers';
+import { assetUrls } from '@/lib/assets/urls';
 import { useI18n } from '../components/I18nProvider';
 import { AccountBar } from '../components/AccountBar';
 import { GuestNotice } from '../components/GuestNotice';
@@ -24,7 +25,7 @@ export function TopicPage({ topicId }: { topicId: TopicId }) {
     setCatalogue(null);
     const controller = new AbortController();
     const assetBase = topicId === 'songs' ? SONGS_ASSET_BASE : `/assets/${topicId}`;
-    fetch(`${assetBase}/catalogue.json`, {
+    assetUrls.fetch(`${assetBase}/catalogue.json`, {
       cache: 'no-store',
       signal: controller.signal,
     })

@@ -17,10 +17,12 @@ import {
 } from '@wts/core';
 import {
   clipUrl, playableSongs, songsTopic, matchGuess,
+  coverUrl,
   type Song,
 } from '@wts/topic-songs';
 import type { TopicId } from '@wts/topics';
 import { loadPrefs, savePrefs } from '@/lib/storage/prefs';
+import { assetUrls } from '@/lib/assets/urls';
 import { useAudioEngine } from './useAudioEngine';
 import { PlayButton, formatSeconds } from './PlayButton';
 import { Timeline } from './Timeline';
@@ -110,6 +112,24 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
 
   // A new pool (tier or genre changed) starts a new round.
   useEffect(() => newRound(), [newRound]);
+
+  // Sign every asset for this Round together; the client refreshes stale URLs
+  // when an uncached Stage is eventually fetched.
+  useEffect(() => {
+    if (!round) return;
+    let active = true;
+    const paths = round.stages.map((seconds) => clipUrl(round.subject, seconds));
+    const cover = coverUrl(round.subject);
+    if (cover) paths.push(cover);
+    void assetUrls.prepare(paths).catch((err: unknown) => {
+      if (active) {
+        setError(err instanceof Error ? err.message : t('error.playFailed'));
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [round?.subject.id, round?.stages, t]);
 
   const playClip = useCallback(
     async (song: Song, seconds: number) => {

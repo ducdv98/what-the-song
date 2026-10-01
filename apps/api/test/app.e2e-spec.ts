@@ -38,6 +38,64 @@ afterAll(async () => {
 
 const http = () => request(app.getHttpServer());
 
+describe('Round asset URLs', () => {
+  const clip = 'songs/nnca/0123456789abcdef01234567.mp3';
+
+  it('signs a Round for a guest in one call', async () => {
+    const res = await http()
+      .post('/api/assets/urls')
+      .send({ keys: [clip, 'songs/nnca/cover-0123456789abcdef.jpg'] })
+      .expect(200);
+    expect(res.body.urls).toEqual({
+      [clip]: `/assets/${clip}`,
+      'songs/nnca/cover-0123456789abcdef.jpg':
+        '/assets/songs/nnca/cover-0123456789abcdef.jpg',
+    });
+    expect(res.body.expiresAt).toEqual({
+      [clip]: null,
+      'songs/nnca/cover-0123456789abcdef.jpg': null,
+    });
+  });
+
+  it('rejects keys outside the allow-list and more than 12 keys', async () => {
+    for (const key of [
+      'songs/nnca/done.json',
+      'songs/../secret.mp3',
+      'songs/nnca/cover-0123456789abcdef.mp3',
+      'https://evil.example/clip.mp3',
+    ]) {
+      await http()
+        .post('/api/assets/urls')
+        .send({ keys: [key] })
+        .expect(400);
+    }
+    await http()
+      .post('/api/assets/urls')
+      .send({
+        keys: Array.from(
+          { length: 13 },
+          (_, i) => `songs/nnca/${i.toString(16).padStart(24, '0')}.mp3`,
+        ),
+      })
+      .expect(400);
+  });
+
+  it('rate limits guest signing requests', async () => {
+    for (let i = 0; i < 20; i++)
+      await http()
+        .post('/api/assets/urls')
+        .set('X-Forwarded-For', '198.51.100.20')
+        .send({ keys: [clip] })
+        .expect(200);
+    const res = await http()
+      .post('/api/assets/urls')
+      .set('X-Forwarded-For', '198.51.100.20')
+      .send({ keys: [clip] })
+      .expect(429);
+    expect(res.body.code).toBe('rate_limited');
+  });
+});
+
 /** name=value pairs from Set-Cookie, for replaying as a Cookie header. */
 function cookies(res: request.Response): Record<string, string> {
   const out: Record<string, string> = {};

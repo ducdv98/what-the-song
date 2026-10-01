@@ -7,6 +7,7 @@
  * error — the shortest clue in the game would be unreliable. AudioBufferSource
  * start(when, offset, duration) is sample-accurate, so that is what this uses.
  */
+import { assetUrls } from '../assets/urls';
 
 
 /**
@@ -90,7 +91,7 @@ export class AudioEngine {
 
     const task = (async () => {
       await this.unlock();
-      const res = await fetch(url);
+      const res = await assetUrls.fetch(url);
       if (!res.ok) throw new Error(`clip fetch failed (${res.status}): ${url}`);
       const bytes = await res.arrayBuffer();
       // decodeAudioData detaches the ArrayBuffer, so nothing may reuse it.

@@ -8,3 +8,4 @@ process.env.DATABASE_URL =
 process.env.JWT_ACCESS_SECRET = 'e2e-secret-e2e-secret-e2e-secret-e2e';
 // The e2e suite signs in dozens of times from one address.
 process.env.AUTH_RATE_LIMIT = '1000';
+process.env.TRUST_PROXY = 'true';
