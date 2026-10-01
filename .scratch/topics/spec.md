@@ -12,7 +12,7 @@ Make the app able to host more kinds of guessing than Songs, starting with Peopl
 1. One app, many **Topics**. Accounts, Score, Streak and Leaderboard are global; each Round records its Topic, so a per-Topic view is a query.
 2. The guessed thing is a **Subject**; a Song is a Subject of Songs, a Person of People.
 3. A **Stage** shows a **Clue**. Songs: a Clip (pre-cut audio). People: a Reveal (top *n*% of one full photo, done in the browser; cheating is accepted). Score depends on a Stage's position in the ladder, not on Topic or ladder length (`scoreForStep` already does this).
-4. Packages: `@wts/core` (renamed from `@wts/core`: Round, Stage, Score, Streak, Leaderboard, the `Topic` contract, shared Vietnamese accent folding), `@wts/topic-songs`, `@wts/topic-people`, and `@wts/topics` (registry shared by API and web). Web renderers live in `apps/web`, keyed by Topic id.
+4. Packages: `@wts/core` (renamed from `@wts/game`: Round, Stage, Score, Streak, Leaderboard, the `Topic` contract, shared Vietnamese accent folding), `@wts/topic-songs`, `@wts/topic-people`, and `@wts/topics` (registry shared by API and web). Web renderers live in `apps/web`, keyed by Topic id.
 5. A `Topic` value supplies: id, how a Subject's Clues become an ordered ladder, its matcher, its catalogue validator, and its declared Facets. Each Topic owns its Guess matcher. People starts with the Songs rule (full name or Alias after accent folding, no partial credit).
 6. Tier is shared (same five levels, absent means medium). Genre becomes a generic optional **Facet** a Topic declares.
 7. The Topic id is a plain string checked against the registry, never a DB enum.
