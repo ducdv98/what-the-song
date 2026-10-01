@@ -1,6 +1,6 @@
 # Serve assets from private COS via signed URLs
 
-Status: ready-for-agent
+Status: done
 Blocked by: 06
 
 See `docs/adr/0003-clips-in-private-cos-bucket.md`.
@@ -19,3 +19,7 @@ Add an asset-URL seam with two adapters: Caddy-local (identity, today's behaviou
 - A key outside the allow-list, or more than the cap, is rejected (e2e test).
 - Unit tests cover both adapters; the signing endpoint is rate-limited and works for guests.
 - Rollback is unsetting `COS_*` and restarting the API.
+
+## Comments
+
+Implemented in a7aa4d3. Verified: typecheck, lint, unit and e2e pass (allow-list, 12-key cap, guest access, rate limit). Publish tool and VPS mount removal are issue 10.
