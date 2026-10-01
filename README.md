@@ -197,13 +197,13 @@ For accurate automated vocal onset you want source separation — see
 
 By default ingest cuts exactly the five clips a round plays — **0.1 · 0.5 · 2 ·
 8 · 16 s** (`CLIP_LADDER` in `tools/ingest.py`, mirroring `STAGE_TARGETS` in
-`packages/core/src/ladder.ts`; a test fails if they disagree). About **26.6 s of
+`packages/topic-songs/src/catalogue.ts`; a test fails if they disagree). About **26.6 s of
 audio, ~0.43 MB per song** at 128 kbps.
 
 The ladder is per song. `--ladder 0.5,2,8,16` sets the run default; a seed row's
 own `ladder` overrides it, so a hard song can open with a 2s clue while a
 distinctive one still starts at 0.1s. The client derives each song's clips from
-its manifest, and `stagesFor` (`packages/core/src/round.ts`) plays at most five
+its manifest, and `ladderFor` (`packages/topic-songs/src/catalogue.ts`) plays at most five
 of them — all of them for a ladder of five or fewer, otherwise the ones nearest
 each stage. A longer ladder only costs storage, so ingest and the validator
 warn about it.

@@ -45,7 +45,7 @@ class TestModuleSurface(unittest.TestCase):
     def test_ladder_is_exactly_the_stages_the_game_plays(self):
         # Read the game's STAGE_TARGETS rather than trusting a copy: a drift
         # would either cut clips nobody hears or 404 a stage.
-        ts = (ROOT / "packages" / "core" / "src" / "ladder.ts").read_text(encoding="utf-8")
+        ts = (ROOT / "packages" / "topic-songs" / "src" / "catalogue.ts").read_text(encoding="utf-8")
         line = ts[ts.index("export const STAGE_TARGETS"):ts.index("as const;")]
         stages = [float(x) for x in re.findall(r"[\d.]+", line.split("=", 1)[1])]
         self.assertEqual(ingest.CLIP_LADDER, stages)

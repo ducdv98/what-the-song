@@ -3,7 +3,7 @@
 import { radioKeys } from './radioKeys';
 
 /**
- * Genre choices with a clear selected ink treatment.
+ * Facet choices with a clear selected ink treatment.
  *
  * Shared by both pickers so they cannot drift apart visually. Rendered as a
  * radiogroup so keyboard and screen-reader users get the right semantics for

@@ -42,11 +42,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 # Reveal ladder, in seconds: exactly the five stages a round plays. Mirrors
-# STAGE_TARGETS in packages/core/src/ladder.ts (a test asserts they agree), so
+# STAGE_TARGETS in packages/topic-songs/src/catalogue.ts (a test asserts they agree), so
 # no clip is cut that the game never requests.
 CLIP_LADDER = [0.1, 0.5, 2.0, 8.0, 16.0]
 
-# A round plays at most this many rungs; stagesFor in round.ts picks the ones
+# A round plays at most this many rungs; ladderFor in catalogue.ts picks the ones
 # nearest each stage from a longer ladder, and the rest are never heard.
 MAX_STAGES = 5
 

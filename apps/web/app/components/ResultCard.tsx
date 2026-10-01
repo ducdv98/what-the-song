@@ -8,7 +8,7 @@ import { formatSeconds } from './PlayButton';
 import { useI18n } from './I18nProvider';
 
 /** Spoiler-free history: wrong, skipped, correct, and not reached. */
-export function shareSquares(round: Round<Song>): string {
+export function shareSquares(round: Round<Song, number>): string {
   return round.stages
     .map((_, i) => {
       const a = round.attempts[i];
@@ -25,7 +25,7 @@ export function ResultCard({
   onListen,
   onNext,
 }: {
-  round: Round<Song>;
+  round: Round<Song, number>;
   playback: PlaybackState;
   onListen: () => void;
   onNext: () => void;
@@ -34,7 +34,7 @@ export function ResultCard({
   const [copied, setCopied] = useState(false);
   const [failedCover, setFailedCover] = useState<string | null>(null);
   const won = round.status === 'won';
-  const song = round.song;
+  const song = round.subject;
   const cover = coverUrl(song);
   const at = formatSeconds(round.stages[round.stageIndex]);
   const longest = round.stages[round.stages.length - 1];

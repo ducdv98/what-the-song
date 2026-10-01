@@ -1,6 +1,7 @@
 import type { Topic } from '@wts/core';
-import { ladderFor, type Song } from './catalogue.ts';
+import { ladderFor, STAGE_TARGETS, type Song } from './catalogue.ts';
 import { matchGuess } from './matching.ts';
+import { availableGenres, findGenre } from './genres.ts';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -28,8 +29,20 @@ export function validateCatalogue(data: unknown): Song[] {
 /** All rules and metadata owned by the Songs Topic. */
 export const songsTopic: Topic<Song, number> = {
   id: 'songs',
-  ladder: ladderFor,
+  ladder: (song) => {
+    const ladder = ladderFor(song);
+    return ladder.length > 0 ? ladder : STAGE_TARGETS;
+  },
   matches: (song, guess) => matchGuess(guess, song) !== 'none',
   validateCatalogue,
-  facets: ['genre'],
+  facets: [{
+    id: 'genre',
+    labels: { vi: 'Thể loại', en: 'Genre' },
+    value: (song) => findGenre(song.genre)?.slug ?? 'khac',
+    options: (songs) => availableGenres([...songs]).map(({ genre, count }) => ({
+      value: genre.slug,
+      labels: { vi: genre.label, en: genre.gloss },
+      count,
+    })),
+  }],
 };

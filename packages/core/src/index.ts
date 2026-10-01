@@ -4,7 +4,6 @@
  * once, here.
  */
 export * from './difficulty.ts';
-export * from './ladder.ts';
 export * from './match-quality.ts';
 export * from './leaderboard.ts';
 export * from './round.ts';

@@ -87,6 +87,14 @@ describe('per-song ladders derived from the manifest', () => {
     assert.deepEqual(ok.map((s) => s.id), ['full']);
     assert.deepEqual(bad.map((s) => s.id), ['empty', 'junk']);
   });
+
+  test('seven clips play at the five target positions and end at the longest', () => {
+    const song: Song = { id: 'seven', title: 'Seven', artist: 'A', clips: {
+      '100': 'a', '500': 'b', '1000': 'c', '2000': 'd',
+      '4000': 'e', '8000': 'f', '16000': 'g',
+    } };
+    assert.deepEqual(ladderFor(song), [0.1, 0.5, 2, 8, 16]);
+  });
 });
 
 describe('cover art', () => {

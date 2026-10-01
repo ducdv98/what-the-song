@@ -15,7 +15,7 @@ const things: Topic<Thing, string> = {
     if (!Array.isArray(data)) throw new Error('catalogue must be an array');
     return data as Thing[];
   },
-  facets: ['colour'],
+  facets: [{ id: 'colour', labels: { vi: 'Màu', en: 'Colour' }, value: () => 'red', options: () => [{ value: 'red', labels: { vi: 'Đỏ', en: 'Red' }, count: 1 }] }],
 };
 
 test('a Topic yields its Subject\'s ladder and judges Guesses', () => {
@@ -25,7 +25,7 @@ test('a Topic yields its Subject\'s ladder and judges Guesses', () => {
 });
 
 test('a Topic missing part of the contract does not type-check', () => {
-  // @ts-expect-error — no matcher, validator or facets
+  // @ts-expect-error — no matcher or validator
   const incomplete: Topic = { id: 'x', ladder: () => [] };
   assert.equal(incomplete.id, 'x');
 });

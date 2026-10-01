@@ -13,6 +13,21 @@ export interface Subject {
   aliases?: string[];
 }
 
+export interface FacetOption {
+  value: string;
+  labels: { vi: string; en: string };
+  count: number;
+}
+
+/** An optional way to narrow a Topic's Subjects. */
+export interface Facet<S extends Subject> {
+  id: string;
+  labels: { vi: string; en: string };
+  /** Include a Topic's catch-all mapping for unknown or absent values here. */
+  value(subject: S): string | null;
+  options(subjects: readonly S[]): FacetOption[];
+}
+
 export interface Topic<S extends Subject = Subject, C = unknown> {
   /** Plain string checked against the registry, never a DB enum. */
   id: string;
@@ -22,6 +37,6 @@ export interface Topic<S extends Subject = Subject, C = unknown> {
   matches(subject: S, guess: string): boolean;
   /** Validates untrusted catalogue data, returning the Subjects or throwing. */
   validateCatalogue(data: unknown): S[];
-  /** Names of the optional Facets this Topic declares (each Topic defines its own labels). */
-  facets: readonly string[];
+  /** Optional Facets this Topic declares. */
+  facets?: readonly Facet<S>[];
 }

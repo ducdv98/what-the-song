@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Topic } from '@wts/core';
 import { songsTopic } from './topic.ts';
-import { playableSongs, type Song } from './catalogue.ts';
+import { playableSongs, STAGE_TARGETS, type Song } from './catalogue.ts';
 
 const song: Song = {
   id: 'nnca', title: 'Nơi Này Có Anh', artist: 'Sơn Tùng M-TP',
@@ -12,7 +12,14 @@ const song: Song = {
 test('Songs value satisfies the Topic contract', () => {
   const topic: Topic<Song, number> = songsTopic;
   assert.equal(topic.id, 'songs');
-  assert.deepEqual(topic.facets, ['genre']);
+  const facet = topic.facets?.[0];
+  assert.equal(facet?.id, 'genre');
+  assert.deepEqual(facet?.labels, { vi: 'Thể loại', en: 'Genre' });
+  assert.equal(facet?.value(song), 'nhac-tre');
+  assert.equal(facet?.value({ ...song, genre: 'unknown' }), 'khac');
+  assert.deepEqual(facet?.options([song]), [{
+    value: 'nhac-tre', labels: { vi: 'Nhạc trẻ', en: 'Contemporary V-pop' }, count: 1,
+  }]);
   assert.deepEqual(topic.ladder(song), [0.1, 0.5]);
   assert.equal(topic.matches(song, 'noi nay co anh'), true);
   assert.equal(topic.matches(song, 'right here'), true);
@@ -34,7 +41,9 @@ test('accepts songs with missing or malformed clips and skips them for play', ()
   const catalogue = songsTopic.validateCatalogue([song, withoutClips, nullClips, malformedClips]);
 
   assert.equal(catalogue.length, 4);
-  assert.deepEqual(catalogue.slice(1).map(songsTopic.ladder), [[], [], []]);
+  assert.deepEqual(catalogue.slice(1).map(songsTopic.ladder), [
+    [...STAGE_TARGETS], [...STAGE_TARGETS], [...STAGE_TARGETS],
+  ]);
   const [playable, skipped] = playableSongs(catalogue);
   assert.deepEqual(playable.map((entry) => entry.id), [song.id]);
   assert.deepEqual(skipped.map((entry) => entry.id), ['missing', 'null', 'malformed']);

@@ -6,7 +6,7 @@ import {
   filterByTier,
   giveUp,
   isLastStage,
-  revealedSeconds,
+  currentClue,
   scoreForStep,
   skip,
   submitGuess,
@@ -16,7 +16,7 @@ import {
   type TierSlug,
 } from '@wts/core';
 import {
-  availableGenres, clipUrl, filterByGenre, playableSongs, songsTopic, matchGuess,
+  clipUrl, playableSongs, songsTopic, matchGuess,
   type Song,
 } from '@wts/topic-songs';
 import { loadPrefs, savePrefs } from '@/lib/storage/prefs';
@@ -57,9 +57,10 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
     [catalogue],
   );
 
-  const [genre, setGenre] = useState<string | null>(null);
+  const [facetValues, setFacetValues] = useState<Record<string, string | null>>({});
+  const genre = facetValues.genre ?? null;
   const [savedTier, setSavedTier] = useState<TierSlug | null>(null);
-  const [round, setRound] = useState<Round<Song> | null>(null);
+  const [round, setRound] = useState<Round<Song, number> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const { stats, record, syncFailed, synced } = useStats();
@@ -71,23 +72,28 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
   // exist during the static export's prerender.
   useEffect(() => {
     const prefs = loadPrefs();
-    setGenre(prefs.genre);
+    setFacetValues({ genre: prefs.genre });
     setSavedTier(prefs.tier);
   }, []);
 
-  const genreOptions = useMemo(() => availableGenres(allSongs), [allSongs]);
-  const inGenre = useMemo(
-    () => filterByGenre(allSongs, genre),
-    [allSongs, genre],
+  const facets = songsTopic.facets ?? [];
+  const facetOptions = useMemo(
+    () => facets.map((facet) => ({ facet, options: facet.options(allSongs) })),
+    [allSongs],
   );
-  const tiers = useMemo(() => tierCounts(inGenre), [inGenre]);
+  const inFacet = useMemo(
+    () => allSongs.filter((song) => facets.every((facet) =>
+      !facetValues[facet.id] || facet.value(song) === facetValues[facet.id])),
+    [allSongs, facetValues],
+  );
+  const tiers = useMemo(() => tierCounts(inFacet), [inFacet]);
   // The saved tier if it has songs here, else the easiest tier that does.
   const tier: TierSlug =
     (savedTier &&
       tiers.find((x) => x.tier.slug === savedTier && x.count > 0)?.tier.slug) ||
     tiers.find((x) => x.count > 0)?.tier.slug ||
     'medium';
-  const songs = useMemo(() => filterByTier(inGenre, tier), [inGenre, tier]);
+  const songs = useMemo(() => filterByTier(inFacet, tier), [inFacet, tier]);
   // Search covers every playable song, not just this tier: a guess list that
   // only offered this tier's songs would give the answer away.
 
@@ -124,20 +130,20 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
    * unlocked it is the gesture the browser needs.
    */
   const apply = useCallback(
-    (next: Round<Song>) => {
+    (next: Round<Song, number>) => {
       const before = round;
       setRound(next);
       if (!before || before.status !== 'playing') return;
       if (next.status !== 'playing') {
         record({
-          songId: next.song.id,
+          songId: next.subject.id,
           won: next.status === 'won',
           score: next.status === 'won' ? next.score : 0,
-          difficulty: tierOf(next.song),
+          difficulty: tierOf(next.subject),
           genre,
         });
       } else if (next.stageIndex > before.stageIndex) {
-        void playClip(next.song, revealedSeconds(next));
+        void playClip(next.subject, currentClue(next));
       }
     },
     [round, record, genre, playClip],
@@ -149,7 +155,7 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
     const next = round.stages[round.stageIndex + 1];
     if (next === undefined) return;
     try {
-      engine.prefetch(clipUrl(round.song, next));
+      engine.prefetch(clipUrl(round.subject, next));
     } catch {
       /* missing clip; play() will report it */
     }
@@ -160,9 +166,9 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
     savePrefs({ genre, tier: slug });
   }
 
-  function onGenre(slug: string | null) {
-    setGenre(slug);
-    savePrefs({ genre: slug, tier: savedTier });
+  function onFacet(id: string, value: string | null) {
+    setFacetValues((values) => ({ ...values, [id]: value }));
+    if (id === 'genre') savePrefs({ genre: value, tier: savedTier });
   }
 
   if (allSongs.length === 0) {
@@ -186,20 +192,20 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
     );
   }
 
-  const seconds = round ? revealedSeconds(round) : 0;
+  const seconds = round ? currentClue(round) : 0;
   const over = round !== null && round.status !== 'playing';
-  const selectedGenre = genreOptions.find((g) => g.genre.slug === genre)?.genre;
-  const genreLabel = selectedGenre
-    ? lang === 'vi'
-      ? selectedGenre.label
-      : selectedGenre.gloss
-    : t('picker.all');
+  const selectedFacets = facetOptions.map(({ facet, options }) => ({
+    facet,
+    label: options.find((option) => option.value === facetValues[facet.id])?.labels[lang] ?? t('picker.all'),
+  }));
   const nextSeconds = round?.stages[round.stageIndex + 1];
 
   return (
     <div className="game">
       <p className="filter-context">
-        {t('picker.genre')}: <strong>{genreLabel}</strong>
+        {selectedFacets.map(({ facet, label }) => (
+          <span key={facet.id}>{facet.labels[lang]}: <strong>{label}</strong></span>
+        ))}
       </p>
       {!over && <TierChips tiers={tiers} value={tier} onChange={onTier} />}
 
@@ -212,14 +218,14 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
             textAlign: 'center',
           }}
         >
-          {inGenre.length === 0 ? t('empty.genre') : t('difficulty.empty')}
+          {inFacet.length === 0 ? t('empty.genre') : t('difficulty.empty')}
         </p>
       )}
 
       {round && !over && (
         <>
           <section
-            key={`${round.song.id}-${round.stageIndex}`}
+            key={`${round.subject.id}-${round.stageIndex}`}
             className={`play-card round-card${round.attempts[round.stageIndex - 1]?.kind === 'skip' ? ' round-card--skip' : ''}`}
             aria-labelledby="round-title"
           >
@@ -259,7 +265,7 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
             <PlayButton
               state={state}
               seconds={seconds}
-              onPlay={() => void playClip(round.song, seconds)}
+              onPlay={() => void playClip(round.subject, seconds)}
               onStop={() => engine.stop()}
             />
             <p className="play-hint">{t('round.playHint')}</p>
@@ -269,7 +275,7 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
               {t('round.answer')}
             </label>
             <GuessBar
-              key={round.song.id}
+              key={round.subject.id}
               lastStage={isLastStage(round)}
               lastWrong={
                 [...round.attempts]
@@ -302,9 +308,9 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
           onListen={() => {
             if (state === 'playing') engine.stop();
             else
-              void playClip(round.song, round.stages[round.stages.length - 1]);
+              void playClip(round.subject, round.stages[round.stages.length - 1]);
           }}
-          onNext={() => newRound(round.song.id)}
+          onNext={() => newRound(round.subject.id)}
         />
       )}
 
@@ -342,22 +348,23 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
             {t('menu.howToBody')}
           </p>
         </section>
-        <PillRow
-          label={t('picker.genre')}
-          value={genre}
-          onChange={onGenre}
-          options={[
-            { value: null, label: t('picker.all'), count: allSongs.length },
-            // In Vietnamese the genre's own name is the label; in English the
-            // gloss is more use, with the Vietnamese name kept as the tooltip.
-            ...genreOptions.map((g) => ({
-              value: g.genre.slug as string | null,
-              label: lang === 'vi' ? g.genre.label : g.genre.gloss,
-              hint: lang === 'vi' ? g.genre.gloss : g.genre.label,
-              count: g.count,
-            })),
-          ]}
-        />
+        {facetOptions.map(({ facet, options }) => (
+          <PillRow
+            key={facet.id}
+            label={facet.labels[lang]}
+            value={facetValues[facet.id] ?? null}
+            onChange={(value) => onFacet(facet.id, value)}
+            options={[
+              { value: null, label: t('picker.all'), count: allSongs.length },
+              ...options.map((option) => ({
+                value: option.value,
+                label: option.labels[lang],
+                hint: option.labels[lang === 'vi' ? 'en' : 'vi'],
+                count: option.count,
+              })),
+            ]}
+          />
+        ))}
         <StreakBar stats={stats} syncFailed={syncFailed} />
         <Leaderboard version={synced} />
         <section

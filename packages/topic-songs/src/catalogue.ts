@@ -16,6 +16,9 @@ export interface Song {
   clips?: unknown;
 }
 
+/** Default clip lengths and selection targets, mirrored by tools/ingest.py. */
+export const STAGE_TARGETS = [0.1, 0.5, 2, 8, 16] as const;
+
 function isClipManifest(value: unknown): value is Record<string, string> {
   return typeof value === 'object' && value !== null && !Array.isArray(value) &&
     Object.values(value).every((name) => typeof name === 'string');
@@ -56,10 +59,27 @@ export function coverUrl(song: Song, base = '/clips'): string | null {
  */
 export function ladderFor(song: Song): number[] {
   if (!isClipManifest(song.clips)) return [];
-  return Object.keys(song.clips)
+  const rungs = [...new Set(Object.keys(song.clips)
     .map((k) => Number(k) / 1000)
     .filter((n) => Number.isFinite(n) && n > 0)
-    .sort((a, b) => a - b);
+    .sort((a, b) => a - b))];
+  if (rungs.length <= STAGE_TARGETS.length) return rungs;
+
+  const picked: number[] = [];
+  let from = 0;
+  STAGE_TARGETS.forEach((target, i) => {
+    const isLast = i === STAGE_TARGETS.length - 1;
+    const to = rungs.length - (STAGE_TARGETS.length - 1 - i);
+    let best = isLast ? rungs.length - 1 : from;
+    if (!isLast) {
+      for (let j = from; j < to; j++) {
+        if (Math.abs(Math.log(rungs[j] / target)) < Math.abs(Math.log(rungs[best] / target))) best = j;
+      }
+    }
+    picked.push(rungs[best]);
+    from = best + 1;
+  });
+  return picked;
 }
 
 /**
