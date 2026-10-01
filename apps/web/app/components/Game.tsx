@@ -19,6 +19,7 @@ import {
   clipUrl, playableSongs, songsTopic, matchGuess,
   type Song,
 } from '@wts/topic-songs';
+import type { TopicId } from '@wts/topics';
 import { loadPrefs, savePrefs } from '@/lib/storage/prefs';
 import { useAudioEngine } from './useAudioEngine';
 import { PlayButton, formatSeconds } from './PlayButton';
@@ -49,7 +50,7 @@ function pickRandom(items: Song[], excludeId?: string): Song | undefined {
  * box. When the round ends the result replaces it. Genre, stats and language
  * live in the menu drawer.
  */
-export function Game({ catalogue }: { catalogue: Song[] }) {
+export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: TopicId }) {
   // Drop songs with a gap in their clip ladder up front, rather than throwing
   // two reveals into a round.
   const [allSongs, skipped] = useMemo(
@@ -136,7 +137,7 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
       if (!before || before.status !== 'playing') return;
       if (next.status !== 'playing') {
         record({
-          topic: songsTopic.id,
+          topic: topicId,
           subjectId: next.subject.id,
           won: next.status === 'won',
           score: next.status === 'won' ? next.score : 0,
@@ -147,7 +148,7 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
         void playClip(next.subject, currentClue(next));
       }
     },
-    [round, record, genre, playClip],
+    [round, record, genre, playClip, topicId],
   );
 
   // Warm the next stage so revealing it feels immediate.

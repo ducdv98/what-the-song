@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { DEFAULT_TOPIC_ID } from '@wts/topics';
 import { useI18n } from './I18nProvider';
 import { SiteFooter } from './SiteFooter';
 
@@ -17,11 +18,11 @@ export function InformationPage({
   return (
     <main className="app-shell info-shell">
       <header className="app-header">
-        <Link className="wordmark wordmark-link" href="/">
+        <Link className="wordmark wordmark-link" href={`/${DEFAULT_TOPIC_ID}`}>
           what the <span>song</span>
           <span aria-hidden="true">?</span>
         </Link>
-        <Link className="pill pill--muted info-back" href="/">
+        <Link className="pill pill--muted info-back" href={`/${DEFAULT_TOPIC_ID}`}>
           <span aria-hidden="true">←</span> {t('info.back')}
         </Link>
       </header>

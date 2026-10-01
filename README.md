@@ -566,7 +566,9 @@ built one before, move it: `mkdir -p apps/web/public/assets && mv public/clips a
 local settings moved from `backend/.env` to `apps/api/.env`.
 
 Next.js App Router with `output: 'export'` — the game is still a folder of
-static files in `apps/web/out`. The catalogue is fetched at runtime from `/assets/songs/catalogue.json`,
+static files in `apps/web/out`. The Songs game is at `/songs`; `/` redirects
+there, and registered Topics get their own `/<topic>` route. Unknown Topics
+return 404. Each route fetches its catalogue at runtime from `/assets/<topic>/catalogue.json`,
 so the build does not depend on what is in your clip library; without one, the
 app says so and tells you what to run.
 

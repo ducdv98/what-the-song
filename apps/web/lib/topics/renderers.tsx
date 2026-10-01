@@ -4,10 +4,10 @@ import type { TopicId } from '@wts/topics';
 import { Game } from '@/app/components/Game';
 
 /** UI stays in the web app; each registered Topic gets one renderer here. */
-function SongsRenderer({ catalogue }: { catalogue: Song[] }) {
-  return <Game catalogue={catalogue} />;
+function SongsRenderer({ catalogue, topicId }: { catalogue: Song[]; topicId: TopicId }) {
+  return <Game catalogue={catalogue} topicId={topicId} />;
 }
 
 export const renderers = {
   songs: SongsRenderer,
-} satisfies Record<TopicId, ComponentType<never>>;
+} satisfies Record<TopicId, ComponentType<{ catalogue: Song[]; topicId: TopicId }>>;

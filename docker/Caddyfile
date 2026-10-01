@@ -71,10 +71,17 @@
 		redir /assets/songs/{re.oldclips.1} permanent
 	}
 
+	# Keep the home redirect behind the same optional auth gate. Temporary (not
+	# 308) and mirrors DEFAULT_TOPIC_ID: change both when a second Topic is playable.
+	@home path /
+	handle @home {
+		redir /songs 302
+	}
+
 	# The exported app.
 	handle {
 		root * /srv/site
-		try_files {path} {path}.html /index.html
+		try_files {path} {path}.html
 		file_server
 	}
 }
