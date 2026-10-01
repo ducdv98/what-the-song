@@ -33,6 +33,10 @@ Use:
 
 Codex must not commit unless explicitly instructed.
 
+Note: Some specific cases, Claude can work in parallel with Codex to speed up the implementation:
+- Codex hit the quota limit and cannot continue, Claude can continue the implementation.
+- Tasks can be done in parallel, Claude can work on one task while Codex works on another task.
+
 ### /code-review
 
 When `/implement` reaches the code-review phase, delegate the actual review work
