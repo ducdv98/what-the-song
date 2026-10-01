@@ -39,7 +39,7 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 # The clip library is mounted from the host at runtime and deliberately not
 # baked in: it is far larger than the app, it changes every time you ingest
 # more songs, and audio should not end up inside a distributable image.
-VOLUME /srv/clips
+VOLUME /srv/assets
 
 EXPOSE 80
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

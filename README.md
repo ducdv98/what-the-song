@@ -123,7 +123,7 @@ pip install -U yt-dlp      # not youtube-dl, which is unmaintained
 brew install ffmpeg        # or: sudo apt install ffmpeg
 
 cp tools/seed.example.jsonl seed.jsonl   # then add your songs
-./tools/ingest.py seed.jsonl --out apps/web/public/clips
+./tools/ingest.py seed.jsonl --out apps/web/public/assets/songs
 ```
 
 **Windows** (PowerShell) — `./tools/ingest.py` does not work there, since
@@ -136,14 +136,14 @@ winget install ffmpeg        # or: scoop install ffmpeg
 ffmpeg -version; yt-dlp --version
 
 copy tools\seed.example.jsonl seed.jsonl   # then add your songs
-py tools\ingest.py seed.jsonl --out apps/web/public/clips
+py tools\ingest.py seed.jsonl --out apps/web/public/assets/songs
 ```
 
 The script detects your OS and picks a cookie source itself, printing what it
 chose. See [Cookies and the bot wall](#cookies-and-the-bot-wall) if downloads
 start failing — on Windows there is one specific trap.
 
-Output goes in `apps/web/public/clips/` so the app can serve it — that is the
+Output goes in `apps/web/public/assets/songs/` so the app can serve it — that is the
 default, so `--out` can be left off, and it works from any directory. It is
 gitignored.
 
@@ -218,7 +218,7 @@ Each song gets a cover: the video's thumbnail, centre-cropped to a 480×480
 JPEG with metadata stripped. YouTube "Topic" art tracks put the album art in
 the middle of the frame, so the crop lands on it. The filename is a hash of the
 image — opaque, and a different image always gets a new URL, so the long cache
-on `/clips` never serves a stale cover. No thumbnail is not an error; the result
+on `/assets/songs` never serves a stale cover. No thumbnail is not an error; the result
 screen shows a fallback.
 
 Songs built before covers existed don't have one. Backfill them without
@@ -292,13 +292,13 @@ So on Windows, pick one:
 
 ```powershell
 # Easiest: install Firefox, sign in to YouTube once, then just run it.
-py tools\ingest.py seed.jsonl --out apps/web/public/clips
+py tools\ingest.py seed.jsonl --out apps/web/public/assets/songs
 
 # Or export a cookies.txt from any browser and pass it:
-py tools\ingest.py seed.jsonl --out apps/web/public/clips --cookies cookies.txt
+py tools\ingest.py seed.jsonl --out apps/web/public/assets/songs --cookies cookies.txt
 
 # Or skip cookies — often fine from a home connection:
-py tools\ingest.py seed.jsonl --out apps/web/public/clips --no-cookies
+py tools\ingest.py seed.jsonl --out apps/web/public/assets/songs --no-cookies
 ```
 
 Firefox stores cookies in plain SQLite, which is why it works everywhere.
@@ -560,12 +560,12 @@ Vitest (`apps/api`); `test:ingest` is Python's unittest over `tools/`. Nothing
 beyond Node and Python is needed for `npm test`.
 
 **Moving from the pre-monorepo layout:** the clip library now lives in
-`apps/web/public/clips` (Next serves it in development from there). If you
-built one before, move it: `mv public/clips apps/web/public/clips`. The API's
+`apps/web/public/assets/songs` (Next serves it in development from there). If you
+built one before, move it: `mv public/clips apps/web/public/assets/songs`. The API's
 local settings moved from `backend/.env` to `apps/api/.env`.
 
 Next.js App Router with `output: 'export'` — the game is still a folder of
-static files in `apps/web/out`. The catalogue is fetched at runtime from `/clips/catalogue.json`,
+static files in `apps/web/out`. The catalogue is fetched at runtime from `/assets/songs/catalogue.json`,
 so the build does not depend on what is in your clip library; without one, the
 app says so and tells you what to run.
 
@@ -600,7 +600,7 @@ uses its own wordmark rather than any Spotify branding.
 ## Running it with Docker
 
 ```sh
-./tools/ingest.py seed.jsonl --out apps/web/public/clips   # build clips first (host)
+./tools/ingest.py seed.jsonl --out apps/web/public/assets/songs   # build clips first (host)
 cp .env.example .env                  # set POSTGRES_PASSWORD and JWT_ACCESS_SECRET
 docker compose up -d --build          # http://localhost:3000
 ```
@@ -635,11 +635,11 @@ docker compose exec -T db pg_dump -U wts wts > backup.sql
 docker compose exec -T db psql -U wts wts < backup.sql      # restore
 ```
 
-**The clip library is a bind mount, not part of the image.** `apps/web/public/clips` on
-the host is mounted read-only at `/srv/clips`. So adding songs is:
+**The clip library is a bind mount, not part of the image.** `apps/web/public/assets` on
+the host is mounted read-only at `/srv/assets`. So adding songs is:
 
 ```sh
-./tools/ingest.py seed.jsonl --out apps/web/public/clips   # add more rows first
+./tools/ingest.py seed.jsonl --out apps/web/public/assets/songs   # add more rows first
 # reload the page — no rebuild, no restart
 ```
 
@@ -652,7 +652,7 @@ Change the port in `.env`, or `PORT=8080 docker compose up -d` on a shell that
 supports it.
 
 On **Windows**, this needs Docker Desktop with the WSL2 backend; the
-`./apps/web/public/clips` bind mount works as-is.
+`./apps/web/public/assets` bind mount works as-is.
 
 ### Putting it behind a password
 
@@ -710,8 +710,8 @@ sed -i "s|^JWT_ACCESS_SECRET=.*|JWT_ACCESS_SECRET=$(openssl rand -base64 48 | tr
 
 # 2. Clips. They are not in git (see "The clip library is a bind mount").
 #    Build them on the host, or copy an existing library from your machine:
-#      rsync -avz apps/web/public/clips/ user@vps:what-the-song/apps/web/public/clips/
-#    apps/web/public/clips/catalogue.json must exist.
+#      rsync -avz apps/web/public/assets/songs/ user@vps:what-the-song/apps/web/public/assets/songs/
+#    apps/web/public/assets/songs/catalogue.json must exist.
 
 # 3. Build and start (migrations run automatically on API start).
 docker compose up -d --build
@@ -731,7 +731,7 @@ git pull
 docker compose up -d --build     # rebuilds only what changed; the database volume is kept
 ```
 
-**Updating clips needs no rebuild and no restart.** `apps/web/public/clips` is
+**Updating clips needs no rebuild and no restart.** `apps/web/public/assets/songs` is
 bind-mounted read-only into the container, so rsync/ingest new files into it
 and reload the page. Keep `catalogue.json` in sync with the audio files you
 copy (copy it last).

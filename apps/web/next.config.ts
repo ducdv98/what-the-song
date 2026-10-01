@@ -16,7 +16,7 @@ export default function config(phase: string): NextConfig {
       rewrites: async () => [{ source: '/api/:path*', destination: `${api}/api/:path*` }],
     };
   }
-  // The clip library and catalogue are produced locally by tools/ingest.py and
+  // The Songs assets (/assets/songs: clips and catalogue) are produced locally by tools/ingest.py and
   // served as static files, and accounts live in a separate service (apps/api), so
   // the web app itself still builds to plain files. `output: 'export'` keeps
   // that part of deployment to "copy a folder somewhere private".

@@ -16,7 +16,7 @@ const songs: Song[] = [
 describe('clip URLs', () => {
   test('built from the opaque filename, never the title', () => {
     const url = clipUrl(songs[0], 0.1);
-    assert.equal(url, '/clips/nnca/aaa.mp3');
+    assert.equal(url, '/assets/songs/nnca/aaa.mp3');
     assert.ok(!/noi|nay|anh/i.test(url), 'URL must not leak the answer');
   });
 
@@ -43,7 +43,7 @@ describe('clip keys agree with tools/ingest.py', () => {
       ),
     };
     for (const s of [0.1, 0.5, 1.0, 2.0, 4.0, 8.0, 16.0]) {
-      assert.equal(clipUrl(song, s), `/clips/x/${clipKey(s)}.mp3`);
+      assert.equal(clipUrl(song, s), `/assets/songs/x/${clipKey(s)}.mp3`);
     }
   });
 });
@@ -101,7 +101,7 @@ describe('cover art', () => {
   const base = { id: 'nnca', title: 't', artist: 'a', clips: {} };
 
   test('a cover filename becomes a URL in the song folder', () => {
-    assert.equal(coverUrl({ ...base, cover: 'cover-3f9a.jpg' }), '/clips/nnca/cover-3f9a.jpg');
+    assert.equal(coverUrl({ ...base, cover: 'cover-3f9a.jpg' }), '/assets/songs/nnca/cover-3f9a.jpg');
   });
 
   test('no cover means null, so the UI shows its fallback', () => {

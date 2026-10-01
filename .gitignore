@@ -1,5 +1,5 @@
 # Clip library — built locally by tools/ingest.py, never committed.
-/apps/web/public/clips/
+/apps/web/public/assets/
 /clips/
 seed.jsonl
 

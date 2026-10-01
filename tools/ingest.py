@@ -19,7 +19,7 @@ Requires: yt-dlp, ffmpeg, ffprobe on PATH.
     pip install -U yt-dlp        # NOT youtube-dl, which is unmaintained
     ./tools/ingest.py seed.jsonl
 
-Clips go to apps/web/public/clips by default — where the web app serves them
+Clips go to apps/web/public/assets/songs by default — where the web app serves them
 in development and docker-compose mounts them from. --out overrides it.
 
 Re-running is cheap: songs whose clips already exist are skipped, so you can
@@ -535,7 +535,7 @@ def fetch_cover(
 
     The filename is a hash of the image itself: opaque like the clips (it must
     not give the answer away), and a different image always gets a different
-    name, so the year-long immutable cache on /clips can never serve a stale
+    name, so the year-long immutable cache on /assets can never serve a stale
     cover. Metadata is stripped. Never fatal: a song without a cover still
     plays, and the result screen has a fallback.
     """
@@ -586,9 +586,9 @@ def process(
     ladder: list[float] | None = None,
     covers: bool = False,
 ) -> dict | None:
-    # --out IS the clips root, so no extra "clips" segment here: the layout
+    # --out IS the Songs asset root, so no extra "clips" segment here: the layout
     # must be <out>/catalogue.json alongside <out>/<id>/<hash>.mp3, because the
-    # app requests /clips/catalogue.json and /clips/<id>/<hash>.mp3 from the
+    # app requests /assets/songs/catalogue.json and /assets/songs/<id>/<hash>.mp3 from the
     # same base. An extra level here 404s every clip while the catalogue loads
     # fine, which looks like a serving problem rather than a path one.
     clip_dir = out_root / seed.id
@@ -729,7 +729,7 @@ def load_seeds(path: Path) -> list[Seed]:
 
 # The web app's clip library. Resolved from this file rather than the working
 # directory, so the default is right wherever the script is run from.
-DEFAULT_OUT = Path(__file__).resolve().parent.parent / "apps" / "web" / "public" / "clips"
+DEFAULT_OUT = Path(__file__).resolve().parent.parent / "apps" / "web" / "public" / "assets" / "songs"
 
 
 def completed_records(seeds: list[Seed], out: Path) -> list[dict | None]:
@@ -781,7 +781,7 @@ def main() -> int:
         "--out",
         type=Path,
         default=DEFAULT_OUT,
-        help="Clip library root (default: apps/web/public/clips)",
+        help="Clip library root (default: apps/web/public/assets/songs)",
     )
     ap.add_argument(
         "--catalogue-only",

@@ -67,15 +67,15 @@ class TestClipLibraryLocation(unittest.TestCase):
     # mounts into Caddy. A mismatch means clips that never load, or audio
     # committed to the repo.
     def test_default_out_is_the_web_apps_library(self):
-        self.assertEqual(ingest.DEFAULT_OUT, ROOT / "apps" / "web" / "public" / "clips")
+        self.assertEqual(ingest.DEFAULT_OUT, ROOT / "apps" / "web" / "public" / "assets" / "songs")
 
     def test_library_is_gitignored(self):
         ignored = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
-        self.assertIn("/apps/web/public/clips/", ignored)
+        self.assertIn("/apps/web/public/assets/", ignored)
 
     def test_compose_mounts_the_same_directory(self):
         compose = (ROOT / "docker-compose.yml").read_text(encoding="utf-8")
-        self.assertIn("./apps/web/public/clips:/srv/clips:ro", compose)
+        self.assertIn("./apps/web/public/assets:/srv/assets:ro", compose)
 
 
 class TestClipFormat(unittest.TestCase):

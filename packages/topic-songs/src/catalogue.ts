@@ -36,15 +36,18 @@ export function clipKey(seconds: number): string {
   return String(Math.round(seconds * 1000));
 }
 
+/** Where Songs assets (catalogue.json, clips, covers) are served. */
+export const SONGS_ASSET_BASE = '/assets/songs';
+
 /** Clip URL for a reveal step. Filenames are opaque hashes by design. */
-export function clipUrl(song: Song, seconds: number, base = '/clips'): string {
+export function clipUrl(song: Song, seconds: number, base = SONGS_ASSET_BASE): string {
   const name = isClipManifest(song.clips) ? song.clips[clipKey(seconds)] : undefined;
   if (!name) throw new Error(`no clip for ${song.id} at ${seconds}s`);
   return `${base}/${song.id}/${name}`;
 }
 
 /** Cover image URL, or null when the song has none. */
-export function coverUrl(song: Song, base = '/clips'): string | null {
+export function coverUrl(song: Song, base = SONGS_ASSET_BASE): string | null {
   // Only a bare filename is trusted: the catalogue is data, not a path.
   return song.cover && /^[\w.-]+$/.test(song.cover) ? `${base}/${song.id}/${song.cover}` : null;
 }

@@ -11,7 +11,7 @@ apps/web/out
 **/*.tsbuildinfo
 
 # The clip library is mounted at runtime, never copied into an image.
-apps/web/public/clips
+apps/web/public/assets
 clips
 seed.jsonl
 

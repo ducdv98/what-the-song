@@ -18,10 +18,10 @@ else
 	echo "auth: AUTH_PASSWORD before sharing this URL with anyone."
 fi
 
-if [ ! -f /srv/clips/catalogue.json ]; then
-	echo "clips: no catalogue.json found at /srv/clips"
-	echo "clips: build one on the host first:"
-	echo "clips:   ./tools/ingest.py seed.jsonl --out apps/web/public/clips"
+if [ ! -f /srv/assets/songs/catalogue.json ]; then
+	echo "assets: no catalogue.json found at /srv/assets/songs"
+	echo "assets: build one on the host first:"
+	echo "assets:   ./tools/ingest.py seed.jsonl --out apps/web/public/assets/songs"
 fi
 
 exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile

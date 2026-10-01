@@ -14,7 +14,7 @@ services:
     volumes:
       # The clip library stays on the host. Add songs with tools/ingest.py and
       # reload the page — no image rebuild needed.
-      - ./apps/web/public/clips:/srv/clips:ro
+      - ./apps/web/public/assets:/srv/assets:ro
     environment:
       # Optional site-wide gate, separate from player accounts. Leave both unset
       # for a localhost-only game; set them before sharing the URL (see README).

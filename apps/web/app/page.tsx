@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { useEffect, useState } from 'react';
-import type { Song } from '@wts/topic-songs';
+import { SONGS_ASSET_BASE, type Song } from '@wts/topic-songs';
 import { DEFAULT_TOPIC_ID, getTopic } from '@wts/topics';
 import { renderers } from '@/lib/topics/renderers';
 import { useI18n } from './components/I18nProvider';
@@ -24,7 +24,7 @@ export default function Page() {
     setError(false);
     setCatalogue(null);
     const controller = new AbortController();
-    fetch('/clips/catalogue.json', {
+    fetch(`${SONGS_ASSET_BASE}/catalogue.json`, {
       cache: 'no-store',
       signal: controller.signal,
     })
