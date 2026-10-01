@@ -63,6 +63,8 @@ export interface LoginRequest {
 
 /** One finished round, as the browser reports it. */
 export interface RoundReport {
+  /** Absent means the Songs Topic for existing clients. */
+  topic?: string;
   songId: string;
   won: boolean;
   /** 0 for a loss; within the game's score range for a win. */
@@ -125,6 +127,7 @@ export type ApiErrorCode =
   | 'email_taken'
   | 'invalid_credentials'
   | 'invalid_round'
+  | 'unknown_topic'
   | 'unauthenticated'
   | 'bad_origin'
   | 'rate_limited'

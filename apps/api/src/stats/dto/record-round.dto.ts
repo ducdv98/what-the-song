@@ -22,6 +22,11 @@ import {
  * `difficulty` is the song's tier (easy … impossible).
  */
 export class RecordRoundDto implements RoundReport {
+  /** An absent Topic keeps existing clients on Songs. The service checks known ids. */
+  @ValidateIf((_, value) => value !== undefined)
+  @IsString()
+  topic?: string;
+
   @IsString()
   @Matches(new RegExp(SONG_ID_PATTERN))
   songId: string;

@@ -1,6 +1,6 @@
 # Add @wts/topics and use it in API and web
 
-Status: ready-for-agent
+Status: resolved
 Blocked by: 02
 
 Create the registry package exporting every Topic by id. API validates a reported Topic id against it; web resolves a Topic from it. Add the web renderer registry keyed by Topic id (Songs renderer only).

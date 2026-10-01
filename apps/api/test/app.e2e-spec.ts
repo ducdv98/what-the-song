@@ -372,6 +372,32 @@ describe('rounds and stats', () => {
       expect(res.status, JSON.stringify(body)).toBe(400);
     }
   });
+
+  it('accepts an omitted Topic as Songs and an explicit Songs Topic', async () => {
+    const omitted = await http()
+      .post('/api/rounds')
+      .set('Cookie', cookieHeader(jar))
+      .send(round)
+      .expect(201);
+    const explicit = await http()
+      .post('/api/rounds')
+      .set('Cookie', cookieHeader(jar))
+      .send({ ...round, topic: 'songs' })
+      .expect(201);
+    expect(explicit.body.stats.played).toBe(omitted.body.stats.played + 1);
+  });
+
+  it('rejects an unknown Topic with a typed error and no recorded round', async () => {
+    const before = await db.query(`SELECT count(*)::int AS n FROM rounds`);
+    const res = await http()
+      .post('/api/rounds')
+      .set('Cookie', cookieHeader(jar))
+      .send({ ...round, topic: 'people' })
+      .expect(400);
+    expect(res.body).toMatchObject({ statusCode: 400, code: 'unknown_topic' });
+    const after = await db.query(`SELECT count(*)::int AS n FROM rounds`);
+    expect(after[0].n).toBe(before[0].n);
+  });
 });
 
 describe('leaderboard', () => {

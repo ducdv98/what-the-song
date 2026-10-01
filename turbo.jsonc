@@ -6,6 +6,7 @@
   // otherwise notice it changing.
   "globalDependencies": ["tsconfig.base.json"],
   // Workspace dependencies make @wts/topic-songs build after @wts/core,
+  // @wts/topics after @wts/topic-songs,
   // and the web/API build after the packages they import.
   "tasks": {
     "build": {

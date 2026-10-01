@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import type { PlayerStats as StatsView } from '@wts/contracts';
+import type { ApiErrorCode, PlayerStats as StatsView } from '@wts/contracts';
 import { WORST_SCORE } from '@wts/core';
+import { DEFAULT_TOPIC_ID, getTopic } from '@wts/topics';
 import { DataSource } from 'typeorm';
 import type { RecordRoundDto } from './dto/record-round.dto.js';
 import { PlayerStats } from './player-stats.entity.js';
@@ -48,6 +49,8 @@ export class StatsService {
    * two — cannot lose an update.
    */
   async record(userId: string, dto: RecordRoundDto): Promise<StatsView> {
+    if (!getTopic(dto.topic ?? DEFAULT_TOPIC_ID))
+      throw new BadRequestException({ code: 'unknown_topic' satisfies ApiErrorCode });
     if (!dto.won && dto.score !== 0)
       throw new BadRequestException({ code: 'invalid_round' });
     if (dto.won && dto.score < WORST_SCORE)

@@ -1,8 +1,9 @@
 ﻿'use client';
 
 import { useEffect, useState } from 'react';
-import { songsTopic, type Song } from '@wts/topic-songs';
-import { Game } from './components/Game';
+import type { Song } from '@wts/topic-songs';
+import { DEFAULT_TOPIC_ID, getTopic } from '@wts/topics';
+import { renderers } from '@/lib/topics/renderers';
 import { useI18n } from './components/I18nProvider';
 import { AccountBar } from './components/AccountBar';
 import { GuestNotice } from './components/GuestNotice';
@@ -11,6 +12,10 @@ import { MenuButton, MenuProvider } from './components/GameMenu';
 
 /** Runtime catalogue keeps the static build independent of the clip library. */
 export default function Page() {
+  const topicId = DEFAULT_TOPIC_ID;
+  const topic = getTopic(topicId);
+  if (!topic) throw new Error('Songs Topic is not registered');
+  const Renderer = renderers[topicId];
   const { t, lang } = useI18n();
   const [catalogue, setCatalogue] = useState<Song[] | null>(null);
   const [error, setError] = useState(false);
@@ -28,7 +33,7 @@ export default function Page() {
         return r.json();
       })
       .then((data: unknown) => {
-        setCatalogue(songsTopic.validateCatalogue(data));
+        setCatalogue(topic.validateCatalogue(data));
       })
       .catch(() => {
         if (!controller.signal.aborted) setError(true);
@@ -68,7 +73,7 @@ export default function Page() {
             </div>
           </section>
           <div className="game-column">
-            {playable && <Game catalogue={catalogue} />}
+            {playable && <Renderer catalogue={catalogue} />}
             {!playable && (
               <section
                 className="state-card"

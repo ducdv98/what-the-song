@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    // Sources import each other with .ts extensions, so they run directly
+    // under `node --experimental-strip-types` (the tests do) and compile to
+    // .js imports for everything that consumes dist/.
+    "rewriteRelativeImportExtensions": true,
+    "verbatimModuleSyntax": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "rootDir": "src",
+    "outDir": "dist",
+    "types": ["node"]
+  },
+  "include": ["src"]
+}
