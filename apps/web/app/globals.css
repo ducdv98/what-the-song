@@ -308,7 +308,8 @@ button:disabled {
   font: var(--t-caption);
 }
 .info-crosslink a,
-.license-links a {
+.license-links a,
+.terms-callout a {
   color: var(--ink-900);
   font-weight: 700;
   text-underline-offset: 4px;
@@ -326,6 +327,12 @@ button:disabled {
 }
 .terms-callout p {
   margin: 0;
+}
+.terms-callout p + p {
+  margin-top: 12px;
+}
+.terms-callout-source {
+  font: var(--t-caption);
 }
 .terms-acceptance {
   margin: 24px 0;

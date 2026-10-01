@@ -683,16 +683,82 @@ page while leaving the audio open would be pointless.
 but those are requests to crawlers, not access control. The password is the
 access control.
 
-> **Verified:** the Caddy config validates in both auth modes, and end-to-end
-> against a real build: app serves 200, `catalogue.json` comes back `no-store`,
-> clips come back `audio/mp4` + `immutable`, a missing clip 404s, and with auth
-> on every route returns 401 without credentials and 200 with them.
-> **Not verified:** the images themselves have never been built — this container
-> has the Docker CLI but no daemon. `docker compose build` is the one step still
-> untested. What was verified: both images' steps run cleanly outside Docker —
-> `turbo prune`, `npm ci` on the npm 10 that `node:22-alpine` ships, the
-> filtered builds, and `npm prune --omit=dev`, after which the API starts and
-> passes its health check against Postgres; `docker compose config`
-> validates; and the production build served by a real Caddy with this
-> Caddyfile's `/api` route registered, signed in, recorded rounds and refused
-> cross-origin writes in a real browser.
+> **Verified:** the images build, and the full stack (`web`, `api`, `db`) has
+> been brought up with `docker compose up -d` on a VPS: the game serves 200,
+> `/api/health` reports the database up, `catalogue.json` is served, and
+> registering an account works through Caddy.
+
+## Deploying on a VPS
+
+Everything — game, API and Postgres — runs from one `docker compose`. Nothing
+else (Node, Postgres, Caddy) needs installing on the host.
+
+**Requirements:** Docker Engine with the Compose plugin, git, and ~2 GB of free
+disk for the build. Prefix `docker` with `sudo` if your user is not in the
+`docker` group.
+
+### First deploy
+
+```sh
+git clone <repo-url> what-the-song && cd what-the-song
+
+# 1. Secrets. Compose refuses to start without the first two.
+cp .env.example .env && chmod 600 .env
+sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -hex 24)|" .env
+sed -i "s|^JWT_ACCESS_SECRET=.*|JWT_ACCESS_SECRET=$(openssl rand -base64 48 | tr -d '\n' | tr '/+' '_-')|" .env
+
+# 2. Clips. They are not in git (see "The clip library is a bind mount").
+#    Build them on the host, or copy an existing library from your machine:
+#      rsync -avz apps/web/public/clips/ user@vps:what-the-song/apps/web/public/clips/
+#    apps/web/public/clips/catalogue.json must exist.
+
+# 3. Build and start (migrations run automatically on API start).
+docker compose up -d --build
+
+# 4. Check.
+docker compose ps                          # all three "healthy"/"Up"
+curl -s localhost:3000/api/health          # {"status":"ok",...}
+```
+
+The game is now on port `3000` (`PORT` in `.env`). `db` and `api` are not
+published to the host.
+
+### Updating
+
+```sh
+git pull
+docker compose up -d --build     # rebuilds only what changed; the database volume is kept
+```
+
+**Updating clips needs no rebuild and no restart.** `apps/web/public/clips` is
+bind-mounted read-only into the container, so rsync/ingest new files into it
+and reload the page. Keep `catalogue.json` in sync with the audio files you
+copy (copy it last).
+
+### Operations
+
+```sh
+docker compose logs -f            # all services (add `api`, `web` or `db`)
+docker compose restart api
+docker compose down               # stop; data is kept in the pgdata volume
+docker compose down -v            # stop AND DELETE all accounts and records
+```
+
+Containers use `restart: unless-stopped`, and the Docker service is enabled at
+boot, so the stack comes back after a reboot. Back up the database as shown
+above (a nightly `pg_dump` cron is enough).
+
+### Before going public
+
+1. **Put TLS in front.** The bundled Caddy listens on plain HTTP (`:80`,
+   auto-HTTPS is off). Terminate HTTPS with a reverse proxy on the host (Caddy,
+   nginx, or a Cloudflare Tunnel) that forwards your domain to
+   `127.0.0.1:3000`, and forward `X-Forwarded-For` / `X-Forwarded-Proto`. Open
+   only ports 80/443 (and 22) in the VPS firewall; to stop exposing `3000`
+   directly, change the `ports:` entry in `docker-compose.yml` to
+   `"127.0.0.1:${PORT:-3000}:80"`.
+2. Set `COOKIE_SECURE=true` in `.env` once the site is served over HTTPS, then
+   `docker compose up -d`.
+3. Decide on the site-wide password (`AUTH_USER` / `AUTH_PASSWORD`, see "Putting it behind a password").
+   Privacy is what keeps this in personal-use territory.
+

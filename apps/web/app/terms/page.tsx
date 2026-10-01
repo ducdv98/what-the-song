@@ -3,7 +3,7 @@ import { TermsContent } from './TermsContent';
 
 export const metadata: Metadata = {
   title: 'Terms & conditions · what the song',
-  description: 'Personal, noncommercial use, app licensing, and third-party rights.',
+  description: 'Music license status, Vietnamese copyright rules, and terms for personal use.',
 };
 
 export default function TermsPage() {
