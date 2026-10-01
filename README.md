@@ -16,7 +16,7 @@ commercial, not public.
 | Clip ingest pipeline | written, **not yet run against real audio** — `tools/ingest.py` |
 | Web Audio playback | done — `apps/web/lib/audio/engine.ts` |
 | Round rules | done, tested — `packages/game/src/round.ts` |
-| Autocomplete search | done, tested — `packages/game/src/catalogue.ts` |
+| Free-text answer matching | done, tested — [ADR-0001](docs/adr/0001-free-text-guesses.md) |
 | Game UI | done — Next.js + [`DESIGN.md`](DESIGN.md) |
 | Round + result screens (SongSpot-style) | done, verified in a browser — see [How a round works](#how-a-round-works) |
 | Difficulty tiers + genre filter | done, tested |
@@ -47,7 +47,7 @@ apps/
   api/          @wts/api        accounts and player records — NestJS + Postgres
 packages/
   game/         @wts/game       the rules, with no DOM, audio, storage or network:
-                                Vietnamese matching, catalogue search, rounds,
+                                Vietnamese matching, rounds,
                                 scoring, difficulty, genres, streaks
   contracts/    @wts/contracts  the API's wire format: request/response shapes,
                                 error codes, account input rules
@@ -334,9 +334,9 @@ npm test
 Requires Node 22+ (uses the built-in test runner and type stripping — no
 dependencies).
 
-Guessing is **autocomplete-constrained**: the player picks a real catalogue
-entry, so a win is an ID comparison rather than a fuzzy match, and this module
-does search *ranking* instead — where being slightly wrong is survivable.
+Guessing is **free text**: the player types the title and `matchGuess` judges it
+against the round's own song — accents ignored, aliases accepted, no typo
+tolerance and no Telex fallback. See [ADR-0001](docs/adr/0001-free-text-guesses.md).
 
 ## A note on scope
 
@@ -417,9 +417,6 @@ An untagged song plays as Medium, so an untagged library still works while the
 tagging catches up. A tier with no songs shows as a disabled chip, so it is
 visible what is still missing. The seed validator prints the count per tier.
 
-The guess search always covers **every** song, not just the current tier — a
-list limited to one tier would narrow the answer for you.
-
 ### Streaks
 
 Current streak, best streak, games played and win rate. A loss resets the
@@ -445,10 +442,10 @@ guessed at (screenshots of every state were compared side by side).
    (`AudioEngine.progress`), not a timer. Measured in a real browser: an 8s clip
    plays for 8.02–8.04s and the playhead sits at 25.1% of the bar halfway
    through (expected 25%).
-3. **Search and pick** a song; the box shows "Title — Artist" and the button
-   beside it turns from **Skip** into **Guess**. Typing again drops the pick.
-   Picks are compared by song id, so two songs with the same title cannot be
-   confused.
+3. **Type the title.** There is no suggestion list. With text in the box the
+   button beside it turns from **Skip** into **Guess**. Accents are optional;
+   typos are not forgiven. A wrong guess is echoed back under the box. See
+   [ADR-0001](docs/adr/0001-free-text-guesses.md).
 4. A **wrong guess or Skip opens the next stage and plays it** straight away. On
    the last stage the button is **Give up**; a wrong guess there loses too.
    There are no lives — the stages are the attempts.

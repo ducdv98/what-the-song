@@ -54,20 +54,23 @@ describe('round setup', () => {
 });
 
 describe('winning', () => {
-  test('picking the right song on the first stage scores the maximum', () => {
-    const r = submitGuess(createRound(song), { id: 'nnca', title: 'Nơi Này Có Anh' });
+  test('typing the right title on the first stage scores the maximum', () => {
+    const r = submitGuess(createRound(song), 'Nơi Này Có Anh');
     assert.equal(r.status, 'won');
     assert.equal(r.score, BEST_SCORE);
     assert.deepEqual(r.attempts, [{ text: 'Nơi Này Có Anh', kind: 'guess', at: 0.1, quality: 'exact' }]);
   });
 
-  test('a picked song is compared by id, so a same-titled different song is wrong', () => {
-    const r = submitGuess(createRound(song), other);
-    assert.equal(r.status, 'playing');
-    assert.equal(r.stageIndex, 1);
+  test('a same-titled different song is the same guess (ADR-0001)', () => {
+    assert.equal(submitGuess(createRound(song), other.title).status, 'won');
   });
 
-  test('free text still matches leniently — no diacritics, aliases', () => {
+  test('a typo or IME-off Telex input is wrong', () => {
+    assert.equal(submitGuess(createRound(song), 'noi nay co han').status, 'playing');
+    assert.equal(submitGuess(createRound(song), 'noif nayf co anh').status, 'playing');
+  });
+
+  test('free text matches leniently — no diacritics, aliases', () => {
     assert.equal(submitGuess(createRound(song), 'noi nay co anh').status, 'won');
     assert.equal(submitGuess(createRound(song), 'right here').status, 'won');
   });
@@ -76,7 +79,7 @@ describe('winning', () => {
     let r = createRound(song);
     for (let i = 0; i < 4; i++) r = skip(r);
     assert.ok(isLastStage(r));
-    const won = submitGuess(r, { id: 'nnca', title: 'x' });
+    const won = submitGuess(r, 'Nơi Này Có Anh');
     assert.equal(won.status, 'won');
     assert.equal(won.score, WORST_SCORE);
   });
@@ -84,7 +87,7 @@ describe('winning', () => {
 
 describe('wrong guesses and skips open the next stage', () => {
   test('a wrong guess advances one stage and is recorded', () => {
-    const r = submitGuess(createRound(song), { id: 'other', title: 'Bigcityboi' });
+    const r = submitGuess(createRound(song), 'Bigcityboi');
     assert.equal(r.status, 'playing');
     assert.equal(revealedSeconds(r), 0.5);
     assert.deepEqual(r.attempts, [{ text: 'Bigcityboi', kind: 'guess', at: 0.1, quality: 'none' }]);
@@ -109,7 +112,7 @@ describe('wrong guesses and skips open the next stage', () => {
   test('a wrong guess on the last stage loses', () => {
     let r = createRound(song);
     for (let i = 0; i < 4; i++) r = skip(r);
-    const lost = submitGuess(r, { id: 'other', title: 'x' });
+    const lost = submitGuess(r, 'wrong');
     assert.equal(lost.status, 'lost');
     assert.equal(lost.attempts.length, 5);
   });
@@ -124,7 +127,7 @@ describe('wrong guesses and skips open the next stage', () => {
   test('an empty guess is a no-op, not a wasted stage', () => {
     const r = createRound(song);
     assert.deepEqual(submitGuess(r, '   '), r);
-    assert.deepEqual(submitGuess(r, { id: 'x', title: '' }), r);
+    assert.deepEqual(submitGuess(r, ''), r);
   });
 });
 
@@ -135,13 +138,13 @@ describe('giving up and terminal states', () => {
   });
 
   test('nothing changes a won or lost round', () => {
-    const won = submitGuess(createRound(song), { id: 'nnca', title: 't' });
+    const won = submitGuess(createRound(song), 'Nơi Này Có Anh');
     assert.deepEqual(skip(won), won);
     assert.deepEqual(giveUp(won), won);
     assert.deepEqual(submitGuess(won, 'anything'), won);
     const lost = giveUp(createRound(song));
     assert.deepEqual(skip(lost), lost);
-    assert.deepEqual(submitGuess(lost, { id: 'nnca', title: 't' }), lost);
+    assert.deepEqual(submitGuess(lost, 'Nơi Này Có Anh'), lost);
   });
 
   test('transitions never mutate the previous state', () => {
@@ -149,7 +152,7 @@ describe('giving up and terminal states', () => {
     const snapshot = structuredClone(r);
     skip(r);
     submitGuess(r, 'wrong');
-    submitGuess(r, { id: 'nnca', title: 't' });
+    submitGuess(r, 'Nơi Này Có Anh');
     giveUp(r);
     assert.deepEqual(r, snapshot);
   });
@@ -164,7 +167,7 @@ describe('scoring', () => {
   });
 
   test('a one-stage song still awards the top score', () => {
-    const r = submitGuess(createRound(song, [4]), { id: 'nnca', title: 't' });
+    const r = submitGuess(createRound(song, [4]), 'Nơi Này Có Anh');
     assert.equal(r.score, BEST_SCORE);
   });
 });

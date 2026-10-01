@@ -7,7 +7,6 @@ import {
   cleanTitle,
   looseKey,
   toneKey,
-  stripTelexTails,
   matchGuess,
 } from './vietnamese.ts';
 
@@ -106,15 +105,19 @@ describe('§3.1.5 đ has no decomposition', () => {
 });
 
 describe('§3.1.6 Telex input with the IME off', () => {
-  test('trailing tone keys are tolerated as a fallback', () => {
+  test('trailing tone keys are not a match (ADR-0001)', () => {
     assert.equal(
       matchGuess('em cuar ngayf hom qua', { title: 'Em Của Ngày Hôm Qua' }),
-      'telex',
+      'none',
     );
   });
 
-  test('short words are left alone', () => {
-    assert.equal(stripTelexTails('as if'), 'as if');
+  test('a typo is not a match', () => {
+    assert.equal(matchGuess('noi nay co han', { title: 'Nơi Này Có Anh' }), 'none');
+  });
+
+  test('accent-free input matches an accented title', () => {
+    assert.equal(matchGuess('nơi này co anh', { title: 'Nơi Này Có Anh' }), 'diacritics');
   });
 });
 

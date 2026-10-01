@@ -6,7 +6,7 @@
 
 ## 1. Product fit and concept
 
-What the Song is a private, bilingual guessing game for Vietnamese music. Players hear a short clip, reveal longer clips at a score cost, search the catalogue for a song, and see a result. Difficulty, genre, streaks, account, and leaderboards support that loop. The app is a single screen, often used on a phone, and has no public music library to browse.
+What the Song is a private, bilingual guessing game for Vietnamese music. Players hear a short clip, reveal longer clips at a score cost, type the song title, and see a result. Difficulty, genre, streaks, account, and leaderboards support that loop. The app is a single screen, often used on a phone, and has no public music library to browse.
 
 **Concept: a Vietnamese gig poster brought to life.** The page feels like an energetic show flyer: a bright yellow field, oversized ink typography, a printed cream play card, coral accents, heavy offset shadows, and stage markers that look like tickets or setlist strips. This should feel social and immediate, with the music clue as the star.
 
@@ -21,7 +21,7 @@ What the Song is a private, bilingual guessing game for Vietnamese music. Player
 
 ### Current product constraints
 
-The game already has a variable, per-song clip ladder, up to five stages. The default ladder is 0.1, 0.5, 2, 8, and 16 seconds, but the interface must read the actual stages. Search covers all playable songs to avoid revealing the difficulty pool. A selected suggestion is submitted by the Guess action; an empty answer action is Skip or Give up at the final stage. The result replaces the round and offers replay, share, and next round. Keep this behavior unless a later task explicitly changes it.
+The game already has a variable, per-song clip ladder, up to five stages. The default ladder is 0.1, 0.5, 2, 8, and 16 seconds, but the interface must read the actual stages. There is no suggestion list ([ADR-0001](docs/adr/0001-free-text-guesses.md)): the player types the title and the Guess action submits it; an empty answer action is Skip or Give up at the final stage. The result replaces the round and offers replay, share, and next round. Keep this behavior unless a later task explicitly changes it.
 
 The existing app uses Next.js, CSS, React, and browser audio. The catalogue and cover assets are generated outside the repository. The redesign should remain workable with no cover, no playable songs, guest mode, account errors, and no leaderboard connection.
 
@@ -125,7 +125,7 @@ Use a limited 20–24px icon set: play, stop, search, menu, close, share, arrow,
 
 ### Active round, mobile first
 
-At 320–599px, show a compact header, optional one-line filter context, then the printed card and answer form. The card contains the question, current stage, reveal strip, play control, and current clip length. Put the search field and its changing action immediately after the card. Streak stays quiet below. The large editorial headline from the preview should not push play below the first view.
+At 320–599px, show a compact header, optional one-line filter context, then the printed card and answer form. The card contains the question, current stage, reveal strip, play control, and current clip length. Put the answer field and its changing action immediately after the card. Streak stays quiet below. The large editorial headline from the preview should not push play below the first view.
 
 ~~~text
 menu  what the song           account
@@ -163,7 +163,7 @@ The drawer is the “back of the flyer”: how to play, genre, stats, leaderboar
 | Reveal strip | One segment per actual stage, labeled with duration. Future stages are neutral; current is ink filled or strongly outlined; unlocked history uses coral. | On unlock, mark the new stage and show its actual duration. A brief 180–240ms transition is enough. The strip is informational, not a seek control. |
 | Difficulty choices | Be Vietnam Pro labels, full names, and selected ink treatment. | Available, selected, focus, and unavailable states differ by text/shape as well as color. Zero-song tier stays understandable. |
 | Genre picker | In the drawer, grouped or searchable when the 20-genre catalogue is populated. | The chosen genre appears in the round context. Selection can start a new round under current behavior; do not silently imply the current song merely changed label. |
-| Guess field | 48px or taller, ink border on cream, visible label, search icon optional. | Suggestions show title and artist on separate lines. A picked item is obvious; typing again clears the pick. Keyboard arrows, Enter, and Escape remain supported. |
+| Guess field | 48px or taller, ink border on cream, visible label. | Free text, no suggestion list. A wrong guess is echoed under the field with no "close" signal. Enter submits. |
 | Changing action | A single companion button labelled Skip, Guess, or Give up. | Guess uses ink fill or coral fill with ink text; Skip is neutral; Give up uses dark red text and a strong outline. The label communicates the action without icon decoding. |
 | Result cover | 160–176px square, only after round resolves. | Missing art becomes a typographic print tile using song initials. Keep title and artist as text outside the image. |
 | Result stamp | Bold outcome word plus check/cross shape. | Correct, wrong, and give up are distinct in words and color. Animate only on entry; no ongoing pulse. |
@@ -186,7 +186,7 @@ Use natural Vietnamese casing, for example “Đoán bài hát”, “Bỏ qua�
 - Focus ring uses the blue focus token at 3px with an offset, or an equivalent high-contrast treatment on yellow, cream, coral, and ink surfaces. Never remove a browser focus outline without replacement.
 - The stage text announces the new unlocked duration once. Do not stream live playback progress into an aria-live region.
 - Give the play button a changing accessible name for play/stop and a true disabled/loading state. The result status is announced politely once.
-- Implement the suggestions according to the [WAI ARIA combobox pattern](https://www.w3.org/WAI/ARIA/apg/patterns/combobox/): active descendant, keyboard movement, visible active option, Escape, and selection.
+- The answer field is a plain text input: no combobox semantics, autocorrect and autocapitalize off, and a polite status line for the echoed wrong guess.
 - Respect prefers-reduced-motion. Remove halftone in forced colors if it harms readability. Support 200% text zoom, long titles, and the mobile on-screen keyboard without clipping actions.
 - The clue is inherently audio based, so visual status does not replace audio; it makes the interface and result usable to players who cannot perceive color or decorative motion.
 

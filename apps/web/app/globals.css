@@ -688,33 +688,6 @@ button:disabled {
 .action-btn--giveup {
   color: var(--text-negative);
 }
-.suggestions {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 0;
-  right: 0;
-  z-index: 10;
-  margin: 0;
-  padding: 4px;
-  list-style: none;
-  background: var(--cream-100);
-  border: 3px solid var(--ink-900);
-  border-radius: 4px;
-  box-shadow: 4px 4px 0 var(--ink-900);
-  max-height: 280px;
-  overflow-y: auto;
-}
-.suggestions li {
-  padding: 10px 12px;
-  cursor: pointer;
-  border-bottom: 1px solid var(--separator);
-}
-.suggestions li:last-child {
-  border: 0;
-}
-.suggestions li[aria-selected='true'] {
-  background: var(--yellow-300);
-}
 .answer-hint,
 .game-stats {
   margin: 0;

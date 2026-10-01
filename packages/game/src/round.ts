@@ -87,12 +87,6 @@ export interface Round<S extends AnySong = AnySong> {
   score: number;
 }
 
-/** A picked suggestion. Compared by id, so two songs sharing a title differ. */
-export interface PickedSong {
-  id: string;
-  title: string;
-}
-
 export function createRound<S extends AnySong>(song: S, ladder: readonly number[] = DEFAULT_LADDER): Round<S> {
   return { song, stages: stagesFor(ladder), stageIndex: 0, status: 'playing', attempts: [], score: 0 };
 }
@@ -114,18 +108,17 @@ function advance<S extends AnySong>(round: Round<S>, attempt: Attempt): Round<S>
 }
 
 /**
- * Submit a guess: a picked suggestion (compared by id), or free text (matched
- * leniently — no diacritics, aliases). Returns a new Round; never mutates.
+ * Submit a guess: free text, matched leniently (no diacritics, aliases).
+ * Returns a new Round; never mutates.
  */
-export function submitGuess<S extends AnySong>(round: Round<S>, guess: string | PickedSong): Round<S> {
+export function submitGuess<S extends AnySong>(round: Round<S>, guess: string): Round<S> {
   if (round.status !== 'playing') return round;
-  const text = (typeof guess === 'string' ? guess : guess.title).trim();
+  const text = guess.trim();
   // An empty submission is a no-op, not a wasted stage.
   if (!text) return round;
 
   const at = revealedSeconds(round);
-  const quality: MatchQuality =
-    typeof guess === 'string' ? matchGuess(text, round.song) : guess.id === round.song.id ? 'exact' : 'none';
+  const quality: MatchQuality = matchGuess(text, round.song);
 
   if (quality !== 'none') {
     return {

@@ -157,30 +157,13 @@ export function toneKey(input: string): string {
   return collapse(foldTonePlacement(cleanTitle(repairMojibake(input)).normalize('NFC')));
 }
 
-/**
- * Strip trailing Telex tone keys — for players typing with the IME off
- * ("em cuar ngayf hom qua").
- *
- * Lossy and genuinely risky: it will mangle real words ("anhs" → "anh", but
- * also "bus" → "bu"). Use it only as a last-resort fallback comparison after
- * looseKey has already failed, never as the primary key.
- */
-export function stripTelexTails(looseInput: string): string {
-  return looseInput
-    .split(' ')
-    .map((w) => (w.length > 2 ? w.replace(/[sfrxj]$/, '') : w))
-    .join(' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
 export interface SongLike {
   title: string;
   /** Hand-curated extra accepted answers: bilingual titles, nicknames. */
   aliases?: string[];
 }
 
-export type MatchQuality = 'exact' | 'diacritics' | 'telex' | 'alias' | 'none';
+export type MatchQuality = 'exact' | 'diacritics' | 'alias' | 'none';
 
 /**
  * Decide whether a guess names this song.
@@ -198,11 +181,6 @@ export function matchGuess(guess: string, song: SongLike): MatchQuality {
 
   for (const alias of song.aliases ?? []) {
     if (g === looseKey(alias)) return 'alias';
-  }
-
-  const candidates = [song.title, ...(song.aliases ?? [])];
-  for (const c of candidates) {
-    if (stripTelexTails(g) === stripTelexTails(looseKey(c))) return 'telex';
   }
 
   return 'none';

@@ -8,7 +8,6 @@ import {
   filterByGenre,
   filterByTier,
   giveUp,
-  indexCatalogue,
   isLastStage,
   ladderFor,
   playableSongs,
@@ -18,7 +17,6 @@ import {
   submitGuess,
   tierCounts,
   tierOf,
-  type IndexedSong,
   type Round,
   type Song,
   type TierSlug,
@@ -94,7 +92,6 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
   const songs = useMemo(() => filterByTier(inGenre, tier), [inGenre, tier]);
   // Search covers every playable song, not just this tier: a guess list that
   // only offered this tier's songs would give the answer away.
-  const index = useMemo(() => indexCatalogue(allSongs), [allSongs]);
 
   const newRound = useCallback(
     (excludeId?: string) => {
@@ -275,11 +272,13 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
             </label>
             <GuessBar
               key={round.song.id}
-              index={index}
               lastStage={isLastStage(round)}
-              onGuess={(song: IndexedSong) =>
-                apply(submitGuess(round, { id: song.id, title: song.title }))
+              lastWrong={
+                [...round.attempts]
+                  .reverse()
+                  .find((a) => a.kind === 'guess' && a.quality === 'none')?.text
               }
+              onGuess={(text: string) => apply(submitGuess(round, text))}
               onSkip={() => apply(skip(round))}
               onGiveUp={() => apply(giveUp(round))}
             />

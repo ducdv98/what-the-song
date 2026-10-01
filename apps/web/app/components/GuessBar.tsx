@@ -1,158 +1,66 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { searchCatalogue, type IndexedSong } from '@wts/game';
+import { useState } from 'react';
 import { useI18n } from './I18nProvider';
 
 export type RoundAction = 'skip' | 'guess' | 'giveup';
 
 /**
- * Search box plus the one action button beside it.
+ * Free-text answer box plus the one action button beside it.
  *
- * Guessing is autocomplete-constrained (docs/RESEARCH.md §3.2): picking a
- * suggestion fills the box with "Title — Artist" and turns the button into
- * Guess; typing again drops the pick. With nothing picked the button is Skip,
- * or Give up on the last stage. Enter picks the highlighted suggestion, and
- * with a pick in place Enter submits it.
+ * There is no suggestion list (docs/adr/0001-free-text-guesses.md): the player
+ * types the title from memory. With text in the box the button is Guess;
+ * empty, it is Skip, or Give up on the last stage. Enter does whatever the
+ * button does. A wrong guess is echoed back so a typo is easy to spot.
  */
 export function GuessBar({
-  index,
   lastStage,
+  lastWrong,
   onGuess,
   onSkip,
   onGiveUp,
 }: {
-  index: IndexedSong[];
   lastStage: boolean;
-  onGuess: (song: IndexedSong) => void;
+  /** The text of the previous wrong guess on this round, if any. */
+  lastWrong?: string;
+  onGuess: (text: string) => void;
   onSkip: () => void;
   onGiveUp: () => void;
 }) {
   const { t } = useI18n();
   const [text, setText] = useState('');
-  const [picked, setPicked] = useState<IndexedSong | null>(null);
-  const [open, setOpen] = useState(false);
-  const [highlight, setHighlight] = useState(0);
-  const listRef = useRef<HTMLUListElement>(null);
 
-  const suggestions = useMemo(
-    () => (text.trim() && !picked ? searchCatalogue(text, index) : []),
-    [text, index, picked],
-  );
-  const showList = open && suggestions.length > 0;
-  const action: RoundAction = picked ? 'guess' : lastStage ? 'giveup' : 'skip';
-  useEffect(() => {
-    if (showList)
-      listRef.current?.children[highlight]?.scrollIntoView({
-        block: 'nearest',
-      });
-  }, [highlight, showList]);
-
-  function pick(song: IndexedSong | undefined) {
-    if (!song) return;
-    setPicked(song);
-    setText(`${song.title} — ${song.artist}`);
-    setOpen(false);
-  }
-
-  function reset() {
-    setPicked(null);
-    setText('');
-    setHighlight(0);
-  }
+  const action: RoundAction = text.trim() ? 'guess' : lastStage ? 'giveup' : 'skip';
 
   function act() {
-    if (action === 'guess' && picked) onGuess(picked);
+    if (action === 'guess') onGuess(text);
     else if (action === 'giveup') onGiveUp();
     else onSkip();
-    reset();
+    setText('');
   }
-
-  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      if (picked) act();
-      else if (showList) pick(suggestions[highlight]);
-      return;
-    }
-    if (e.key === 'Escape') {
-      setOpen(false);
-      return;
-    }
-    if (!showList) {
-      if (
-        suggestions.length > 0 &&
-        (e.key === 'ArrowDown' || e.key === 'ArrowUp')
-      ) {
-        e.preventDefault();
-        setOpen(true);
-        setHighlight(e.key === 'ArrowDown' ? 0 : suggestions.length - 1);
-      }
-      return;
-    }
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setHighlight((h) => (h + 1) % suggestions.length);
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setHighlight((h) => (h - 1 + suggestions.length) % suggestions.length);
-    }
-  }
-
-  const listboxId = 'guess-suggestions';
 
   return (
     <>
       <div className="guess-bar">
         <label className="guess-field">
           <span className="visually-hidden">{t('round.guessLabel')}</span>
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-            style={{ flex: 'none', color: 'var(--text-muted)' }}
-          >
-            <circle
-              cx="11"
-              cy="11"
-              r="7"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-            />
-            <path
-              d="M20 20l-3.5-3.5"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-            />
-          </svg>
           <input
             id="guess"
             type="text"
             autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
             spellCheck={false}
             placeholder={t('round.guessPlaceholder')}
             value={text}
-            onChange={(e) => {
-              setText(e.target.value);
-              setPicked(null);
-              setOpen(true);
-              setHighlight(0);
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                act();
+              }
             }}
-            onFocus={() => setOpen(true)}
-            // Delay so a click on a suggestion lands before the list unmounts.
-            onBlur={() => setTimeout(() => setOpen(false), 120)}
-            onKeyDown={onKeyDown}
-            role="combobox"
-            aria-expanded={showList}
-            aria-controls={listboxId}
-            aria-autocomplete="list"
             aria-describedby="guess-help"
-            aria-activedescendant={
-              showList ? `guess-opt-${highlight}` : undefined
-            }
           />
         </label>
 
@@ -173,56 +81,13 @@ export function GuessBar({
               ? t('round.giveUp')
               : t('round.skip')}
         </button>
-
-        {showList && (
-          <ul
-            ref={listRef}
-            id={listboxId}
-            role="listbox"
-            className="suggestions"
-          >
-            {suggestions.map((song, i) => (
-              <li
-                key={song.id}
-                id={`guess-opt-${i}`}
-                role="option"
-                aria-selected={i === highlight}
-                onMouseEnter={() => setHighlight(i)}
-                onMouseDown={(e) => {
-                  e.preventDefault(); // keep focus in the box
-                  pick(song);
-                }}
-              >
-                <div
-                  style={{
-                    font: 'var(--t-caption-bold)',
-                    color: 'var(--text-base)',
-                  }}
-                >
-                  {song.title}
-                </div>
-                <div
-                  style={{ font: 'var(--t-small)', color: 'var(--text-muted)' }}
-                >
-                  {song.artist}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
       </div>
       <p
         id="guess-help"
-        className={
-          open && text.trim() && !picked && suggestions.length === 0
-            ? 'answer-hint'
-            : 'visually-hidden'
-        }
+        className={lastWrong ? 'answer-hint' : 'visually-hidden'}
         role="status"
       >
-        {open && text.trim() && !picked && suggestions.length === 0
-          ? t('round.noMatches')
-          : t('round.answerHint')}
+        {lastWrong ? t('round.notIt', { guess: lastWrong }) : t('round.answerHint')}
       </p>
     </>
   );

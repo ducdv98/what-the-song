@@ -300,6 +300,9 @@ game's feel.
 
 ### 3.2 Recommended approach
 
+> **Superseded by [ADR-0001](adr/0001-free-text-guesses.md):** the game now uses
+> free text, strictly matched. The reasoning below is the original recommendation.
+
 **Constrain the input — use autocomplete, not free text.** Heardle did this,
 and it is the right call: the player picks from a typeahead over your
 catalogue, so "was that guess correct" stops being a fuzzy-matching problem
