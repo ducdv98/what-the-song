@@ -1,6 +1,6 @@
 # Publish tool and first COS migration
 
-Status: ready-for-agent
+Status: done
 Blocked by: 06, 09
 
 See `docs/adr/0003-clips-in-private-cos-bucket.md`.
@@ -28,3 +28,7 @@ Update the README (ingest, growing the library, deploy, auth-covers-clips senten
 - The catalogue is never published before all its assets are in COS (test with a missing file).
 - `done.json` is never uploaded.
 - README documents the new flow and the rollback.
+
+## Comments
+
+Publish tool implemented (--publish/--dry-run/--prune in tools/ingest.py, offline tests, README and compose docs). The bucket setup, full migration and VPS soak are the owner's manual steps, documented in the README.
