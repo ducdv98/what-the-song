@@ -14,6 +14,6 @@ export class LeaderboardController {
 
   @Get()
   get(@Query() q: LeaderboardQueryDto): Promise<LeaderboardResponse> {
-    return this.leaderboard.board(q.period, q.back);
+    return this.leaderboard.board(q.period, q.back, Date.now(), q.topic);
   }
 }

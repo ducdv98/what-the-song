@@ -17,12 +17,14 @@ import {
   API_ROUTES,
   type ApiError,
   type LeaderboardPeriod,
+  type LeaderboardQuery,
   type LeaderboardResponse,
   type LoginRequest,
   type PlayerStats,
   type PublicUser,
   type RegisterRequest,
   type RoundReport,
+  type StatsQuery,
   type SessionResponse,
   type StatsResponse,
   type UserResponse,
@@ -147,10 +149,11 @@ export const authApi = {
       password,
     } satisfies RegisterRequest).then((r) => r.user),
   logout: () => send<void>('POST', url('logout')),
-  stats: () => authed<StatsResponse>('GET', url('myStats')).then((r) => r.stats),
+  stats: (query: StatsQuery = {}) =>
+    authed<StatsResponse>('GET', `${url('myStats')}${query.topic ? `?topic=${encodeURIComponent(query.topic)}` : ''}`).then((r) => r.stats),
   recordRound: (round: RoundReport) =>
     authed<StatsResponse>('POST', url('rounds'), round).then((r) => r.stats),
   /** Public: guests can read the board too, they are just not on it. */
-  leaderboard: (period: LeaderboardPeriod, back: 0 | 1) =>
-    send<LeaderboardResponse>('GET', `${url('leaderboard')}?period=${period}&back=${back}`),
+  leaderboard: (period: LeaderboardPeriod, back: 0 | 1, topic?: LeaderboardQuery['topic']) =>
+    send<LeaderboardResponse>('GET', `${url('leaderboard')}?period=${period}&back=${back}${topic ? `&topic=${encodeURIComponent(topic)}` : ''}`),
 };

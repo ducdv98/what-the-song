@@ -25,10 +25,11 @@ export const PASSWORD_MAX = 128;
 
 // ── Round reports ────────────────────────────────────────────────────────────
 
-/** Song ids as tools/ingest.py writes them into the catalogue. */
-export const SONG_ID_PATTERN = '^[\\w.-]{1,120}$';
-/** Genre slugs, as in @wts/topic-songs' GENRES. */
-export const GENRE_SLUG_PATTERN = '^[a-z0-9-]{1,40}$';
+/** Subject ids as catalogue tools write them. */
+export const SUBJECT_ID_PATTERN = '^[\\w.-]{1,120}$';
+/** Topic-defined Facet slugs. */
+export const FACET_SLUG_PATTERN = '^[a-z0-9-]{1,40}$';
+export const TOPIC_ID_PATTERN = '^[a-z][a-z0-9-]{0,39}$';
 
 // ── Shapes ───────────────────────────────────────────────────────────────────
 
@@ -65,13 +66,13 @@ export interface LoginRequest {
 export interface RoundReport {
   /** Absent means the Songs Topic for existing clients. */
   topic?: string;
-  songId: string;
+  subjectId: string;
   won: boolean;
   /** 0 for a loss; within the game's score range for a win. */
   score: number;
   difficulty: string;
-  /** null means "all genres". */
-  genre: string | null;
+  /** null means no Facet filter. */
+  facet: string | null;
 }
 
 export interface UserResponse {
@@ -87,6 +88,10 @@ export interface StatsResponse {
   stats: PlayerStats;
 }
 
+export interface StatsQuery {
+  topic?: string;
+}
+
 /** Leaderboards cover a week or a month — there is no all-time board. */
 export type LeaderboardPeriod = 'week' | 'month';
 
@@ -94,6 +99,7 @@ export type LeaderboardPeriod = 'week' | 'month';
 export interface LeaderboardQuery {
   period: LeaderboardPeriod;
   back: 0 | 1;
+  topic?: string;
 }
 
 export interface LeaderboardRow {

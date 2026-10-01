@@ -279,11 +279,11 @@ describe('refresh tokens', () => {
 
 describe('rounds and stats', () => {
   const round = {
-    songId: 'noi-nay-co-anh',
+    subjectId: 'noi-nay-co-anh',
     won: true,
     score: 800,
     difficulty: 'medium',
-    genre: 'nhac-tre',
+    facet: 'nhac-tre',
   };
 
   it('guests cannot record', async () => {
@@ -312,7 +312,7 @@ describe('rounds and stats', () => {
     const loss = await http()
       .post('/api/rounds')
       .set('Cookie', cookieHeader(jar))
-      .send({ ...round, won: false, score: 0, genre: null })
+      .send({ ...round, won: false, score: 0, facet: null })
       .expect(201);
     expect(loss.body.stats).toEqual({
       played: 4,
@@ -327,6 +327,32 @@ describe('rounds and stats', () => {
       .set('Cookie', cookieHeader(jar))
       .expect(200);
     expect(mine.body.stats.bestStreak).toBe(3);
+    const songs = await http()
+      .get('/api/stats/me?topic=songs')
+      .set('Cookie', cookieHeader(jar))
+      .expect(200);
+    expect(songs.body.stats).toEqual(mine.body.stats);
+
+    const [totals] = await db.query(`
+      SELECT sum(played)::int AS played, sum(won)::int AS won,
+             sum(total_score)::int AS score FROM player_topic_stats
+      WHERE user_id = (SELECT id FROM users WHERE username = 'alice')`);
+    expect(totals).toMatchObject({
+      played: mine.body.stats.played,
+      won: mine.body.stats.won,
+      score: mine.body.stats.totalScore,
+    });
+
+    // Another Topic's totals must not leak into the Songs view.
+    await db.query(`
+      INSERT INTO player_topic_stats (user_id, topic, played, won, current_streak, best_streak, total_score)
+      SELECT id, 'other', 5, 5, 5, 5, 4000 FROM users WHERE username = 'alice'`);
+    const stillSongs = await http()
+      .get('/api/stats/me?topic=songs')
+      .set('Cookie', cookieHeader(jar))
+      .expect(200);
+    expect(stillSongs.body.stats).toEqual(mine.body.stats);
+    await db.query(`DELETE FROM player_topic_stats WHERE topic = 'other'`);
 
     const [{ n }] = await db.query(`SELECT count(*)::int AS n FROM rounds`);
     expect(n).toBe(4);
@@ -361,8 +387,8 @@ describe('rounds and stats', () => {
       { ...round, score: 10 }, // below the least a win can score
       { ...round, difficulty: 'godmode' },
       { ...round, difficulty: 'normal' }, // the pre-tier name
-      { ...round, genre: 'DROP TABLE' },
-      { ...round, songId: '../../etc/passwd' },
+      { ...round, facet: 'DROP TABLE' },
+      { ...round, subjectId: '../../etc/passwd' },
     ];
     for (const body of bad) {
       const res = await http()
@@ -397,6 +423,18 @@ describe('rounds and stats', () => {
     expect(res.body).toMatchObject({ statusCode: 400, code: 'unknown_topic' });
     const after = await db.query(`SELECT count(*)::int AS n FROM rounds`);
     expect(after[0].n).toBe(before[0].n);
+    const stats = await http()
+      .get('/api/stats/me?topic=people')
+      .set('Cookie', cookieHeader(jar))
+      .expect(400);
+    expect(stats.body.code).toBe('unknown_topic');
+    const board = await http().get('/api/leaderboard?topic=people').expect(400);
+    expect(board.body.code).toBe('unknown_topic');
+    const malformed = await http()
+      .get('/api/stats/me?topic=Bad%20Topic')
+      .set('Cookie', cookieHeader(jar))
+      .expect(400);
+    expect(malformed.body.code).toBe('validation_failed');
   });
 });
 
@@ -421,17 +459,17 @@ describe('leaderboard', () => {
       .post('/api/rounds')
       .set('Cookie', cookieHeader(who))
       .send({
-        songId: 'noi-nay-co-anh',
+        subjectId: 'noi-nay-co-anh',
         won: score > 0,
         score,
         difficulty: 'medium',
-        genre: null,
+        facet: null,
       })
       .expect(201);
   /** Rounds in an earlier period can only be written directly: the API stamps now(). */
   const playedAt = async (username: string, score: number, at: number) => {
     await db.query(
-      `INSERT INTO rounds (user_id, song_id, won, score, difficulty, played_at)
+      `INSERT INTO rounds (user_id, subject_id, won, score, difficulty, played_at)
        SELECT id, 'noi-nay-co-anh', $2, $3, 'medium', $4 FROM users WHERE username = $1`,
       [username, score > 0, score, new Date(at)],
     );
@@ -443,7 +481,7 @@ describe('leaderboard', () => {
 
   beforeAll(async () => {
     // Earlier suites left rounds behind; start the board from nothing.
-    await db.query('TRUNCATE rounds, player_stats');
+    await db.query('TRUNCATE rounds, player_stats, player_topic_stats');
     bob = await register('Bob');
     carol = await register('carol');
   });
@@ -476,6 +514,25 @@ describe('leaderboard', () => {
     ]);
   });
 
+  it('filters a Topic board while the global board includes other Topics', async () => {
+    await db.query(`
+      INSERT INTO rounds (user_id, topic, subject_id, won, score, difficulty)
+      SELECT id, 'people', 'someone', true, 900, 'medium'
+      FROM users WHERE username = 'carol'`);
+    const global = (await board('?period=week')).rows;
+    const songs = (await board('?period=week&topic=songs')).rows;
+    expect(
+      global.find((r: { username: string }) => r.username === 'carol').points,
+    ).toBe(1200);
+    expect(
+      songs.find((r: { username: string }) => r.username === 'carol').points,
+    ).toBe(300);
+    expect(
+      songs.find((r: { username: string }) => r.username === 'alice').points,
+    ).toBe(800);
+    await db.query(`DELETE FROM rounds WHERE topic = 'people'`);
+  });
+
   it('keeps each period to its own rounds', async () => {
     const now = Date.now();
     const lastWeek = periodRange('week', now, 7, 1).from + HOUR;
@@ -505,7 +562,7 @@ describe('leaderboard', () => {
 
   it('a round at the very start of the week counts; the instant before does not', async () => {
     const week = periodRange('week', Date.now(), 7, 0);
-    await db.query('TRUNCATE rounds, player_stats');
+    await db.query('TRUNCATE rounds, player_stats, player_topic_stats');
     await playedAt('carol', 100, week.from);
     await playedAt('Bob', 100, week.from - 1);
     expect(await names('?period=week')).toEqual(['carol']);

@@ -136,11 +136,12 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
       if (!before || before.status !== 'playing') return;
       if (next.status !== 'playing') {
         record({
-          songId: next.subject.id,
+          topic: songsTopic.id,
+          subjectId: next.subject.id,
           won: next.status === 'won',
           score: next.status === 'won' ? next.score : 0,
           difficulty: tierOf(next.subject),
-          genre,
+          facet: genre,
         });
       } else if (next.stageIndex > before.stageIndex) {
         void playClip(next.subject, currentClue(next));

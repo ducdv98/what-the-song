@@ -37,14 +37,14 @@ All under `/api`. Errors are `{ statusCode, code, message?, fields? }`, where
 | POST | `/auth/logout` | refresh cookie | revokes the session server-side → 204 |
 | GET | `/auth/session` | optional | page-load restore: user, silently refreshed, or `null` — never 401 |
 | GET | `/auth/me` | access | the signed-in user |
-| GET | `/stats/me` | access | `{ played, won, currentStreak, bestStreak, totalScore }` |
-| POST | `/rounds` | access | `{ songId, won, score, difficulty, genre }` → updated stats. `difficulty` is the song's tier (`easy` … `impossible`). |
-| GET | `/leaderboard` | — | `?period=week\|month&back=0\|1` (defaults: this week) → `{ period, back, from, to, utcOffset, rows: [{ rank, username, points, rounds, wins }] }`, top 100 |
+| GET | `/stats/me` | access | Optional `?topic=songs`; absent returns global totals. `{ stats: { played, won, currentStreak, bestStreak, totalScore } }` |
+| POST | `/rounds` | access | `{ topic?, subjectId, won, score, difficulty, facet }` → updated global stats. Omitted `topic` means `songs`; `difficulty` is the Subject's tier (`easy` … `impossible`). |
+| GET | `/leaderboard` | — | `?period=week\|month&back=0\|1&topic=songs` (period and back default to this week; topic is optional) → `{ period, back, from, to, utcOffset, rows: [{ rank, username, points, rounds, wins }] }`, top 100 |
 | GET | `/health` | — | database ping, for container healthchecks |
 
 Error codes: `validation_failed` (+ `fields`), `username_taken`, `email_taken`,
 `invalid_credentials`, `unauthenticated`, `rate_limited`, `bad_origin`,
-`invalid_round`, `server_error`.
+`invalid_round`, `unknown_topic`, `server_error`.
 
 ## Design
 
@@ -114,8 +114,9 @@ changes only happen through migrations. When you add one, list it in
 |---|---|
 | `users` | id (uuid), username, email (lowercased), argon2id hash |
 | `refresh_tokens` | hashed token, family, expiry, revoked-at, user agent |
-| `rounds` | every finished round: song, won, score, difficulty, genre, time |
-| `player_stats` | running totals per player, indexed for all-time leaderboards |
+| `rounds` | every finished round: topic, subject id, won, score, difficulty, facet, time |
+| `player_stats` | global running totals per player |
+| `player_topic_stats` | running totals per player and Topic |
 
 ## Running it
 

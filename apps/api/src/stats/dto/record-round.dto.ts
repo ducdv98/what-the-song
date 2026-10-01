@@ -1,6 +1,7 @@
 import {
-  GENRE_SLUG_PATTERN,
-  SONG_ID_PATTERN,
+  FACET_SLUG_PATTERN,
+  SUBJECT_ID_PATTERN,
+  TOPIC_ID_PATTERN,
   type RoundReport,
 } from '@wts/contracts';
 import { BEST_SCORE, TIER_SLUGS } from '@wts/core';
@@ -25,11 +26,12 @@ export class RecordRoundDto implements RoundReport {
   /** An absent Topic keeps existing clients on Songs. The service checks known ids. */
   @ValidateIf((_, value) => value !== undefined)
   @IsString()
+  @Matches(new RegExp(TOPIC_ID_PATTERN))
   topic?: string;
 
   @IsString()
-  @Matches(new RegExp(SONG_ID_PATTERN))
-  songId: string;
+  @Matches(new RegExp(SUBJECT_ID_PATTERN))
+  subjectId: string;
 
   @IsBoolean()
   won: boolean;
@@ -42,9 +44,9 @@ export class RecordRoundDto implements RoundReport {
   @IsIn(TIER_SLUGS)
   difficulty: string;
 
-  /** null or absent means "all genres". */
+  /** null or absent means no Facet filter. */
   @IsOptional()
   @ValidateIf((_, v) => v !== null)
-  @Matches(new RegExp(GENRE_SLUG_PATTERN))
-  genre: string | null = null;
+  @Matches(new RegExp(FACET_SLUG_PATTERN))
+  facet: string | null = null;
 }

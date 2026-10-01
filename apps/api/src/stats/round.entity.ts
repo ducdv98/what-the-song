@@ -2,7 +2,7 @@ import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 /**
  * Every finished round a signed-in player plays. This table is the source of
- * truth for anything ranked later — a leaderboard by week, by genre or by
+ * truth for anything ranked later — a leaderboard by week, by Topic or by
  * difficulty is a query over it, so nothing is thrown away.
  */
 @Entity({ name: 'rounds' })
@@ -13,8 +13,11 @@ export class Round {
   @Column({ name: 'user_id', type: 'uuid' })
   userId: string;
 
-  @Column({ name: 'song_id', type: 'varchar', length: 120 })
-  songId: string;
+  @Column({ type: 'varchar', length: 40, default: 'songs' })
+  topic: string;
+
+  @Column({ name: 'subject_id', type: 'varchar', length: 120 })
+  subjectId: string;
 
   @Column({ type: 'boolean' })
   won: boolean;
@@ -26,7 +29,7 @@ export class Round {
   difficulty: string;
 
   @Column({ type: 'varchar', length: 40, nullable: true })
-  genre: string | null;
+  facet: string | null;
 
   @Column({ name: 'played_at', type: 'timestamptz', default: () => 'now()' })
   playedAt: Date;

@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -13,6 +14,7 @@ import {
   type AuthedRequest,
 } from '../auth/guards/jwt-auth.guard.js';
 import { RecordRoundDto } from './dto/record-round.dto.js';
+import { StatsQueryDto } from './dto/stats-query.dto.js';
 import { StatsService } from './stats.service.js';
 
 /** Signed-in players only — guests keep their stats in the browser tab. */
@@ -22,8 +24,11 @@ export class StatsController {
   constructor(private readonly stats: StatsService) {}
 
   @Get('stats/me')
-  async mine(@Req() req: AuthedRequest): Promise<StatsResponse> {
-    return { stats: await this.stats.get(req.auth.sub) };
+  async mine(
+    @Req() req: AuthedRequest,
+    @Query() q: StatsQueryDto,
+  ): Promise<StatsResponse> {
+    return { stats: await this.stats.get(req.auth.sub, q.topic) };
   }
 
   @Post('rounds')

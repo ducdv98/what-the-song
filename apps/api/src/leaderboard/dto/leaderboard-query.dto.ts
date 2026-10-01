@@ -1,4 +1,4 @@
-import type { LeaderboardQuery } from '@wts/contracts';
+import { TOPIC_ID_PATTERN, type LeaderboardQuery } from '@wts/contracts';
 import {
   LEADERBOARD_BACKS,
   LEADERBOARD_PERIODS,
@@ -6,7 +6,7 @@ import {
   type LeaderboardPeriod,
 } from '@wts/core';
 import { Transform } from 'class-transformer';
-import { IsIn } from 'class-validator';
+import { IsIn, IsOptional, IsString, Matches } from 'class-validator';
 
 /** Both default to the current week, so a bare GET /leaderboard is useful. */
 export class LeaderboardQueryDto implements LeaderboardQuery {
@@ -17,4 +17,9 @@ export class LeaderboardQueryDto implements LeaderboardQuery {
   @Transform(({ value }) => (value === undefined ? 0 : Number(value)))
   @IsIn(LEADERBOARD_BACKS)
   back: LeaderboardBack = 0;
+
+  @IsOptional()
+  @IsString()
+  @Matches(new RegExp(TOPIC_ID_PATTERN))
+  topic?: string;
 }

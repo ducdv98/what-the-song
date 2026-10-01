@@ -512,6 +512,9 @@ menu, under the stats.
   one grouped query over the `played_at` index, so the board cannot disagree
   with what was played. `GET /api/leaderboard?period=week|month&back=0|1`, public,
   top 100.
+- An optional `topic=songs` filters the board to one Topic; omitting it shows
+  global scores. `GET /api/stats/me?topic=songs` similarly returns per-Topic
+  totals, while omitting the Topic returns global totals.
 
 The board refetches once the server has stored a finished round, so a result
 shows up without a reload. Like the rest of the game, it trusts the browser
