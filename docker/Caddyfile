@@ -65,8 +65,11 @@
 	}
 
 	# Songs assets used to live under /clips; old URLs keep working.
+	# Inside handle so it runs after the basic_auth gate, like everything else.
 	@oldclips path_regexp oldclips ^/clips/(.*)$
-	redir @oldclips /assets/songs/{re.oldclips.1} permanent
+	handle @oldclips {
+		redir /assets/songs/{re.oldclips.1} permanent
+	}
 
 	# The exported app.
 	handle {

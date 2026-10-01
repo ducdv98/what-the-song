@@ -561,7 +561,8 @@ beyond Node and Python is needed for `npm test`.
 
 **Moving from the pre-monorepo layout:** the clip library now lives in
 `apps/web/public/assets/songs` (Next serves it in development from there). If you
-built one before, move it: `mv public/clips apps/web/public/assets/songs`. The API's
+built one before, move it: `mkdir -p apps/web/public/assets && mv public/clips apps/web/public/assets/songs`
+(or, from the previous monorepo layout, `mv apps/web/public/clips apps/web/public/assets/songs`). The API's
 local settings moved from `backend/.env` to `apps/api/.env`.
 
 Next.js App Router with `output: 'export'` — the game is still a folder of
