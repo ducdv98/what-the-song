@@ -1,16 +1,15 @@
 /**
- * Vietnamese text normalisation for song-title matching.
+ * Vietnamese text normalisation for free-text matching.
  *
  * See docs/RESEARCH.md §3 for why each of these exists. Every transform here
  * traces back to a real way Vietnamese input breaks naive string comparison.
  *
  * Two keys come out of this module:
  *
- *   looseKey()  drops every diacritic. This is what scoring compares, because
- *               players type "em cua ngay hom qua" and that has to count.
+ *   looseKey()  drops every diacritic. Suitable for tolerant free-text matching.
  *   toneKey()   keeps tones but makes their *placement* canonical, so "hoà"
- *               and "hòa" collapse together. Used for ranking, and for telling
- *               a player their spelling was off without failing them.
+ *               and "hòa" collapse together. Useful when feedback distinguishes
+ *               exact spelling from accent-folded spelling.
  */
 
 // Tone marks (dấu): huyền, sắc, ngã, hỏi, nặng.
@@ -143,45 +142,15 @@ function collapse(input: string): string {
 }
 
 /**
- * The key scoring compares. Diacritic-free, noise-free, punctuation-free.
+ * A diacritic-free key for matching. Diacritic-free, noise-free, punctuation-free.
  */
 export function looseKey(input: string): string {
   return collapse(stripDiacritics(cleanTitle(repairMojibake(input)).normalize('NFC')));
 }
 
 /**
- * Tone-preserving key with canonical tone placement. For ranking, and for
- * "right song, slightly off spelling" feedback.
+ * Tone-preserving key with canonical tone placement.
  */
 export function toneKey(input: string): string {
   return collapse(foldTonePlacement(cleanTitle(repairMojibake(input)).normalize('NFC')));
-}
-
-export interface SongLike {
-  title: string;
-  /** Hand-curated extra accepted answers: bilingual titles, nicknames. */
-  aliases?: string[];
-}
-
-export type MatchQuality = 'exact' | 'diacritics' | 'alias' | 'none';
-
-/**
- * Decide whether a guess names this song.
- *
- * Returns *how* it matched, so the UI can distinguish "correct" from
- * "correct, and here is the properly accented title" — which is a nice touch
- * for a game people play to learn, and costs nothing.
- */
-export function matchGuess(guess: string, song: SongLike): MatchQuality {
-  const g = looseKey(guess);
-  if (!g) return 'none';
-
-  if (toneKey(guess) === toneKey(song.title)) return 'exact';
-  if (g === looseKey(song.title)) return 'diacritics';
-
-  for (const alias of song.aliases ?? []) {
-    if (g === looseKey(alias)) return 'alias';
-  }
-
-  return 'none';
 }

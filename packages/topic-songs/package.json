@@ -1,8 +1,8 @@
 {
-  "name": "@wts/core",
+  "name": "@wts/topic-songs",
   "version": "0.0.1",
   "private": true,
-  "description": "Topic-neutral game rules and shared Vietnamese text folding",
+  "description": "Songs catalogue, matching, clips and genres",
   "type": "module",
   "exports": {
     ".": {
@@ -18,6 +18,9 @@
     "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test \"src/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@wts/core": "*"
   },
   "devDependencies": {
     "@types/node": "^22.18.0",

@@ -1,17 +1,18 @@
 /**
  * Round state machine. Pure — no audio, no DOM, no fetch.
  *
- * The model is SongSpot's: a round is a short ladder of stages (0.1s, 0.5s,
- * 2s, 8s, 16s). You start on the shortest. A wrong guess or a skip opens the
- * next stage; a wrong guess on the last stage, or giving up, loses. There are
+ * A round follows an ordered ladder of stages. You start on the first. A wrong
+ * guess or a skip opens the next stage; a wrong guess on the last stage, or
+ * giving up, loses. There are
  * no lives on top of that — the stages *are* the attempts.
  */
 
 import { DEFAULT_LADDER, STAGE_TARGETS } from './ladder.ts';
-import { matchGuess, type MatchQuality, type SongLike } from './vietnamese.ts';
+import type { MatchQuality } from './match-quality.ts';
+import type { Subject } from './topic.ts';
 
-/** Minimum shape a round needs from a song. */
-type AnySong = SongLike & { id: string };
+/** A Topic's matching rule, including the quality recorded for feedback. */
+export type RoundMatcher<S extends Subject> = (guess: string, subject: S) => MatchQuality;
 
 /** A first-stage win — the most one round can score. */
 export const BEST_SCORE = 1000;
@@ -19,14 +20,11 @@ export const BEST_SCORE = 1000;
 export const WORST_SCORE = 50;
 
 /**
- * Pick a round's stages from the clips a song actually has.
+ * Pick a round's stages from the ladder provided by its Topic.
  *
- * tools/ingest.py cuts exactly STAGE_TARGETS by default, which come back
- * unchanged. A song with its own ladder keeps all of it when it has five rungs
- * or fewer, and otherwise gets the rungs nearest each target (compared as
- * ratios, since 0.1s vs 0.2s matters as much as 8s vs 16s), always ascending
- * and always ending on its longest clip. That is also how a library built
- * with the older seven-clip ladder still plays exactly the five stages.
+ * A ladder with five rungs or fewer keeps all of them. Longer ladders use
+ * the rungs nearest each target, compared as ratios, in ascending order and
+ * ending on the longest clue.
  */
 export function stagesFor(ladder: readonly number[]): number[] {
   const rungs = [...new Set(ladder.filter((s) => Number.isFinite(s) && s > 0))].sort((a, b) => a - b);
@@ -70,55 +68,55 @@ export interface Attempt {
   /** What was guessed; empty for a skip. */
   text: string;
   kind: 'guess' | 'skip';
-  /** The stage it was made on, in seconds. */
+  /** The stage value it was made on. */
   at: number;
   /** How a text guess matched, when it did. */
   quality?: MatchQuality;
 }
 
-export interface Round<S extends AnySong = AnySong> {
+export interface Round<S extends Subject = Subject> {
   readonly song: S;
-  /** This round's stages, in seconds, ascending. */
+  /** This round's numeric stages, ascending. */
   readonly stages: readonly number[];
-  /** Index into stages — how much audio is unlocked. */
+  /** Index into stages — how much of the clue is unlocked. */
   stageIndex: number;
   status: RoundStatus;
   attempts: Attempt[];
   score: number;
 }
 
-export function createRound<S extends AnySong>(song: S, ladder: readonly number[] = DEFAULT_LADDER): Round<S> {
-  return { song, stages: stagesFor(ladder), stageIndex: 0, status: 'playing', attempts: [], score: 0 };
+export function createRound<S extends Subject>(subject: S, ladder: readonly number[] = DEFAULT_LADDER): Round<S> {
+  return { song: subject, stages: stagesFor(ladder), stageIndex: 0, status: 'playing', attempts: [], score: 0 };
 }
 
-/** Seconds of audio currently unlocked. */
-export function revealedSeconds(round: Round<AnySong>): number {
+/** Current stage value in the numeric ladder. */
+export function revealedSeconds(round: Round<Subject>): number {
   return round.stages[Math.min(round.stageIndex, round.stages.length - 1)];
 }
 
-export function isLastStage(round: Round<AnySong>): boolean {
+export function isLastStage(round: Round<Subject>): boolean {
   return round.stageIndex >= round.stages.length - 1;
 }
 
 /** Open the next stage, or lose if this was the last. */
-function advance<S extends AnySong>(round: Round<S>, attempt: Attempt): Round<S> {
+function advance<S extends Subject>(round: Round<S>, attempt: Attempt): Round<S> {
   const attempts = [...round.attempts, attempt];
   if (isLastStage(round)) return { ...round, status: 'lost', attempts };
   return { ...round, stageIndex: round.stageIndex + 1, attempts };
 }
 
 /**
- * Submit a guess: free text, matched leniently (no diacritics, aliases).
+ * Submit a guess: free text, matched by the Topic rule.
  * Returns a new Round; never mutates.
  */
-export function submitGuess<S extends AnySong>(round: Round<S>, guess: string): Round<S> {
+export function submitGuess<S extends Subject>(round: Round<S>, guess: string, matcher: RoundMatcher<S>): Round<S> {
   if (round.status !== 'playing') return round;
   const text = guess.trim();
   // An empty submission is a no-op, not a wasted stage.
   if (!text) return round;
 
   const at = revealedSeconds(round);
-  const quality: MatchQuality = matchGuess(text, round.song);
+  const quality = matcher(text, round.song);
 
   if (quality !== 'none') {
     return {
@@ -132,13 +130,13 @@ export function submitGuess<S extends AnySong>(round: Round<S>, guess: string): 
 }
 
 /** Skip: open the next stage without guessing. On the last stage it loses. */
-export function skip<S extends AnySong>(round: Round<S>): Round<S> {
+export function skip<S extends Subject>(round: Round<S>): Round<S> {
   if (round.status !== 'playing') return round;
   return advance(round, { text: '', kind: 'skip', at: revealedSeconds(round) });
 }
 
 /** Give up immediately. */
-export function giveUp<S extends AnySong>(round: Round<S>): Round<S> {
+export function giveUp<S extends Subject>(round: Round<S>): Round<S> {
   if (round.status !== 'playing') return round;
   return { ...round, status: 'lost' };
 }

@@ -13,6 +13,7 @@
   "dependencies": {
     "@wts/contracts": "*",
     "@wts/core": "*",
+    "@wts/topic-songs": "*",
     "next": "^15.5.4",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"

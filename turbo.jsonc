@@ -5,6 +5,8 @@
   // Every package extends it, but it belongs to no package, so turbo would not
   // otherwise notice it changing.
   "globalDependencies": ["tsconfig.base.json"],
+  // Workspace dependencies make @wts/topic-songs build after @wts/core,
+  // and the web/API build after the packages they import.
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

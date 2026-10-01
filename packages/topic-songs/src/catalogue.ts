@@ -1,6 +1,5 @@
 /**
- * Catalogue shape and clip lookups. Guesses are free text judged by
- * vietnamese.ts (docs/adr/0001-free-text-guesses.md); there is no search here.
+ * Catalogue shape and clip lookups. Guesses are free text judged by matching.ts.
  */
 
 export interface Song {
@@ -13,8 +12,13 @@ export interface Song {
   tier?: string | null;
   /** Cover image filename in the song's clip folder, when ingest saved one. */
   cover?: string | null;
-  /** Reveal-step index → clip filename, from tools/ingest.py. */
-  clips: Record<string, string>;
+  /** Reveal-step index → clip filename, from tools/ingest.py. Unusable manifests are skipped. */
+  clips?: unknown;
+}
+
+function isClipManifest(value: unknown): value is Record<string, string> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) &&
+    Object.values(value).every((name) => typeof name === 'string');
 }
 
 /**
@@ -31,7 +35,7 @@ export function clipKey(seconds: number): string {
 
 /** Clip URL for a reveal step. Filenames are opaque hashes by design. */
 export function clipUrl(song: Song, seconds: number, base = '/clips'): string {
-  const name = song.clips[clipKey(seconds)];
+  const name = isClipManifest(song.clips) ? song.clips[clipKey(seconds)] : undefined;
   if (!name) throw new Error(`no clip for ${song.id} at ${seconds}s`);
   return `${base}/${song.id}/${name}`;
 }
@@ -51,7 +55,8 @@ export function coverUrl(song: Song, base = '/clips'): string | null {
  * only one source of truth: whatever clips exist are the rungs.
  */
 export function ladderFor(song: Song): number[] {
-  return Object.keys(song.clips ?? {})
+  if (!isClipManifest(song.clips)) return [];
+  return Object.keys(song.clips)
     .map((k) => Number(k) / 1000)
     .filter((n) => Number.isFinite(n) && n > 0)
     .sort((a, b) => a - b);

@@ -12,7 +12,7 @@ commercial, not public.
 | Piece | Status |
 |---|---|
 | Technical research | done — [`docs/RESEARCH.md`](docs/RESEARCH.md) |
-| Vietnamese answer matching | done, tested — `packages/core/src/vietnamese.ts` |
+| Vietnamese answer matching | done, tested — `packages/topic-songs/src/matching.ts` |
 | Clip ingest pipeline | written, **not yet run against real audio** — `tools/ingest.py` |
 | Web Audio playback | done — `apps/web/lib/audio/engine.ts` |
 | Round rules | done, tested — `packages/core/src/round.ts` |
@@ -32,7 +32,7 @@ the account service end to end against a real Postgres. The game still builds
 to a static export.
 
 Read [`docs/RESEARCH.md`](docs/RESEARCH.md) before changing anything in
-`packages/core/src/vietnamese.ts` or `tools/ingest.py`. Both exist in the shape
+`packages/topic-songs/src/matching.ts` or `tools/ingest.py`. Both exist in the shape
 they do for specific reasons, and §10 records the decisions that got them here.
 
 ## Repository layout
@@ -46,9 +46,10 @@ apps/
                                 i18n, browser storage, the API client
   api/          @wts/api        accounts and player records — NestJS + Postgres
 packages/
-  game/         @wts/core       the rules, with no DOM, audio, storage or network:
-                                Vietnamese matching, rounds,
-                                scoring, difficulty, genres, streaks
+  core/         @wts/core       the rules, with no DOM, audio, storage or network:
+                                rounds, scoring, difficulty, streaks,
+                                shared Vietnamese text folding
+  topic-songs/  @wts/topic-songs  song catalogue, clips, genres, matching
   contracts/    @wts/contracts  the API's wire format: request/response shapes,
                                 error codes, account input rules
 tools/                          clip ingest and seed validation (Python)
@@ -57,7 +58,7 @@ docs/                           research and the catalogue guide
 ```
 
 Dependencies only point one way: apps depend on packages, never the reverse,
-and the two packages do not depend on each other.
+and `@wts/topic-songs` depends only on `@wts/core`.
 
 - **`@wts/core` is shared by both apps.** The browser plays with it and the
   API judges reported rounds with the same code — the difficulty list and score
@@ -316,7 +317,7 @@ the fix is usually just a newer version.
 ## Answer matching
 
 Vietnamese input breaks naive string comparison in about ten different ways, so
-`packages/core/src/vietnamese.ts` handles them explicitly and the tests are numbered against
+`packages/core/src/vietnamese.ts` and `packages/topic-songs/src/matching.ts` handle them explicitly and the tests are numbered against
 `docs/RESEARCH.md` §3.1:
 
 - players type with no diacritics at all (`em cua ngay hom qua` must count)
@@ -334,7 +335,7 @@ npm test
 Requires Node 22+ (uses the built-in test runner and type stripping — no
 dependencies).
 
-Guessing is **free text**: the player types the title and `matchGuess` judges it
+Guessing is **free text**: the player types the title and `@wts/topic-songs`’ `matchGuess` judges it
 against the round's own song — accents ignored, aliases accepted, no typo
 tolerance and no Telex fallback. See [ADR-0001](docs/adr/0001-free-text-guesses.md).
 
@@ -395,7 +396,7 @@ worse than a short one. Unknown or missing tags fall under **Khác**, so no song
 becomes unreachable, and ingest warns about an unrecognised slug because it is
 almost always a typo.
 
-The slug list exists in both `tools/ingest.py` and `packages/core/src/genres.ts`; a test
+The slug list exists in both `tools/ingest.py` and `packages/topic-songs/src/genres.ts`; a test
 parses the TypeScript and asserts they agree, since a silent drift would file
 songs under Khác with no error.
 

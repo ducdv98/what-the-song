@@ -2,15 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  availableGenres,
-  clipUrl,
   createRound,
-  filterByGenre,
   filterByTier,
   giveUp,
   isLastStage,
-  ladderFor,
-  playableSongs,
   revealedSeconds,
   scoreForStep,
   skip,
@@ -18,9 +13,12 @@ import {
   tierCounts,
   tierOf,
   type Round,
-  type Song,
   type TierSlug,
 } from '@wts/core';
+import {
+  availableGenres, clipUrl, filterByGenre, playableSongs, songsTopic, matchGuess,
+  type Song,
+} from '@wts/topic-songs';
 import { loadPrefs, savePrefs } from '@/lib/storage/prefs';
 import { useAudioEngine } from './useAudioEngine';
 import { PlayButton, formatSeconds } from './PlayButton';
@@ -98,7 +96,7 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
       engine.stop();
       setError(null);
       const song = pickRandom(songs, excludeId);
-      setRound(song ? createRound(song, ladderFor(song)) : null);
+      setRound(song ? createRound(song, songsTopic.ladder(song)) : null);
     },
     [songs, engine],
   );
@@ -278,7 +276,7 @@ export function Game({ catalogue }: { catalogue: Song[] }) {
                   .reverse()
                   .find((a) => a.kind === 'guess' && a.quality === 'none')?.text
               }
-              onGuess={(text: string) => apply(submitGuess(round, text))}
+              onGuess={(text: string) => apply(submitGuess(round, text, matchGuess))}
               onSkip={() => apply(skip(round))}
               onGiveUp={() => apply(giveUp(round))}
             />

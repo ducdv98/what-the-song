@@ -652,7 +652,7 @@ of which are sharper for a Vietnamese catalogue:
 - **No Postgres.** At a few hundred songs, a JSON catalogue plus in-process
   normalisation is entirely sufficient. This **sidesteps §3.2's `unaccent`
   trap** (custom rules for `đ`, no NFD handling) by keeping the logic in
-  application code where it is testable. `packages/core/src/vietnamese.ts` does this, with a
+  application code where it is testable. `packages/core/src/vietnamese.ts` supplies folding and `packages/topic-songs/src/matching.ts` applies the Songs rule, with a
   test suite.
 - **Trivial auth.** A shared passphrase or an invite link is enough, and it is
   also the control that keeps §10.1 true.

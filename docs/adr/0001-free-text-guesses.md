@@ -7,7 +7,7 @@ We did it because a visible list makes the game too easy: the player can scan ti
 - A Guess wins when it equals the round's title or an alias after both sides are reduced to accent-free words (tones, vowel marks and `đ` folded; punctuation and `feat.`/bracket noise removed).
 - Typo tolerance and the `telex` fallback (IME-off tone keys) are **not** accepted. `telex` is lossy and mangles real words, and a false win is a worse failure than a missed one.
 - Judging is against the round's own song only, so two songs sharing a title are not told apart.
-- Judging stays in the browser with the shared `@wts/core` code; the search index is removed from the client. Keeping the answer off the client was rejected as not worth losing the static export, for a private friends-only game.
+- Judging stays in the browser with the the Songs Topic matcher in `@wts/topic-songs`; the search index is removed from the client. Keeping the answer off the client was rejected as not worth losing the static export, for a private friends-only game.
 - Wrong guesses are echoed back with no "close" signal, so near-misses leak nothing.
 - Scoring and the leaderboard are unchanged.
 

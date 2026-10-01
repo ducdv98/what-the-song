@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import { useEffect, useState } from 'react';
-import type { Song } from '@wts/core';
+import { songsTopic, type Song } from '@wts/topic-songs';
 import { Game } from './components/Game';
 import { useI18n } from './components/I18nProvider';
 import { AccountBar } from './components/AccountBar';
@@ -28,8 +28,7 @@ export default function Page() {
         return r.json();
       })
       .then((data: unknown) => {
-        if (!Array.isArray(data)) throw new Error('Invalid catalogue');
-        setCatalogue(data as Song[]);
+        setCatalogue(songsTopic.validateCatalogue(data));
       })
       .catch(() => {
         if (!controller.signal.aborted) setError(true);

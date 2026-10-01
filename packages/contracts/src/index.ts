@@ -27,7 +27,7 @@ export const PASSWORD_MAX = 128;
 
 /** Song ids as tools/ingest.py writes them into the catalogue. */
 export const SONG_ID_PATTERN = '^[\\w.-]{1,120}$';
-/** Genre slugs, as in @wts/core's GENRES. */
+/** Genre slugs, as in @wts/topic-songs' GENRES. */
 export const GENRE_SLUG_PATTERN = '^[a-z0-9-]{1,40}$';
 
 // ── Shapes ───────────────────────────────────────────────────────────────────

@@ -45,7 +45,7 @@ class TestModuleSurface(unittest.TestCase):
     def test_ladder_is_exactly_the_stages_the_game_plays(self):
         # Read the game's STAGE_TARGETS rather than trusting a copy: a drift
         # would either cut clips nobody hears or 404 a stage.
-        ts = (ROOT / "packages" / "game" / "src" / "ladder.ts").read_text(encoding="utf-8")
+        ts = (ROOT / "packages" / "core" / "src" / "ladder.ts").read_text(encoding="utf-8")
         line = ts[ts.index("export const STAGE_TARGETS"):ts.index("as const;")]
         stages = [float(x) for x in re.findall(r"[\d.]+", line.split("=", 1)[1])]
         self.assertEqual(ingest.CLIP_LADDER, stages)
@@ -54,7 +54,7 @@ class TestModuleSurface(unittest.TestCase):
     def test_clip_keys_match_javascript(self):
         # str(2.0) is "2.0" in Python but String(2.0) is "2" in JS, which
         # silently broke every whole-second rung. Milliseconds are integers in
-        # both. The mirror of this lives in packages/core/src/catalogue.test.ts.
+        # both. The mirror of this lives in packages/topic-songs/src/catalogue.test.ts.
         self.assertEqual(
             [ingest.clip_key(s) for s in ingest.CLIP_LADDER],
             ["100", "500", "2000", "8000", "16000"],
@@ -98,7 +98,7 @@ class TestGenreTaxonomy(unittest.TestCase):
     """
 
     def test_slugs_match_the_client(self):
-        ts = (ROOT / "packages" / "game" / "src" / "genres.ts").read_text(encoding="utf-8")
+        ts = (ROOT / "packages" / "topic-songs" / "src" / "genres.ts").read_text(encoding="utf-8")
         # Only the GENRES array literal, so unrelated strings cannot match.
         body = ts[ts.index("export const GENRES"):ts.index("] as const;")]
         from_ts = re.findall(r"slug: '([a-z-]+)'", body)
@@ -382,7 +382,7 @@ class TestLongLadders(unittest.TestCase):
 
 class TestTiers(unittest.TestCase):
     def test_tiers_match_the_client(self):
-        ts = (ROOT / "packages" / "game" / "src" / "difficulty.ts").read_text(encoding="utf-8")
+        ts = (ROOT / "packages" / "core" / "src" / "difficulty.ts").read_text(encoding="utf-8")
         line = ts[ts.index("export const TIER_SLUGS"):ts.index("as const;")]
         self.assertEqual(re.findall(r"'([a-z]+)'", line), ingest.KNOWN_TIERS)
 

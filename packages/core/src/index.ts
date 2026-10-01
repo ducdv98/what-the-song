@@ -3,10 +3,9 @@
  * runs in the browser (apps/web) and on the server (apps/api), and is tested
  * once, here.
  */
-export * from './catalogue.ts';
 export * from './difficulty.ts';
-export * from './genres.ts';
 export * from './ladder.ts';
+export * from './match-quality.ts';
 export * from './leaderboard.ts';
 export * from './round.ts';
 export * from './stats.ts';

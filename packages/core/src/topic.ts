@@ -22,6 +22,6 @@ export interface Topic<S extends Subject = Subject, C = unknown> {
   matches(subject: S, guess: string): boolean;
   /** Validates untrusted catalogue data, returning the Subjects or throwing. */
   validateCatalogue(data: unknown): S[];
-  /** Names of the optional Facets this Topic declares (e.g. genre for Songs). */
+  /** Names of the optional Facets this Topic declares (each Topic defines its own labels). */
   facets: readonly string[];
 }
