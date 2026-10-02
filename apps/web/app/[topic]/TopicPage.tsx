@@ -1,6 +1,7 @@
 ﻿'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { SONGS_ASSET_BASE, type Song } from '@wts/topic-songs';
 import type { Dish } from '@wts/topic-food';
 import { topics } from '@wts/topics';
@@ -10,7 +11,6 @@ import { useI18n } from '../components/I18nProvider';
 import { AccountBar } from '../components/AccountBar';
 import { GuestNotice } from '../components/GuestNotice';
 import { SiteFooter } from '../components/SiteFooter';
-import { TopicSwitcher } from '../components/TopicSwitcher';
 import { InstallHint } from '../components/InstallHint';
 import { MenuButton, MenuProvider } from '../components/GameMenu';
 
@@ -69,8 +69,10 @@ export function TopicPage({ topicId }: { topicId: RenderableTopicId }) {
             <span aria-hidden="true">?</span>
           </p>
           <span className="header-edition">{food ? t('food.appEdition') : t('app.edition')}</span>
+          <Link className="pill pill--muted home-back" href="/">
+            <span aria-hidden="true">←</span>&nbsp;{t('home.back')}
+          </Link>
           <AccountBar />
-          <TopicSwitcher topicId={topicId} />
         </header>
         <div className="poster-layout">
           <section className="poster-intro" aria-labelledby="poster-title">
