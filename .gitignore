@@ -1,6 +1,8 @@
 # Clip library — built locally by tools/ingest.py, never committed.
 /apps/web/public/assets/
 /clips/
+# Meme source folders (images + manifest.json) for ingest --memes.
+/memes-source/
 seed.jsonl
 
 node_modules/
