@@ -4,9 +4,11 @@
 photo appears from the hair down over five Stages. Each Person has one **field**
 Facet: Ca sĩ (Singer), Diễn viên (Actor), MC / Hài (MC / Comedy), Streamer, or
 Influencer. The picker uses the Topic's Vietnamese and English labels. The
-launch seed at `.scratch/people/launch.jsonl` has 60 Persons, 12 per field,
-with Tiers spread across the catalogue. The eight candidates flagged for poor
-photo crops in `.scratch/people/candidates.md` are absent from that seed.
+catalogue seed at `.scratch/people/catalogue.jsonl` has 342 Persons (62 to 73
+per field) with Tiers spread across the catalogue. It is the 60-Person launch
+seed (`launch.jsonl`) plus `candidates-expansion.jsonl` (282 more). The eight
+candidates flagged for poor crops in `.scratch/people/candidates.md` and the
+photos dropped on review are absent from it.
 
 Each JSONL seed row supplies `name`, optional `aliases`, `tier`, `field`,
 `photo_url`, and `source_url`. `tools/ingest_people.py` writes the catalogue
@@ -18,7 +20,7 @@ the actual crop before publishing. The browser loads
 the local photo library.
 
 ```sh
-python tools/ingest_people.py .scratch/people/launch.jsonl
+python tools/ingest_people.py .scratch/people/catalogue.jsonl
 python tools/ingest_people.py --publish --dry-run
 python tools/ingest_people.py --publish
 ```

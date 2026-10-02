@@ -115,8 +115,8 @@ the VPS with `catalogue.json` last.
 The People Topic at `/people` reveals a Person's head-and-shoulders photo from
 the hair down over five Stages. The **field** Facet lets players choose Ca sĩ,
 Diễn viên, MC / Hài, Streamer, or Influencer; the picker shows Vietnamese or
-English labels with the selected language. The first seed is
-`.scratch/people/launch.jsonl` (60 public figures, 12 per field). Each seed row
+English labels with the selected language. The seed is
+`.scratch/people/catalogue.jsonl` (342 public figures, 62 to 73 per field). Each seed row
 has `{name, aliases, tier, field, photo_url, source_url}`. Run
 `tools/ingest_people.py` to build the local catalogue and use `--publish` to
 mirror it to private COS; see [People catalogue](docs/PEOPLE.md) for commands.
