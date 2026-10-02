@@ -3,14 +3,16 @@
 import { useEffect, useState } from 'react';
 import { TIERS, tierOf, type Round } from '@wts/core';
 import { coverUrl, type Song } from '@wts/topic-songs';
+import type { Dish, Zoom } from '@wts/topic-food';
 import type { PlaybackState } from '@/lib/audio/engine';
 import { assetUrls } from '@/lib/assets/urls';
 import { retryMemeImage, visibleResultMeme, type MemeOutcome, type ResolvedMeme } from '@/lib/assets/memes';
 import { formatSeconds } from './PlayButton';
 import { useI18n } from './I18nProvider';
+import { FoodCredit } from './FoodCredit';
 
 /** Spoiler-free history: wrong, skipped, correct, and not reached. */
-export function shareSquares(round: Round<Song, number>): string {
+export function shareSquares(round: Round<Song, number> | Round<Dish, Zoom>): string {
   return round.stages
     .map((_, i) => {
       const a = round.attempts[i];
@@ -27,12 +29,14 @@ export function ResultCard({
   onListen,
   onNext,
   memes,
+  foodPhotoUrl,
 }: {
-  round: Round<Song, number>;
-  playback: PlaybackState;
-  onListen: () => void;
+  round: Round<Song, number> | Round<Dish, Zoom>;
+  playback?: PlaybackState;
+  onListen?: () => void;
   onNext: () => void;
   memes?: Record<MemeOutcome, ResolvedMeme | null>;
+  foodPhotoUrl?: string | null;
 }) {
   const { t, lang } = useI18n();
   const [copied, setCopied] = useState(false);
@@ -46,8 +50,11 @@ export function ResultCard({
   const selectedMeme = round.status === 'playing' ? null : memes?.[round.status];
   const memeUrl = selectedMeme?.url ?? null;
   const visibleMeme = visibleResultMeme(round.status, memes, resolvedMeme, failedMeme);
-  const song = round.subject;
-  const cover = coverUrl(song);
+  const subject = round.subject;
+  const dish = 'name' in subject ? subject : null;
+  const song = 'title' in subject ? subject : null;
+  const food = dish !== null;
+  const cover = song ? coverUrl(song) : null;
   useEffect(() => {
     setResolvedMeme(memeUrl);
     setFailedMeme(false);
@@ -63,15 +70,17 @@ export function ResultCard({
     }).catch(() => { if (active) setFailedCover(cover); });
     return () => { active = false; };
   }, [cover]);
-  const at = formatSeconds(round.stages[round.stageIndex]);
-  const longest = round.stages[round.stages.length - 1];
-  const tier = TIERS.find((x) => x.slug === tierOf(song))!;
+  const at = food
+    ? `${Math.round((round.stages[round.stageIndex] as Zoom).fraction * 100)}%`
+    : formatSeconds(round.stages[round.stageIndex] as number);
+  const longest = food ? 0 : round.stages[round.stages.length - 1] as number;
+  const tier = TIERS.find((x) => x.slug === tierOf(subject))!;
 
   async function share() {
-    const text = t('result.shareText', {
+    const text = t(food ? 'food.shareText' : 'result.shareText', {
       tier: lang === 'vi' ? tier.label : tier.gloss,
       squares: shareSquares(round),
-      outcome: won ? t('result.shareWon', { at }) : t('result.shareLost'),
+      outcome: won ? t(food ? 'food.shareWon' : 'result.shareWon', { at }) : t('result.shareLost'),
       score: round.score,
     });
     try {
@@ -124,8 +133,10 @@ export function ResultCard({
           }}
         />
       )}
-      <div className="result-cover">
-        {cover && resolvedCover && cover !== failedCover ? (
+      <div className={food ? 'result-cover result-food-photo' : 'result-cover'}>
+        {food && foodPhotoUrl ? (
+          <img src={foodPhotoUrl} alt="" width={160} height={160} />
+        ) : cover && resolvedCover && cover !== failedCover ? (
           // Static export: native image, with a fallback for missing cover files.
           <img
             src={resolvedCover}
@@ -147,7 +158,7 @@ export function ResultCard({
             data-testid="cover-fallback"
             aria-hidden="true"
           >
-            {initials(song.title)}
+            {initials(dish?.name ?? song?.title ?? '')}
           </span>
         )}
       </div>
@@ -158,12 +169,13 @@ export function ResultCard({
           </p>
         )}
         <h2 id="result-title" className="result-title">
-          {song.title}
+          {dish?.name ?? song?.title}
         </h2>
-        <p className="result-artist">{song.artist}</p>
+        {song && <p className="result-artist">{song.artist}</p>}
+        {dish && <FoodCredit credit={dish.credit} />}
       </div>
       <div className="result-summary">
-        {won && <p className="result-clip">{t('result.wonAt', { at })}</p>}
+        {won && <p className="result-clip">{food ? t('food.wonAt', { at }) : t('result.wonAt', { at })}</p>}
         <p className="result-score">
           {t('round.points', { n: won ? round.score : 0 })}
         </p>
@@ -173,7 +185,8 @@ export function ResultCard({
         role="list"
         aria-label={t('result.history')}
       >
-        {round.stages.map((seconds, i) => {
+        {round.stages.map((stage, i) => {
+          const stageLabel = food ? `${Math.round((stage as Zoom).fraction * 100)}%` : formatSeconds(stage as number);
           const attempt = round.attempts[i];
           const kind = !attempt
             ? 'unreached'
@@ -193,16 +206,16 @@ export function ResultCard({
           );
           return (
             <span
-              key={seconds}
+              key={i}
               className="history-stage"
               data-kind={kind}
               role="listitem"
               aria-label={t('result.stage', {
                 n: i + 1,
-                seconds: formatSeconds(seconds),
+                seconds: stageLabel,
                 outcome,
               })}
-              title={`${formatSeconds(seconds)} · ${outcome}`}
+              title={`${stageLabel} · ${outcome}`}
             >
               <span aria-hidden="true">
                 {kind === 'skip'
@@ -218,7 +231,7 @@ export function ResultCard({
         })}
       </div>
       <div className="result-actions">
-        <button
+        {!food && <button
           className="pill"
           onClick={onListen}
           disabled={playback === 'loading'}
@@ -227,12 +240,12 @@ export function ResultCard({
           {playback === 'playing'
             ? t('round.stopLabel')
             : t('result.listen', { seconds: formatSeconds(longest) })}
-        </button>
+        </button>}
         <button className="pill" onClick={() => void share()}>
           {copied ? t('result.copied') : t('result.share')}
         </button>
         <button className="pill next-button" onClick={onNext} autoFocus>
-          {won ? t('result.next') : t('result.tryAgain')}{' '}
+          {food ? t('food.next') : won ? t('result.next') : t('result.tryAgain')}{' '}
           <span aria-hidden="true">↗</span>
         </button>
       </div>

@@ -1,18 +1,17 @@
 import { notFound } from 'next/navigation';
-import { getTopic, isTopicId, TOPIC_IDS } from '@wts/topics';
+import { isTopicId } from '@wts/topics';
+import { isRenderableTopicId, renderers } from '@/lib/topics/renderers';
 import { TopicPage } from './TopicPage';
 
 export const dynamicParams = false;
 
 export function generateStaticParams() {
-  return TOPIC_IDS.map((topic) => ({ topic }));
+  return Object.keys(renderers).map((topic) => ({ topic }));
 }
 
 export default async function Page({ params }: { params: Promise<{ topic: string }> }) {
   const { topic: topicId } = await params;
-  if (!isTopicId(topicId)) notFound();
-  const topic = getTopic(topicId);
-  if (!topic) notFound();
+  if (!isTopicId(topicId) || !isRenderableTopicId(topicId)) notFound();
 
   return <TopicPage topicId={topicId} />;
 }

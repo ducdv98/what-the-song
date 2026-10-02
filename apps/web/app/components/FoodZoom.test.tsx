@@ -1,0 +1,65 @@
+import assert from 'node:assert/strict';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, test } from 'vitest';
+import { createRound, giveUp, skip, submitGuess } from '@wts/core';
+import { foodTopic, ladderFor, matchGuess, validateCatalogue } from '@wts/topic-food';
+import fixture from '../../test/fixtures/food-catalogue.json';
+import { FoodZoom } from './FoodZoom';
+import { ResultCard } from './ResultCard';
+import { I18nProvider } from './I18nProvider';
+
+const [focalDish, centredDish] = validateCatalogue(fixture);
+const photoUrl = '/assets/food/pho/pho.jpg';
+
+describe('Food Zoom components', () => {
+  test('each Stage sets the CSS crop and the final Stage shows the whole photo', () => {
+    const expected = [4, 2.5, 5 / 3, 1.25, 1];
+    ladderFor(centredDish).forEach((zoom, index) => {
+      const html = renderToStaticMarkup(createElement(FoodZoom, { zoom, url: photoUrl }));
+      assert.match(html, new RegExp(`data-fraction="${zoom.fraction}"`));
+      assert.match(html, new RegExp(`scale\\(${expected[index]}\\)`));
+      assert.match(html, /translate\(0%, 0%\)/);
+      assert.equal((html.match(/<img\b/g) ?? []).length, 1);
+      assert.match(html, /src="\/assets\/food\/pho\/pho.jpg"/);
+    });
+  });
+
+  test('a Dish focal point moves the crop, including a complete final image', () => {
+    const stages = ladderFor(focalDish);
+    const first = renderToStaticMarkup(createElement(FoodZoom, { zoom: stages[0], url: photoUrl }));
+    const last = renderToStaticMarkup(createElement(FoodZoom, { zoom: stages[4], url: photoUrl }));
+    assert.match(first, /translate\(-(?:79\.99999999999999|80)%, 80%\) scale\(4\)/);
+    assert.match(last, /translate\(0%, 0%\) scale\(1\)/);
+  });
+
+  test('Credit renders author, licence and source link', () => {
+    const round = giveUp(createRound(focalDish, foodTopic.ladder(focalDish)));
+    const html = renderToStaticMarkup(createElement(I18nProvider, null,
+      createElement(ResultCard, { round, foodPhotoUrl: photoUrl, onNext: () => {} })));
+    assert.match(html, /Fixture Photographer/);
+    assert.match(html, /CC BY-SA 4\.0/);
+    assert.match(html, /href="https:\/\/commons.wikimedia.org\/wiki\/File:Bun_bo_Hue.jpg"/);
+    assert.match(html, /rel="noopener noreferrer"/);
+    assert.match(html, /data-status="lost"/);
+    assert.match(html, /Bún bò Huế/);
+  });
+});
+
+describe('fixture catalogue', () => {
+  test('can be won or lost across the five Stages', () => {
+    const matcher = (text: string, dish: typeof focalDish) => matchGuess(text, dish) ? 'exact' as const : 'none' as const;
+    let won = createRound(focalDish, foodTopic.ladder(focalDish));
+    for (let i = 0; i < 4; i++) won = skip(won);
+    assert.equal(won.stageIndex, 4);
+    won = submitGuess(won, 'bun bo hue', matcher);
+    assert.equal(won.status, 'won');
+    assert.equal(won.attempts.length, 5);
+
+    let lost = createRound(centredDish, foodTopic.ladder(centredDish));
+    for (let i = 0; i < 4; i++) lost = skip(lost);
+    lost = giveUp(lost);
+    assert.equal(lost.status, 'lost');
+    assert.equal(lost.stageIndex, 4);
+  });
+});

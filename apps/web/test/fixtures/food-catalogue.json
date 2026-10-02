@@ -1,0 +1,28 @@
+[
+  {
+    "id": "bun-bo-hue",
+    "name": "Bún bò Huế",
+    "aliases": ["Bun bo Hue"],
+    "tier": "easy",
+    "region": "Trung",
+    "photo": "bun-bo-hue.jpg",
+    "focalPoint": { "x": 0.7, "y": 0.3 },
+    "credit": {
+      "author": "Fixture Photographer",
+      "licence": "CC BY-SA 4.0",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Bun_bo_Hue.jpg"
+    }
+  },
+  {
+    "id": "pho",
+    "name": "Phở",
+    "tier": "easy",
+    "region": "Bắc",
+    "photo": "pho.jpg",
+    "credit": {
+      "author": "Second Photographer",
+      "licence": "CC BY 4.0",
+      "sourceUrl": "https://commons.wikimedia.org/wiki/File:Pho.jpg"
+    }
+  }
+]

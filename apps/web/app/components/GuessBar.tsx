@@ -19,7 +19,9 @@ export function GuessBar({
   onGuess,
   onSkip,
   onGiveUp,
+  topic = 'songs',
 }: {
+  topic?: 'songs' | 'food';
   lastStage: boolean;
   /** The text of the previous wrong guess on this round, if any. */
   lastWrong?: string;
@@ -28,6 +30,9 @@ export function GuessBar({
   onGiveUp: () => void;
 }) {
   const { t } = useI18n();
+  const guessLabel = topic === 'food' ? t('food.guessLabel') : t('round.guessLabel');
+  const placeholder = topic === 'food' ? t('food.guessPlaceholder') : t('round.guessPlaceholder');
+  const answerHint = topic === 'food' ? t('food.answerHint') : t('round.answerHint');
   const [text, setText] = useState('');
 
   const action: RoundAction = text.trim() ? 'guess' : lastStage ? 'giveup' : 'skip';
@@ -43,7 +48,7 @@ export function GuessBar({
     <>
       <div className="guess-bar">
         <label className="guess-field">
-          <span className="visually-hidden">{t('round.guessLabel')}</span>
+          <span className="visually-hidden">{guessLabel}</span>
           <input
             id="guess"
             type="text"
@@ -51,7 +56,7 @@ export function GuessBar({
             autoCorrect="off"
             autoCapitalize="off"
             spellCheck={false}
-            placeholder={t('round.guessPlaceholder')}
+            placeholder={placeholder}
             value={text}
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
@@ -87,7 +92,7 @@ export function GuessBar({
         className={lastWrong ? 'answer-hint' : 'visually-hidden'}
         role="status"
       >
-        {lastWrong ? t('round.notIt', { guess: lastWrong }) : t('round.answerHint')}
+        {lastWrong ? t('round.notIt', { guess: lastWrong }) : answerHint}
       </p>
     </>
   );

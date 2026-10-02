@@ -1,8 +1,10 @@
 import { songsTopic } from '@wts/topic-songs';
+import { foodTopic } from '@wts/topic-food';
 
 /** Add each Topic package here; apps consume this shared registry. */
 export const topics = {
   songs: songsTopic,
+  food: foodTopic,
 } as const;
 
 export type TopicId = keyof typeof topics;

@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { SONGS_ASSET_BASE, type Song } from '@wts/topic-songs';
-import { getTopic, type TopicId } from '@wts/topics';
-import { renderers } from '@/lib/topics/renderers';
+import type { Dish } from '@wts/topic-food';
+import { topics } from '@wts/topics';
+import { renderers, type RenderableTopicId } from '@/lib/topics/renderers';
 import { assetUrls } from '@/lib/assets/urls';
 import { useI18n } from '../components/I18nProvider';
 import { AccountBar } from '../components/AccountBar';
@@ -13,12 +14,14 @@ import { InstallHint } from '../components/InstallHint';
 import { MenuButton, MenuProvider } from '../components/GameMenu';
 
 /** Runtime catalogue keeps the static build independent of the clip library. */
-export function TopicPage({ topicId }: { topicId: TopicId }) {
-  const topic = getTopic(topicId);
-  if (!topic) throw new Error(`Topic ${topicId} is not registered`);
-  const Renderer = renderers[topicId];
+export function TopicPage({ topicId }: { topicId: RenderableTopicId }) {
+  const topic = topics[topicId];
+  const food = topicId === 'food';
   const { t, lang } = useI18n();
-  const [catalogue, setCatalogue] = useState<Song[] | null>(null);
+  const [loaded, setLoaded] = useState<
+    { topicId: 'songs'; catalogue: Song[] } | { topicId: 'food'; catalogue: Dish[] } | null
+  >(null);
+  const catalogue = loaded?.topicId === topicId ? loaded.catalogue : null;
   const [error, setError] = useState(false);
   const [reloadVersion, setReloadVersion] = useState(0);
   useEffect(() => {
@@ -29,7 +32,7 @@ export function TopicPage({ topicId }: { topicId: TopicId }) {
       return;
     }
     setError(false);
-    setCatalogue(null);
+    setLoaded(null);
     const controller = new AbortController();
     const assetBase = topicId === 'songs' ? SONGS_ASSET_BASE : `/assets/${topicId}`;
     assetUrls.fetch(`${assetBase}/catalogue.json`, {
@@ -41,7 +44,9 @@ export function TopicPage({ topicId }: { topicId: TopicId }) {
         return r.json();
       })
       .then((data: unknown) => {
-        setCatalogue(topic.validateCatalogue(data));
+        if (controller.signal.aborted) return;
+        if (topicId === 'songs') setLoaded({ topicId, catalogue: topics.songs.validateCatalogue(data) });
+        else setLoaded({ topicId, catalogue: topics.food.validateCatalogue(data) });
       })
       .catch(() => {
         if (!controller.signal.aborted) {
@@ -59,32 +64,35 @@ export function TopicPage({ topicId }: { topicId: TopicId }) {
         <header className="app-header">
           {playable && <MenuButton />}
           <p className="wordmark">
-            what the <span>song</span>
+            what the <span>{food ? 'food' : 'song'}</span>
             <span aria-hidden="true">?</span>
           </p>
-          <span className="header-edition">{t('app.edition')}</span>
+          <span className="header-edition">{food ? t('food.appEdition') : t('app.edition')}</span>
           <AccountBar />
         </header>
         <div className="poster-layout">
           <section className="poster-intro" aria-labelledby="poster-title">
-            <span className="edition-label">{t('app.edition')}</span>
+            <span className="edition-label">{food ? t('food.appEdition') : t('app.edition')}</span>
             <h1
               id="poster-title"
               className={`poster-headline${lang === 'vi' ? ' poster-headline--vi' : ''}`}
             >
-              <span>{t('app.headlineOne')}</span>
-              <span className="headline-coral">{t('app.headlineTwo')}</span>
+              <span>{food ? t('food.headlineOne') : t('app.headlineOne')}</span>
+              <span className="headline-coral">{food ? t('food.headlineTwo') : t('app.headlineTwo')}</span>
             </h1>
-            <p className="poster-copy">{t('app.intro')}</p>
-            <p className="poster-footnote">{t('app.footnote')}</p>
+            <p className="poster-copy">{food ? t('food.intro') : t('app.intro')}</p>
+            <p className="poster-footnote">{food ? t('food.footnote') : t('app.footnote')}</p>
             <div className="poster-burst" aria-hidden="true">
               VIET
               <br />
-              HITS
+              {food ? 'FOOD' : 'HITS'}
             </div>
           </section>
           <div className="game-column">
-            {playable && <Renderer catalogue={catalogue} topicId={topicId} />}
+            {loaded?.topicId === 'songs' && topicId === 'songs' && loaded.catalogue.length > 0 &&
+              <renderers.songs catalogue={loaded.catalogue} topicId="songs" />}
+            {loaded?.topicId === 'food' && topicId === 'food' && loaded.catalogue.length > 0 &&
+              <renderers.food catalogue={loaded.catalogue} topicId="food" />}
             {!playable && (
               <section
                 className="state-card"
@@ -92,12 +100,12 @@ export function TopicPage({ topicId }: { topicId: TopicId }) {
                 aria-busy={catalogue === null && !error}
               >
                 <div className="card-masthead">
-                  <strong>WHAT THE SONG?</strong>
-                  <span className="card-ticket">{t('app.editionShort')}</span>
+                  <strong>{food ? 'WHAT THE FOOD?' : 'WHAT THE SONG?'}</strong>
+                  <span className="card-ticket">{food ? t('food.appEdition') : t('app.editionShort')}</span>
                 </div>
                 <h2>
                   {error
-                    ? t('empty.noLibrary')
+                    ? food ? t('food.noLibrary') : t('empty.noLibrary')
                     : catalogue
                       ? t('empty.catalogue')
                       : t('loading')}
@@ -105,7 +113,7 @@ export function TopicPage({ topicId }: { topicId: TopicId }) {
                 <p>
                   {error || catalogue
                     ? t('empty.libraryHelp')
-                    : t('loading.body')}
+                    : food ? t('food.loadingBody') : t('loading.body')}
                 </p>
                 {(error || catalogue) && (
                   <button

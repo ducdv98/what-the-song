@@ -63,6 +63,17 @@ describe('recording a round with a Topic', () => {
     expect(transaction).not.toHaveBeenCalled();
   });
 
+  it('accepts Food as a Topic in a round report', async () => {
+    const { service, insert, query } = setup();
+    await expect(service.record('player', {
+      ...round, topic: 'food', subjectId: 'bun-bo-hue', facet: 'trung',
+    })).resolves.toMatchObject({ played: 1 });
+    expect(insert.mock.calls[0]?.[1]).toMatchObject({
+      topic: 'food', subjectId: 'bun-bo-hue', facet: 'trung',
+    });
+    expect(query.mock.calls[1]?.[1]).toEqual(['player', 'food', 1, 800]);
+  });
+
   it('stores an in-range win as reported', async () => {
     const { service, insert, query } = setup();
     await service.record('player', {
