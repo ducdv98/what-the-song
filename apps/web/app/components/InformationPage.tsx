@@ -19,8 +19,7 @@ export function InformationPage({
     <main className="app-shell info-shell">
       <header className="app-header">
         <Link className="wordmark wordmark-link" href={`/${DEFAULT_TOPIC_ID}`}>
-          what the <span>song</span>
-          <span aria-hidden="true">?</span>
+          {t('app.name')}
         </Link>
         <Link className="pill pill--muted info-back" href={`/${DEFAULT_TOPIC_ID}`}>
           <span aria-hidden="true">←</span> {t('info.back')}
@@ -28,14 +27,14 @@ export function InformationPage({
       </header>
       <div className="info-layout">
         <div className="info-intro">
-          <span className="edition-label">{t('app.edition')}</span>
+          <span className="edition-label">{t('app.tagline')}</span>
           <h1 className="info-title">{t(`${kind}.title`)}</h1>
           <p className="info-description">{t(`${kind}.intro`)}</p>
           <p className="info-note">{t('info.personalUse')}</p>
         </div>
         <article className="info-paper" aria-label={t(`${kind}.label`)}>
           <div className="card-masthead">
-            <strong>WHAT THE SONG?</strong>
+            <strong>{t('app.name')}</strong>
             <span className="card-ticket">{t(`${kind}.label`)}</span>
           </div>
           {children}

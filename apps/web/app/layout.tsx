@@ -3,38 +3,39 @@ import './globals.css';
 import { I18nProvider } from './components/I18nProvider';
 import { AuthProvider } from './components/AuthProvider';
 import { PwaRegistration } from './components/PwaRegistration';
+import { APP_NAME, APP_DESCRIPTION, socialPreview } from '@/lib/brand';
 
 // Static export needs the public origin at build time for absolute social image URLs.
-const siteUrl = process.env.SITE_URL;
+const preview = socialPreview(process.env.SITE_URL);
 
 export const metadata: Metadata = {
-  metadataBase: siteUrl ? new URL(siteUrl) : undefined,
+  metadataBase: preview.origin,
   title: {
-    default: 'Đoán bài hát Việt qua đoạn nhạc ngắn | what the song',
-    template: '%s | what the song',
+    default: APP_NAME,
+    template: `%s | ${APP_NAME}`,
   },
-  description: 'Nghe đoạn nhạc và đoán tên bài hát Việt. Đoán càng sớm, điểm càng cao.',
-  applicationName: 'what the song',
+  description: APP_DESCRIPTION,
+  applicationName: APP_NAME,
   icons: {
     icon: [{ url: '/favicon.svg', type: 'image/svg+xml' }],
     apple: [{ url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' }],
   },
-  appleWebApp: { capable: true, title: 'what the song', statusBarStyle: 'default' },
+  appleWebApp: { capable: true, title: APP_NAME, statusBarStyle: 'default' },
   openGraph: {
     type: 'website',
-    siteName: 'what the song',
-    title: 'what the song · Đoán bài hát Việt',
-    description: 'Nghe đoạn nhạc và đoán tên bài hát Việt. Đoán càng sớm, điểm càng cao.',
+    siteName: APP_NAME,
+    title: APP_NAME,
+    description: APP_DESCRIPTION,
     locale: 'vi_VN',
-    images: siteUrl
-      ? [{ url: '/social-preview.png', width: 1200, height: 630, alt: 'what the song · Đoán bài hát Việt' }]
+    images: preview.image
+      ? [{ url: preview.image, width: 1200, height: 630, alt: `${APP_NAME} · Trò chơi đoán nhiều chủ đề` }]
       : undefined,
   },
   twitter: {
-    card: siteUrl ? 'summary_large_image' : 'summary',
-    title: 'what the song · Đoán bài hát Việt',
-    description: 'Nghe đoạn nhạc và đoán tên bài hát Việt. Đoán càng sớm, điểm càng cao.',
-    images: siteUrl ? ['/social-preview.png'] : undefined,
+    card: preview.card,
+    title: APP_NAME,
+    description: APP_DESCRIPTION,
+    images: preview.image ? [preview.image] : undefined,
   },
   // Private game: keep it out of search indexes (docs/RESEARCH.md §10.1).
   robots: { index: false, follow: false },

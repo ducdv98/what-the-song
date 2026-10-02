@@ -70,7 +70,7 @@ describe('message catalogue', () => {
       // diacritics — "Bolero" being the same in both is fine.
       const a = viMessages[k];
       const b = enMessages[k];
-      if (a === b && /[ăâđêôơưĂÂĐÊÔƠƯ]/.test(a.normalize('NFC'))) {
+      if (k !== 'app.name' && a === b && /[ăâđêôơưĂÂĐÊÔƠƯ]/.test(a.normalize('NFC'))) {
         assert.fail(`${k} was not translated: "${a}"`);
       }
     }
@@ -85,6 +85,17 @@ describe('message catalogue', () => {
       translate('vi', 'result.wonAt', { at: '0.1s' }),
       'Đoạn 0.1s',
     );
+  });
+
+  test('both share messages use the app name and keep topic context', () => {
+    for (const lang of LANGUAGES) {
+      for (const key of ['result.shareText', 'food.shareText'] as const) {
+        const text = translate(lang, key, { tier: 'Easy', squares: '🟩', outcome: 'Won', score: 100 });
+        assert.match(text, /^Bạn có tài mà/);
+        assert.match(text, /🟩/);
+        assert.doesNotMatch(text, /what the (song|food)/i);
+      }
+    }
   });
 
   test('both languages declare the same placeholders', () => {

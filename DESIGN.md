@@ -1,4 +1,4 @@
-# What the Song — Gig Poster design system
+# Bạn có tài mà — Gig Poster design system
 
 **Status:** Implemented September 2026. The frontend now uses the Gig Poster palette, self-hosted Anton and Be Vietnam Pro fonts, responsive printed play and result cards, real audio progress, accessible stage history, and coordinated drawer and account styles. Desktop introduces the game with a bilingual poster headline; phones put the controls first. The guest notice sits below the game, with expandable details.
 
@@ -6,7 +6,11 @@
 
 ## 1. Product fit and concept
 
-What the Song is a private, bilingual guessing game for Vietnamese music. Players hear a short clip, reveal longer clips at a score cost, type the song title, and see a result. Difficulty, genre, streaks, account, and leaderboards support that loop. The app is a single screen, often used on a phone, and has no public music library to browse.
+Bạn có tài mà is a private, bilingual guessing game with multiple Topics. Songs uses short Vietnamese music clips; Food uses zoomed photos. Each Round rewards an early correct guess. The app often runs on a phone, with shared accounts, scores, and leaderboards across Topics.
+
+The player-facing app name is **Bạn có tài mà** in Vietnamese and English. Topic pages retain their own headlines and instructions. `apps/web/lib/brand.ts` holds the shared code constant; the manifest, offline HTML, and banner repeat the name because they are static assets.
+
+Set `SITE_URL` to the public HTTP(S) origin when building the static web app, for example `https://game.example`. The social image uses `${SITE_URL}/social-preview.png` as an absolute URL. If `SITE_URL` is absent or invalid, Open Graph omits its image and Twitter uses a text-only summary card. Rebuild after changing the origin. The shared 1200×630 PNG is Topic-neutral; Topic pages provide their own preview title and description.
 
 **Concept: a Vietnamese gig poster brought to life.** The page feels like an energetic show flyer: a bright yellow field, oversized ink typography, a printed cream play card, coral accents, heavy offset shadows, and stage markers that look like tickets or setlist strips. This should feel social and immediate, with the music clue as the star.
 
@@ -89,7 +93,9 @@ Use the boldest headline only once per view. The active round is a game surface,
 
 The four main measured pairs are ink on yellow **12.11:1**, ink on cream **14.81:1**, ink on coral **5.19:1**, and dark red text on cream **6.34:1**. Coral on cream is only **2.85:1**, so use coral for large shapes, borders, or backgrounds and use ink or dark red for small text. Recheck composited colors and disabled states in the rendered UI. The values are starting specifications, not a claim that every future use automatically passes contrast.
 
-**Distribution:** about 60% yellow or open wall, 30% cream game surface, and 10% ink/coral highlights. On small screens the cream card naturally occupies a larger proportion. Keep result artwork inside the result card; do not allow album art colors to recolor the whole UI.
+Button states use named control tokens in `apps/web/app/tokens.css`: light hover and active fills, a dark ink hover fill, a coral hover fill, and legible disabled fills. Each button variant sets both its background and text color in hover, focus, active, and disabled states; dark variants keep cream text on dark fills. Hover styles run only for devices reporting `(hover: hover) and (pointer: fine)`, so tapping on touch screens cannot leave a hover color behind. Disabled buttons use a distinct fill and dashed border where appropriate, without reducing text opacity or reacting to hover. Keep ordinary button text at 4.5:1 contrast in every state; `apps/web/lib/button-contrast.test.ts` checks the stylesheet cascade for the current control families.
+
+**Distribution:** about 60% yellow or open wall, 30% cream game surface, and 10% ink/coral highlights. On small screens the cream card naturally occupies a larger proportion. Keep album art inside the result card. The decorative Meme appears once per finished Round in a native dialog with the cream surface, ink border, offset shadow, and dim backdrop. Its close button receives focus; dismissal returns focus to Next. The image scales within the viewport on phones, and the popup has no entrance animation, including for reduced motion preferences.
 
 ### 4.2 Typography
 
@@ -128,7 +134,7 @@ Use a limited 20–24px icon set: play, stop, search, menu, close, share, arrow,
 At 320–599px, show a compact header, optional one-line filter context, then the printed card and answer form. The card contains the question, current stage, reveal strip, play control, and current clip length. Put the answer field and its changing action immediately after the card. Streak stays quiet below. The large editorial headline from the preview should not push play below the first view.
 
 ~~~text
-menu  what the song           account
+menu  Bạn có tài mà           account
 genre / difficulty context
 ╔════════════════════════════════════╗
 ║ WTS / LIVE ROUND       VIETNAMESE   ║

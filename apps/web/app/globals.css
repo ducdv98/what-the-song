@@ -77,10 +77,9 @@ button:disabled {
 }
 .wordmark {
   margin: 0 auto 0 0;
-  font: 400 30px/1.2 var(--font-title);
-  text-transform: uppercase;
+  font: 800 26px/1.25 var(--font-ui);
   letter-spacing: -0.5px;
-  white-space: nowrap;
+  white-space: normal;
 }
 .wordmark span {
   color: var(--color-error-text);
@@ -121,13 +120,15 @@ button:disabled {
   border: 4px solid var(--ink-900);
   background: var(--cream-100);
   box-shadow: 10px 10px 0 var(--ink-900);
-  color: inherit;
+  color: var(--ink-900);
   text-decoration: none;
   transition: transform 120ms, box-shadow 120ms;
 }
-.topic-card:hover {
-  transform: translate(-3px, -3px);
-  box-shadow: 13px 13px 0 var(--ink-900);
+@media (hover: hover) and (pointer: fine) {
+  .topic-card:hover {
+    transform: translate(-3px, -3px);
+    box-shadow: 13px 13px 0 var(--ink-900);
+  }
 }
 .topic-card:active {
   transform: translate(6px, 6px);
@@ -552,17 +553,38 @@ button:disabled {
   color: var(--ink-900);
   transition: background 120ms;
 }
-.tier-chip:hover:not(:disabled) {
-  background: var(--cream-100);
-}
 .tier-chip[aria-checked='true'] {
   background: var(--ink-900);
   color: var(--cream-100);
 }
+.tier-chip:focus-visible,
+.tier-chip:active:not(:disabled) {
+  background: var(--color-control-light-active);
+  color: var(--ink-900);
+}
+.tier-chip[aria-checked='true']:focus-visible,
+.tier-chip[aria-checked='true']:active:not(:disabled) {
+  background: var(--color-control-dark-hover);
+  color: var(--cream-100);
+}
+@media (hover: hover) and (pointer: fine) {
+  .tier-chip:hover:not(:disabled) {
+    background: var(--color-control-light-hover);
+    color: var(--ink-900);
+  }
+  .tier-chip[aria-checked='true']:hover:not(:disabled) {
+    background: var(--color-control-dark-hover);
+    color: var(--cream-100);
+  }
+}
 .tier-chip:disabled {
   border-style: dashed;
   color: var(--text-muted);
-  background: #fff9e955;
+  background: var(--color-control-light-disabled);
+}
+.tier-chip[aria-checked='true']:disabled {
+  background: var(--color-control-dark-disabled);
+  color: var(--cream-100);
 }
 .play-card,
 .state-card {
@@ -732,16 +754,27 @@ button:disabled {
     transform 120ms,
     box-shadow 120ms;
 }
-.play-control:hover:not(:disabled) {
-  transform: translate(-1px, -1px);
-  box-shadow: 6px 6px 0 var(--ink-900);
+@media (hover: hover) and (pointer: fine) {
+  .play-control:hover:not(:disabled) {
+    background: var(--color-control-coral-hover);
+    color: var(--ink-900);
+    transform: translate(-1px, -1px);
+    box-shadow: 6px 6px 0 var(--ink-900);
+  }
+}
+.play-control:focus-visible {
+  background: var(--color-control-coral-hover);
+  color: var(--ink-900);
 }
 .play-control:active:not(:disabled) {
+  background: var(--coral-500);
+  color: var(--ink-900);
   transform: translate(3px, 3px);
   box-shadow: 2px 2px 0 var(--ink-900);
 }
 .play-control:disabled {
   background: var(--color-stage-rest);
+  color: var(--ink-900);
 }
 .clip-duration {
   display: grid;
@@ -820,18 +853,47 @@ button:disabled {
   align-items: center;
   justify-content: center;
 }
-.action-btn:hover {
-  background: var(--surface-card-alt);
-}
 .action-btn--guess {
   background: var(--ink-900);
   color: var(--cream-100);
 }
-.action-btn--guess:hover {
-  background: #314354;
-}
 .action-btn--giveup {
   color: var(--text-negative);
+}
+.action-btn:focus-visible,
+.action-btn:active:not(:disabled) {
+  background: var(--color-control-light-active);
+  color: var(--ink-900);
+}
+.action-btn--giveup:focus-visible,
+.action-btn--giveup:active:not(:disabled) {
+  color: var(--text-negative);
+}
+.action-btn--guess:focus-visible,
+.action-btn--guess:active:not(:disabled) {
+  background: var(--color-control-dark-hover);
+  color: var(--cream-100);
+}
+@media (hover: hover) and (pointer: fine) {
+  .action-btn:hover:not(:disabled) {
+    background: var(--color-control-light-hover);
+    color: var(--ink-900);
+  }
+  .action-btn--giveup:hover:not(:disabled) {
+    color: var(--text-negative);
+  }
+  .action-btn--guess:hover:not(:disabled) {
+    background: var(--color-control-dark-hover);
+    color: var(--cream-100);
+  }
+}
+.action-btn:disabled {
+  background: var(--color-control-light-disabled);
+  color: var(--text-muted);
+}
+.action-btn--guess:disabled {
+  background: var(--color-control-dark-disabled);
+  color: var(--cream-100);
 }
 .answer-hint,
 .game-stats {
@@ -864,9 +926,6 @@ button:disabled {
   font: var(--t-button);
   transition: background 120ms;
 }
-.pill:hover:not(:disabled) {
-  background: var(--surface-card-alt);
-}
 .pill--muted {
   color: var(--text-muted);
 }
@@ -877,14 +936,44 @@ button:disabled {
   background: var(--ink-900);
   color: var(--cream-100);
 }
-.pill--accent:hover:not(:disabled) {
-  background: #314354;
+.pill:focus-visible,
+.pill:active:not(:disabled) {
+  background: var(--color-control-light-active);
+  color: var(--ink-900);
+}
+.pill--muted:focus-visible,
+.pill--muted:active:not(:disabled) {
+  color: var(--text-muted);
+}
+.pill--accent:focus-visible,
+.pill--accent:active:not(:disabled) {
+  background: var(--color-control-dark-hover);
+  color: var(--cream-100);
+}
+@media (hover: hover) and (pointer: fine) {
+  .pill:hover:not(:disabled) {
+    background: var(--color-control-light-hover);
+    color: var(--ink-900);
+  }
+  .pill--muted:hover:not(:disabled) {
+    color: var(--text-muted);
+  }
+  .pill--accent:hover:not(:disabled) {
+    background: var(--color-control-dark-hover);
+    color: var(--cream-100);
+  }
 }
 .pill--large {
   padding: 13px 24px;
 }
 .pill:disabled {
-  opacity: 0.65;
+  background: var(--color-control-light-disabled);
+  color: var(--text-muted);
+  border-style: dashed;
+}
+.pill--accent:disabled {
+  background: var(--color-control-dark-disabled);
+  color: var(--cream-100);
 }
 .card {
   background: var(--surface);
@@ -923,8 +1012,20 @@ button:disabled {
   background: transparent;
   color: var(--ink-900);
 }
-.icon-btn:hover {
-  background: var(--cream-100);
+.icon-btn:focus-visible,
+.icon-btn:active:not(:disabled) {
+  background: var(--color-control-light-active);
+  color: var(--ink-900);
+}
+@media (hover: hover) and (pointer: fine) {
+  .icon-btn:hover:not(:disabled) {
+    background: var(--color-control-light-hover);
+    color: var(--ink-900);
+  }
+}
+.icon-btn:disabled {
+  background: var(--color-control-light-disabled);
+  color: var(--text-muted);
 }
 .account-bar {
   display: flex;
@@ -1046,17 +1147,20 @@ button:disabled {
   display: grid;
   place-items: center;
 }
-.result-meme {
-  display: block;
-  width: min(100%, 320px);
-  height: auto;
-  max-height: 180px;
-  object-fit: contain;
-  justify-self: center;
+.meme-dialog {
+  width: min(440px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow: hidden;
 }
-@media (max-width: 599px) {
-  .result-card:has(.result-meme) { gap: 12px; }
-  .result-meme { max-height: 150px; }
+.meme-dialog .dialog-header {
+  margin-bottom: var(--s-3);
+}
+.meme-dialog .result-meme {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: calc(100dvh - 160px);
+  object-fit: contain;
 }
 .result-cover img {
   width: 100%;
@@ -1146,8 +1250,20 @@ button:disabled {
   min-height: 52px;
   box-shadow: 3px 3px 0 var(--ink-900);
 }
-.next-button:hover:not(:disabled) {
-  background: #f78362;
+.next-button:focus-visible,
+.next-button:active:not(:disabled) {
+  background: var(--color-control-coral-hover);
+  color: var(--ink-900);
+}
+@media (hover: hover) and (pointer: fine) {
+  .next-button:hover:not(:disabled) {
+    background: var(--color-control-coral-hover);
+    color: var(--ink-900);
+  }
+}
+.next-button:disabled {
+  background: var(--color-stage-rest);
+  color: var(--ink-900);
 }
 .drawer {
   margin: 0;
@@ -1244,7 +1360,7 @@ button:disabled {
     padding: 32px 8px 36px 0;
   }
   .wordmark {
-    font-size: 26px;
+    font-size: 23px;
   }
 }
 @media (max-width: 599px) {
@@ -1257,7 +1373,7 @@ button:disabled {
     flex-wrap: wrap;
   }
   .wordmark {
-    font-size: 24px;
+    font-size: 21px;
   }
   .poster-layout {
     padding-top: 24px;
@@ -1318,7 +1434,7 @@ button:disabled {
     display: none;
   }
   .wordmark {
-    font-size: 22px;
+    font-size: 19px;
   }
   .app-header {
     gap: 8px;

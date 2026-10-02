@@ -15,7 +15,7 @@ import { MenuDrawer } from './GameMenu';
 import { LangToggle } from './LangToggle';
 import { Leaderboard } from './Leaderboard';
 import { PillRow } from './PillRow';
-import { ResultCard } from './ResultCard';
+import { ResultView } from './ResultView';
 import { StreakBar } from './StreakBar';
 import { TierChips } from './TierChips';
 import { useI18n } from './I18nProvider';
@@ -130,7 +130,7 @@ export function FoodGame({ catalogue }: { catalogue: Dish[] }) {
         <>
           <section className="play-card round-card" aria-labelledby="round-title">
             <div className="card-masthead">
-              <strong>WTS / {t('round.live')}</strong>
+              <strong>{t('app.name')} / {t('round.live')}</strong>
               <span className="card-ticket">{t('food.appEdition')}</span>
             </div>
             <div className="clue-heading">
@@ -169,7 +169,7 @@ export function FoodGame({ catalogue }: { catalogue: Dish[] }) {
         </>
       )}
 
-      {round && over && <ResultCard round={round} foodPhotoUrl={photoUrl} memes={memesEnabled ? roundMemes : undefined} onNext={() => newRound(round.subject.id)} />}
+      {round && over && <ResultView round={round} foodPhotoUrl={photoUrl} memes={memesEnabled ? roundMemes : undefined} onNext={() => newRound(round.subject.id)} />}
       {error && <p role="alert" className="inline-error">{error}</p>}
       <p className="game-stats"><span>{t('stats.streak')} <strong>{stats.currentStreak}</strong></span>{' · '}<span>{t('stats.best')} <strong>{stats.bestStreak}</strong></span></p>
 

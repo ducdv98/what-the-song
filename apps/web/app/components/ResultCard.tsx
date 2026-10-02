@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useState } from 'react';
 import { TIERS, tierOf, type Round } from '@wts/core';
@@ -6,7 +6,6 @@ import { coverUrl, type Song } from '@wts/topic-songs';
 import type { Dish, Zoom } from '@wts/topic-food';
 import type { PlaybackState } from '@/lib/audio/engine';
 import { assetUrls } from '@/lib/assets/urls';
-import { retryMemeImage, visibleResultMeme, type MemeOutcome, type ResolvedMeme } from '@/lib/assets/memes';
 import { formatSeconds } from './PlayButton';
 import { useI18n } from './I18nProvider';
 import { FoodCredit } from './FoodCredit';
@@ -28,14 +27,16 @@ export function ResultCard({
   playback,
   onListen,
   onNext,
-  memes,
+  nextButtonRef,
+  autoFocusNext = true,
   foodPhotoUrl,
 }: {
   round: Round<Song, number> | Round<Dish, Zoom>;
   playback?: PlaybackState;
   onListen?: () => void;
   onNext: () => void;
-  memes?: Record<MemeOutcome, ResolvedMeme | null>;
+  nextButtonRef?: React.Ref<HTMLButtonElement>;
+  autoFocusNext?: boolean;
   foodPhotoUrl?: string | null;
 }) {
   const { t, lang } = useI18n();
@@ -43,23 +44,12 @@ export function ResultCard({
   const [failedCover, setFailedCover] = useState<string | null>(null);
   const [resolvedCover, setResolvedCover] = useState<string | null>(null);
   const [retriedCover, setRetriedCover] = useState(false);
-  const [resolvedMeme, setResolvedMeme] = useState<string | null>(null);
-  const [failedMeme, setFailedMeme] = useState(false);
-  const [retriedMeme, setRetriedMeme] = useState(false);
   const won = round.status === 'won';
-  const selectedMeme = round.status === 'playing' ? null : memes?.[round.status];
-  const memeUrl = selectedMeme?.url ?? null;
-  const visibleMeme = visibleResultMeme(round.status, memes, resolvedMeme, failedMeme);
   const subject = round.subject;
   const dish = 'name' in subject ? subject : null;
   const song = 'title' in subject ? subject : null;
   const food = dish !== null;
   const cover = song ? coverUrl(song) : null;
-  useEffect(() => {
-    setResolvedMeme(memeUrl);
-    setFailedMeme(false);
-    setRetriedMeme(false);
-  }, [selectedMeme?.meme, memeUrl]);
   useEffect(() => {
     let active = true;
     setResolvedCover(null);
@@ -85,14 +75,20 @@ export function ResultCard({
     });
     try {
       if (navigator.share) {
-        await navigator.share({ text });
-        return;
+        try {
+          await navigator.share({ text });
+          return;
+        } catch (error) {
+          // A dismissed share sheet is deliberate; other native failures can
+          // still be handled by the clipboard, as on browsers without Share.
+          if (error instanceof DOMException && error.name === 'AbortError') return;
+        }
       }
       await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 1800);
     } catch {
-      /* Share dismissed or clipboard blocked. */
+      /* Clipboard unavailable or blocked. */
     }
   }
 
@@ -104,7 +100,7 @@ export function ResultCard({
       aria-labelledby="result-title"
     >
       <div className="card-masthead">
-        <strong>WTS / {t('result.heading')}</strong>
+        <strong>{t('app.name')} / {t('result.heading')}</strong>
         <span className="card-ticket">
           {lang === 'vi' ? tier.label : tier.gloss}
         </span>
@@ -116,23 +112,6 @@ export function ResultCard({
         <span aria-hidden="true">{won ? '✓' : '×'}</span>
         {won ? t('result.guessedIn') : t('result.lost')}
       </span>
-      {visibleMeme && (
-        <img
-          className="result-meme"
-          data-testid="result-meme"
-          src={visibleMeme.url}
-          alt=""
-          width={320}
-          height={180}
-          onError={() => {
-            setRetriedMeme(true);
-            void retryMemeImage(visibleMeme.meme, visibleMeme.url, retriedMeme).then((url) => {
-              if (url) setResolvedMeme(url);
-              else setFailedMeme(true);
-            });
-          }}
-        />
-      )}
       <div className={food ? 'result-cover result-food-photo' : 'result-cover'}>
         {food && foodPhotoUrl ? (
           <img src={foodPhotoUrl} alt="" width={160} height={160} />
@@ -244,7 +223,7 @@ export function ResultCard({
         <button className="pill" onClick={() => void share()}>
           {copied ? t('result.copied') : t('result.share')}
         </button>
-        <button className="pill next-button" onClick={onNext} autoFocus>
+        <button ref={nextButtonRef} className="pill next-button" onClick={onNext} autoFocus={autoFocusNext}>
           {food ? t('food.next') : won ? t('result.next') : t('result.tryAgain')}{' '}
           <span aria-hidden="true">↗</span>
         </button>

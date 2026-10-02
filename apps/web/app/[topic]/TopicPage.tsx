@@ -65,8 +65,7 @@ export function TopicPage({ topicId }: { topicId: RenderableTopicId }) {
         <header className="app-header">
           {playable && <MenuButton />}
           <p className="wordmark">
-            what the <span>{food ? 'food' : 'song'}</span>
-            <span aria-hidden="true">?</span>
+            {t('app.name')}
           </p>
           <span className="header-edition">{food ? t('food.appEdition') : t('app.edition')}</span>
           <Link className="pill pill--muted home-back" href="/">

@@ -13,6 +13,12 @@
   --color-success: #196b56;
   --color-focus: #174eb8;
   --color-stage-rest: #ced4ca;
+  --color-control-light-hover: var(--surface-card-alt);
+  --color-control-light-active: var(--surface-mid);
+  --color-control-light-disabled: var(--surface-card);
+  --color-control-dark-hover: #314354;
+  --color-control-dark-disabled: var(--text-near-white);
+  --color-control-coral-hover: #f78362;
   --bg-base: var(--color-page);
   --surface: var(--color-card);
   --surface-mid: #f0eadb;

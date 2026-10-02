@@ -6,9 +6,10 @@ import { runInNewContext } from 'node:vm';
 
 const publicDir = join(process.cwd(), 'public');
 
-test('manifest describes an installable Songs app with existing PNG icons', () => {
+test('manifest describes the guessing app with existing PNG icons', () => {
   const manifest = JSON.parse(readFileSync(join(publicDir, 'manifest.webmanifest'), 'utf8'));
-  assert.equal(manifest.name, 'what the song');
+  assert.equal(manifest.name, 'Bạn có tài mà');
+  assert.equal(manifest.short_name, 'Bạn có tài mà');
   assert.equal(manifest.lang, 'vi');
   assert.equal(manifest.display, 'standalone');
   assert.equal(manifest.start_url, '/songs');

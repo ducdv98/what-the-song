@@ -13,7 +13,7 @@ export function HomePage({ topicIds = renderableTopicIds }: { topicIds?: readonl
     <main className="app-shell">
       <header className="app-header">
         <p className="wordmark">
-          what the <span aria-hidden="true">?</span>
+          {t('app.name')}
         </p>
         <AccountBar />
       </header>

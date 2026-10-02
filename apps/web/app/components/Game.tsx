@@ -31,7 +31,7 @@ import { PlayButton, formatSeconds } from './PlayButton';
 import { Timeline } from './Timeline';
 import { TierChips } from './TierChips';
 import { GuessBar } from './GuessBar';
-import { ResultCard } from './ResultCard';
+import { ResultView } from './ResultView';
 import { MenuDrawer } from './GameMenu';
 import { PillRow } from './PillRow';
 import { LangToggle } from './LangToggle';
@@ -285,7 +285,7 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
             aria-labelledby="round-title"
           >
             <div className="card-masthead">
-              <strong>WTS / {t('round.live')}</strong>
+              <strong>{t('app.name')} / {t('round.live')}</strong>
               <span className="card-ticket">{t('app.editionShort')}</span>
             </div>
             <div className="clue-heading">
@@ -358,7 +358,7 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
       )}
 
       {round && over && (
-        <ResultCard
+        <ResultView
           round={round}
           memes={memesEnabled ? roundMemes : undefined}
           playback={state}
