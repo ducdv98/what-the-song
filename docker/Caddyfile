@@ -89,7 +89,7 @@
 	}
 
 	# Keep the home redirect behind the same optional auth gate. Temporary (not
-	# 308) and mirrors DEFAULT_TOPIC_ID: change both when a second Topic is playable.
+	# 308) and mirrors DEFAULT_TOPIC_ID. Update the target if the default changes.
 	@home path /
 	handle @home {
 		redir * /songs 302

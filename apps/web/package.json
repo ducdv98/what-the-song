@@ -9,7 +9,7 @@
     "build": "next build && node scripts/finalize-pwa.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
     "lint": "oxlint app/ lib/",
-    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test \"lib/**/*.test.ts\" && vitest run app/components/FoodZoom.test.tsx"
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test \"lib/**/*.test.ts\" && vitest run app/components/FoodZoom.test.tsx app/components/TopicSwitcher.test.tsx"
   },
   "dependencies": {
     "@wts/contracts": "*",
