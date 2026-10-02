@@ -148,6 +148,14 @@ describe('recording a round with a Topic', () => {
       userId: 'player',
       topic: 'songs',
     });
+    await expect(service.get('player', 'people')).resolves.toMatchObject({
+      played: 0,
+      totalScore: 0,
+    });
+    expect(findOneBy).toHaveBeenNthCalledWith(3, {
+      userId: 'player',
+      topic: 'people',
+    });
     await expect(service.get('player', 'unknown')).rejects.toMatchObject({
       response: { code: 'unknown_topic' },
       status: 400,

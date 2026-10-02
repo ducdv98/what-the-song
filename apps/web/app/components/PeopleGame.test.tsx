@@ -5,6 +5,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import type { Person } from '@wts/topic-people';
 import { I18nProvider } from './I18nProvider';
 import { PeopleGame } from './PeopleGame';
+import { MenuProvider } from './GameMenu';
 
 const recorded = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/assets/urls', () => ({ assetUrls: { resolve: vi.fn(async (path: string) => path) } }));
@@ -41,6 +42,22 @@ test('Skip reveals the next Stage; a matching Guess records the People Score and
   assert.equal(result.querySelector('img')?.getAttribute('src'), '/assets/people/test-person/portrait.jpg');
   assert.equal(recorded.mock.calls.length, 1);
   assert.equal(recorded.mock.calls[0]?.[0]?.topic, 'people');
+  assert.equal(recorded.mock.calls[0]?.[0]?.subjectId, 'test-person');
+  assert.equal(recorded.mock.calls[0]?.[0]?.facet, 'ca-si');
   assert.equal(recorded.mock.calls[0]?.[0]?.won, true);
   assert.ok(recorded.mock.calls[0]?.[0]?.score > 0);
+});
+
+test('the Field Facet filters People with Vietnamese and English labels', async () => {
+  localStorage.setItem('what-the-song:lang:v1', 'en');
+  const actor: Person = { ...person, id: 'actor', name: 'Actor Test', aliases: [], field: 'Diễn viên' };
+  render(<I18nProvider><MenuProvider><PeopleGame catalogue={[person, actor]} /></MenuProvider></I18nProvider>);
+  await waitFor(() => assert.ok(screen.getByRole('textbox')));
+  assert.ok(screen.getByRole('radiogroup', { name: 'Field', hidden: true }));
+  fireEvent.click(screen.getByRole('radio', { name: /Actor/, hidden: true }));
+  await waitFor(() => assert.match(document.body.textContent ?? '', /Field: Actor/));
+  fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Actor Test' } });
+  fireEvent.click(screen.getByRole('button', { name: /guess/i }));
+  assert.equal(recorded.mock.calls[0]?.[0]?.subjectId, 'actor');
+  assert.equal(recorded.mock.calls[0]?.[0]?.facet, 'dien-vien');
 });

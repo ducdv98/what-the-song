@@ -25,6 +25,15 @@ export const topicMeta = {
     },
     burst: ['VIET', 'FOOD'],
   },
+  people: {
+    name: { vi: 'Gương mặt', en: 'People' },
+    clue: { vi: 'Nhìn ảnh hiện dần', en: 'See a face revealed' },
+    blurb: {
+      vi: 'Nhìn ảnh hiện dần từ tóc xuống rồi đoán người nổi tiếng Việt Nam.',
+      en: 'Watch a face appear from the hair down and guess the Vietnamese public figure.',
+    },
+    burst: ['VIET', 'FACES'],
+  },
 } satisfies Record<
   RenderableTopicId,
   { name: Localised; clue: Localised; blurb: Localised; burst: readonly [string, string] }

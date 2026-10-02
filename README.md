@@ -110,6 +110,23 @@ Ingest runs on **your machine**, not the server:
 
 ```
   your laptop (residential IP, browser cookies)      the server
+## People Topic
+
+The People Topic at `/people` reveals a Person's head-and-shoulders photo from
+the hair down over five Stages. The **field** Facet lets players choose Ca sĩ,
+Diễn viên, MC / Hài, Streamer, or Influencer; the picker shows Vietnamese or
+English labels with the selected language. The first seed is
+`.scratch/people/launch.jsonl` (60 public figures, 12 per field). Each seed row
+has `{name, aliases, tier, field, photo_url, source_url}`. Run
+`tools/ingest_people.py` to build the local catalogue and use `--publish` to
+mirror it to private COS; see [People catalogue](docs/PEOPLE.md) for commands.
+
+Under [ADR 0004](docs/adr/0004-person-photos-without-licence.md), photos of
+public figures are used without a licence check or displayed Credit. Private
+individuals and minors are excluded. A Person and their photo are removed on
+request. The photo source URL stays in the catalogue for internal removal
+handling and is never shown to players.
+
   ─────────────────────────────────────────────      ──────────────────────
   yt-dlp  →  ffmpeg: level, cut, strip metadata  →   short opaque clips only
                                                      never talks to YouTube

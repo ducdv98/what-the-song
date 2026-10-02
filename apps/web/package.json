@@ -9,7 +9,7 @@
     "build": "next build && node scripts/finalize-pwa.mjs",
     "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
     "lint": "oxlint app/ lib/",
-    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test \"lib/**/*.test.ts\" && vitest run app/components/FoodZoom.test.tsx app/components/RevealPhoto.test.tsx app/components/PeopleGame.test.tsx app/HomePage.test.tsx app/components/MemePopup.test.tsx app/metadata.test.tsx"
+    "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test \"lib/**/*.test.ts\" && vitest run app/components/FoodZoom.test.tsx app/components/RevealPhoto.test.tsx app/components/PeopleGame.test.tsx app/HomePage.test.tsx app/components/MemePopup.test.tsx app/metadata.test.tsx 'app/[topic]/TopicPage.test.tsx'"
   },
   "dependencies": {
     "@wts/contracts": "*",

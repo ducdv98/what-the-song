@@ -10,6 +10,20 @@ describe('signable asset keys', () => {
     expect(isSignableAssetKey('food/bun-bo-hue/0123456789abcdef01234567.mp3')).toBe(false);
     expect(isSignableAssetKey('food/bun-bo-hue/../0123456789abcdef01234567.jpg')).toBe(false);
   });
+
+  it('accepts only hashed People JPEG photos and its catalogue', () => {
+    expect(isSignableAssetKey('people/son-tung-m-tp/0123456789abcdef01234567.jpg')).toBe(true);
+    expect(isSignableAssetKey('people/catalogue.json')).toBe(true);
+    for (const key of [
+      'people/son-tung-m-tp/0123456789abcdef01234567.mp3',
+      'people/son-tung-m-tp/cover-0123456789abcdef.jpg',
+      'people/son-tung-m-tp/0123456789abcdef01234567.png',
+      'people/son-tung-m-tp/../0123456789abcdef01234567.jpg',
+      'people/Son-tung/0123456789abcdef01234567.jpg',
+      'people/son-tung/0123456789ABCDEF01234567.jpg',
+      'people/son-tung/0123456789abcdef01234567.JPG',
+    ]) expect(isSignableAssetKey(key)).toBe(false);
+  });
 });
 
 describe('asset URL adapters', () => {

@@ -44,6 +44,9 @@ class FakeCos:
         self.puts.append(kw)
         self.keys.add(kw["Key"])
 
+    def delete_object(self, **kw):
+        self.keys.discard(kw["Key"])
+
 
 class PeopleIngestTests(unittest.TestCase):
     def setUp(self):
@@ -152,6 +155,33 @@ class PeopleIngestTests(unittest.TestCase):
         ingest.publish_library(self.out, cos, "bucket")
         self.assertEqual([kw["Key"] for kw in cos.puts][-1], "people/catalogue.json")
         self.assertEqual(len(cos.puts), 3)
+
+    def test_prune_deletes_the_photo_of_a_removed_person(self):
+        with mock.patch.object(ingest_people, "fetch_image", return_value=photo()):
+            kept = ingest_people.ingest_row(person(), self.out)
+            removed = ingest_people.ingest_row(
+                person("Đen Vâu", photo_url="https://images.example/other.png"), self.out)
+        cos = FakeCos()
+        ingest.write_catalogue(self.out, [kept, removed])
+        ingest.publish_library(self.out, cos, "bucket")
+        removed_key = f"people/{removed['id']}/{removed['photo']}"
+        self.assertIn(removed_key, cos.keys)
+        ingest.write_catalogue(self.out, [kept])
+        ingest.publish_library(self.out, cos, "bucket", dry_run=True, prune=True)
+        self.assertIn(removed_key, cos.keys)
+        ingest.publish_library(self.out, cos, "bucket", prune=True)
+        self.assertNotIn(removed_key, cos.keys)
+        self.assertIn(f"people/{kept['id']}/{kept['photo']}", cos.keys)
+
+    def test_cli_exposes_prune_only_with_publish(self):
+        with mock.patch.object(sys, "argv", ["ingest_people.py", "--prune"]), \
+                self.assertRaises(SystemExit):
+            ingest_people.main()
+        with mock.patch.object(sys, "argv", ["ingest_people.py", "--publish", "--prune",
+                                             "--out", str(self.out)]), \
+                mock.patch.object(ingest, "publish_from_env") as publish:
+            self.assertEqual(ingest_people.main(), 0)
+        publish.assert_called_once_with(self.out, dry_run=False, prune=True)
 
     def test_fetch_is_paced_and_retries_429(self):
         class Response:

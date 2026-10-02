@@ -141,11 +141,15 @@ def main() -> int:
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--publish", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--prune", action="store_true",
+                        help="with --publish, delete COS photos no longer in the catalogue (a removed Person)")
     args = parser.parse_args()
     if not args.seed and not args.publish:
         parser.error("a seed or --publish is required")
     if args.dry_run and not args.publish:
         parser.error("--dry-run requires --publish")
+    if args.prune and not args.publish:
+        parser.error("--prune requires --publish")
     if args.out.name != "people":
         parser.error("--out must end in people so COS keys use the people/ prefix")
     try:
@@ -158,7 +162,7 @@ def main() -> int:
             ingest.write_catalogue(args.out, records)
             print(f"wrote {len(records)} Persons to {args.out / 'catalogue.json'}")
         if args.publish:
-            ingest.publish_from_env(args.out, dry_run=args.dry_run)
+            ingest.publish_from_env(args.out, dry_run=args.dry_run, prune=args.prune)
     except (OSError, ValueError, RuntimeError) as exc:
         print(f"People ingest failed: {exc}", file=sys.stderr)
         return 1

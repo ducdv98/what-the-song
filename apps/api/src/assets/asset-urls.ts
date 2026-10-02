@@ -1,7 +1,7 @@
 import COS from 'cos-nodejs-sdk-v5';
 
 const ASSET_KEY =
-  /^(?:(?!memes\/|food\/)[a-z0-9]+(?:-[a-z0-9]+)*\/[a-z0-9]+(?:-[a-z0-9]+)*\/(?:[a-f0-9]{24}\.mp3|cover-[a-f0-9]{16}\.jpg)|food\/[a-z0-9]+(?:-[a-z0-9]+)*\/[a-f0-9]{24}\.jpg|[a-z0-9]+(?:-[a-z0-9]+)*\/catalogue\.json|memes\/[a-f0-9]{24}\.(?:webp|jpg|png))$/;
+  /^(?:(?!memes\/|food\/|people\/)[a-z0-9]+(?:-[a-z0-9]+)*\/[a-z0-9]+(?:-[a-z0-9]+)*\/(?:[a-f0-9]{24}\.mp3|cover-[a-f0-9]{16}\.jpg)|(?:food|people)\/[a-z0-9]+(?:-[a-z0-9]+)*\/[a-f0-9]{24}\.jpg|[a-z0-9]+(?:-[a-z0-9]+)*\/catalogue\.json|memes\/[a-f0-9]{24}\.(?:webp|jpg|png))$/;
 
 export function isSignableAssetKey(key: string): boolean {
   return ASSET_KEY.test(key);
