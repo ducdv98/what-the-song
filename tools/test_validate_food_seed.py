@@ -41,6 +41,17 @@ class SeedTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "focal point"):
             validate_rows([row("Phở", focalPoint={"x": True, "y": 0.5})])
 
+    def test_needs_exactly_one_photo_source(self):
+        uuid = "0d4b8c5e-1111-4222-8333-444455556666"
+        base = {"name": "Phở", "tier": "easy", "region": "Bắc"}
+        self.assertEqual(len(validate_rows([{**base, "openverse_id": uuid}])), 1)
+        with self.assertRaisesRegex(ValueError, "exactly one"):
+            validate_rows([{**base}])
+        with self.assertRaisesRegex(ValueError, "exactly one"):
+            validate_rows([row("Phở", openverse_id=uuid)])
+        with self.assertRaisesRegex(ValueError, "Openverse image UUID"):
+            validate_rows([{**base, "openverse_id": "nope"}])
+
 
 if __name__ == "__main__":
     unittest.main()

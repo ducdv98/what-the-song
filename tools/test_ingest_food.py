@@ -128,10 +128,61 @@ class FoodIngestTests(unittest.TestCase):
             calls = fetch.call_count
             again = ingest_food.ingest_row(validate_rows([self.row])[0], self.out)
             self.assertEqual(first, again)
-            self.assertEqual(fetch.call_count, calls + 1)  # metadata only, no photo
+            self.assertEqual(fetch.call_count, calls)  # cached Credit and photo: no requests
             other = dict(self.row, commons_url=URL.replace("Pho", "Other"))
             ingest_food.ingest_row(validate_rows([other])[0], self.out)
-            self.assertEqual(fetch.call_count, calls + 3)  # metadata and a fresh photo
+            self.assertEqual(fetch.call_count, calls + 2)  # metadata and a fresh photo
+
+    def test_rerun_of_a_folder_without_cached_credit_fetches_metadata_once_then_caches(self):
+        folder = self.out / "pho"
+        folder.mkdir(parents=True)
+        (folder / ("a" * 24 + ".jpg")).write_bytes(b"x")
+        (folder / ingest_food.SOURCE_FILE).write_text(json.dumps({"commonsUrl": URL}))
+        with mock.patch.object(ingest_food, "fetch_bytes", side_effect=self.fake_fetch) as fetch:
+            ingest_food.ingest_row(validate_rows([self.row])[0], self.out)
+            ingest_food.ingest_row(validate_rows([self.row])[0], self.out)
+        self.assertEqual(fetch.call_count, 1)
+
+    def openverse_row(self):
+        return {"name": "Bún bò", "openverse_id": "0d4b8c5e-1111-4222-8333-444455556666"}
+
+    def openverse_response(self, **over):
+        return json.dumps({"url": "https://live.staticflickr.com/1/a.jpg", "creator": "Carol",
+                           "license": "by-sa", "license_version": "2.0",
+                           "foreign_landing_url": "https://www.flickr.com/photos/c/1", **over}).encode()
+
+    def test_openverse_source_records_credit_and_never_calls_commons(self):
+        urls = []
+        def fetch(url):
+            urls.append(url)
+            return self.openverse_response() if url.startswith(ingest_food.OPENVERSE_API) else image_bytes()
+        with mock.patch.object(ingest_food, "fetch_bytes", side_effect=fetch):
+            record = ingest_food.ingest_row(validate_rows([self.openverse_row()])[0], self.out)
+        self.assertEqual(record["credit"], {"author": "Carol", "licence": "CC BY-SA 2.0",
+                                            "sourceUrl": "https://www.flickr.com/photos/c/1"})
+        self.assertTrue(all("wikimedia" not in url for url in urls))
+
+    def test_openverse_refuses_unsupported_licence_and_missing_author(self):
+        row = validate_rows([self.openverse_row()])[0]
+        for over, message in (({"license": "by-nc"}, "unsupported Openverse licence"),
+                              ({"creator": None}, "no author")):
+            with mock.patch.object(ingest_food, "fetch_bytes", return_value=self.openverse_response(**over)):
+                with self.assertRaisesRegex(ValueError, message):
+                    ingest_food.ingest_row(row, self.out)
+
+    def test_requests_to_one_host_are_paced_but_other_hosts_are_not(self):
+        class Response:
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+            def read(self): return b"ok"
+        ingest_food._last_request.clear()
+        with mock.patch.object(ingest_food, "urlopen", return_value=Response()), \
+                mock.patch.object(ingest_food.time, "sleep") as sleep:
+            ingest_food.fetch_bytes("https://a.test/1")
+            ingest_food.fetch_bytes("https://b.test/1")
+            sleep.assert_not_called()
+            ingest_food.fetch_bytes("https://a.test/2")
+        self.assertEqual(sleep.call_count, 1)
 
     def test_commons_info_prefers_the_thumbnail_rendition(self):
         data = json.loads(commons_response())

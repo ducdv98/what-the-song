@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Ingest Commons photos into the local Food master. Requires Pillow.
+"""Ingest open-licensed photos into the local Food master. Requires Pillow.
+
+Each seed row names its photo with exactly one of `commons_url` (a Wikimedia Commons
+File page) or `openverse_id` (an Openverse image id, which covers Flickr and other
+hosts). Mixing sources spreads the load so no single host rate-limits a large seed.
 
     python tools/ingest_food.py .scratch/food/candidates.jsonl --out /path/to/assets/food
     python tools/ingest_food.py --out /path/to/assets/food --publish
@@ -16,7 +20,7 @@ from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 from urllib.request import Request, urlopen
 
 import ingest
@@ -26,10 +30,13 @@ DEFAULT_OUT = Path(__file__).resolve().parent.parent / "apps/web/public/assets/f
 API = "https://commons.wikimedia.org/w/api.php"
 MAX_SIZE = 1600
 IMAGE_HOSTS = ("https://upload.wikimedia.org/", "https://thumb.wikimedia.org/")
-PAUSE = 2.0  # seconds between Dishes; Commons rate-limits bursts with 429
+PAUSE = 2.0  # minimum seconds between requests to one host; Commons rate-limits bursts with 429
+OPENVERSE_API = "https://api.openverse.org/v1/images/"
 RETRIES = 6
 MAX_WAIT = 900  # honour a long Retry-After rather than burning retries
 SOURCE_FILE = "source.json"  # which Commons file a Dish's local photo came from
+OPENVERSE_LICENCES = {"by": "CC BY", "by-sa": "CC BY-SA", "cc0": "CC0"}
+_last_request: dict[str, float] = {}
 LICENCE = re.compile(r"^(?:CC BY(?:-SA)?(?: [1-4](?:\.\d)?)?|CC0(?: 1\.0)?)$")
 
 
@@ -50,8 +57,13 @@ def plain_html(value: str) -> str:
 
 def fetch_bytes(url: str) -> bytes:
     request = Request(url, headers={"User-Agent": "WhatTheSongFoodIngest/1.0 (Commons attribution tool)"})
+    host = urlparse(url).hostname or ""
+    idle = PAUSE - (time.monotonic() - _last_request.get(host, float("-inf")))
+    if idle > 0:
+        time.sleep(idle)
     for attempt in range(RETRIES):
         try:
+            _last_request[host] = time.monotonic()
             with urlopen(request, timeout=30) as response:
                 return response.read()
         except (HTTPError, URLError) as exc:
@@ -89,6 +101,34 @@ def commons_info(url: str) -> dict:
     return {"imageUrl": image_url, "credit": {"author": author, "licence": licence, "sourceUrl": source}}
 
 
+def openverse_info(image_id: str) -> dict:
+    data = json.loads(fetch_bytes(f"{OPENVERSE_API}{image_id}/"))
+    licence = OPENVERSE_LICENCES.get(str(data.get("license", "")).lower())
+    if not licence:
+        raise ValueError(f"unsupported Openverse licence: {data.get('license')}")
+    version = str(data.get("license_version") or "")
+    if version:
+        licence = f"{licence} {version}"
+    if not LICENCE.fullmatch(licence):
+        raise ValueError(f"unsupported Openverse licence: {licence}")
+    author = (data.get("creator") or "").strip()
+    if not author:
+        raise ValueError("Openverse image has no author")
+    source, image_url = data.get("foreign_landing_url") or "", data.get("url") or ""
+    if not source.startswith("https://") or not image_url.startswith("https://"):
+        raise ValueError("Openverse image needs https source and image URLs")
+    return {"imageUrl": image_url, "credit": {"author": author, "licence": licence, "sourceUrl": source}}
+
+
+def source_ref(row: dict) -> str:
+    """The identity of the photo a row asks for; a change re-downloads the Dish."""
+    return row["commons_url"] if "commons_url" in row else f"openverse:{row['openverse_id']}"
+
+
+def source_info(row: dict) -> dict:
+    return commons_info(row["commons_url"]) if "commons_url" in row else openverse_info(row["openverse_id"])
+
+
 def resize_jpeg(source: bytes) -> bytes:
     try:
         from PIL import Image, ImageOps
@@ -109,30 +149,40 @@ def resize_jpeg(source: bytes) -> bytes:
         return output.getvalue()
 
 
-def existing_photo(folder: Path, commons_url: str) -> str | None:
-    """The photo already ingested for this Dish from this Commons file, so a rerun
-    after an interruption does not download it again. A folder with no record of
-    its source (an interrupted earlier run) is trusted once and then recorded."""
+def existing_photo(folder: Path, ref: str) -> tuple[str, dict | None] | None:
+    """The photo already ingested for this Dish from this source, with its cached
+    Credit when known, so a rerun after an interruption costs no requests. A folder
+    with no record of its source (an interrupted earlier run) is trusted once."""
     photos = sorted(folder.glob("*.jpg")) if folder.is_dir() else []
     if len(photos) != 1 or not re.fullmatch(r"[a-f0-9]{24}\.jpg", photos[0].name):
         return None
     record = folder / SOURCE_FILE
-    if record.is_file():
-        try:
-            recorded = json.loads(record.read_text(encoding="utf-8")).get("commonsUrl")
-        except ValueError:
-            return None
-        if recorded != commons_url:
-            return None
-    else:
-        record.write_text(json.dumps({"commonsUrl": commons_url}), encoding="utf-8")
-    return photos[0].name
+    if not record.is_file():
+        return photos[0].name, None
+    try:
+        data = json.loads(record.read_text(encoding="utf-8"))
+    except ValueError:
+        return None
+    if data.get("source", data.get("commonsUrl")) != ref:
+        return None
+    return photos[0].name, data.get("credit")
+
+
+def write_source(folder: Path, ref: str, credit: dict) -> None:
+    (folder / SOURCE_FILE).write_text(json.dumps({"source": ref, "credit": credit}), encoding="utf-8")
 
 
 def ingest_row(row: dict, out: Path) -> dict:
-    info = commons_info(row["commons_url"])
+    ref = source_ref(row)
     folder = out / row["id"]
-    filename = existing_photo(folder, row["commons_url"])
+    cached = existing_photo(folder, ref)
+    info = None
+    if cached and cached[1]:
+        filename, credit = cached
+    else:
+        info = source_info(row)
+        credit = info["credit"]
+        filename = cached[0] if cached else None
     if filename is None:
         photo = resize_jpeg(fetch_bytes(info["imageUrl"]))
         filename = hashlib.sha256(photo).hexdigest()[:24] + ".jpg"
@@ -143,8 +193,9 @@ def ingest_row(row: dict, out: Path) -> dict:
                 raise RuntimeError(f"hash collision at {destination}")
         else:
             destination.write_bytes(photo)
-        (folder / SOURCE_FILE).write_text(json.dumps({"commonsUrl": row["commons_url"]}), encoding="utf-8")
-    record = {"id": row["id"], "name": row["name"], "photo": filename, "credit": info["credit"]}
+    if not cached or not cached[1]:
+        write_source(folder, ref, credit)
+    record = {"id": row["id"], "name": row["name"], "photo": filename, "credit": credit}
     for key in ("aliases", "tier", "region"):
         if key in row:
             record[key] = row[key]
@@ -168,8 +219,6 @@ def main() -> int:
         rows = load_seed(args.seed)
         records = []
         for number, row in enumerate(rows, 1):
-            if number > 1:
-                time.sleep(PAUSE)
             print(f"[{number}/{len(rows)}] {row['name']}", flush=True)
             records.append(ingest_row(row, args.out))
         ingest.write_catalogue(args.out, records)

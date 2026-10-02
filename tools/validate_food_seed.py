@@ -13,6 +13,7 @@ from urllib.parse import unquote, urlparse
 from ingest import KNOWN_TIERS
 
 REGIONS = {"Bắc", "Trung", "Nam", "Tây Nguyên", "Toàn quốc"}
+OPENVERSE_ID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 BRACKETED = re.compile(r"[([{][^)\]}]*[)\]}]")
 FEAT = re.compile(r"\s*\b(?:feat|ft|featuring|with)\b\.?\s.*$", re.IGNORECASE)
@@ -77,10 +78,16 @@ def validate_rows(rows: list[object]) -> list[dict]:
         if row.get("region") is not None and (not isinstance(row["region"], str) or row["region"] not in REGIONS):
             errors.append(f"line {line}: invalid region")
         url = row.get("commons_url")
+        openverse_id = row.get("openverse_id")
         try:
-            if not isinstance(url, str):
-                raise ValueError("missing commons_url")
-            commons_title(url)
+            if (url is None) == (openverse_id is None):
+                raise ValueError("needs exactly one of commons_url or openverse_id")
+            if url is not None:
+                if not isinstance(url, str):
+                    raise ValueError("commons_url must be a string")
+                commons_title(url)
+            elif not isinstance(openverse_id, str) or not OPENVERSE_ID.fullmatch(openverse_id):
+                raise ValueError("openverse_id must be an Openverse image UUID")
         except ValueError as exc:
             errors.append(f"line {line}: {exc}")
         point = row.get("focalPoint", row.get("focal_point"))

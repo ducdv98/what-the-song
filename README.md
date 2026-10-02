@@ -82,9 +82,15 @@ them (`dependsOn: ["^build"]`), so there is no manual ordering to remember.
 ## Food topic: growing the Dish catalogue
 
 The Food Topic (`/food`) shows a Dish photo that zooms out over five Stages.
-Photos come only from Wikimedia Commons under CC BY, CC BY-SA or CC0; each Dish
-carries its Credit (author, licence, source URL), shown after the Round. A seed
-row is `{name, aliases, tier, region, commons_url}`, with an optional
+Photos come only from Wikimedia Commons or Openverse under CC BY, CC BY-SA or
+CC0; each Dish carries its Credit (author, licence, source URL), shown after the
+Round. A seed row is `{name, aliases, tier, region, <source>}` where `<source>` is
+exactly one of `commons_url` (a Commons File page) or `openverse_id` (an Openverse
+image UUID, which reaches Flickr and other hosts). Mix the two in a large seed:
+each Dish costs about two requests to its own source, so one source alone
+rate-limits (429) past roughly 100 Dishes. Pacing is per host, and a finished
+Dish caches its Credit, so a rerun after an interruption makes no requests for
+it. Rows take an optional
 `focalPoint` `{x, y}` (0 to 1) when the dish is off-centre; the candidate list
 lives in `.scratch/food/candidates.jsonl`.
 
@@ -96,7 +102,7 @@ python tools/ingest_food.py --publish                               # upload pho
 ```
 
 The local folder `apps/web/public/assets/food/` (gitignored) is the master.
-Ingest fetches the photo and its licence from Commons and refuses any other
+Ingest fetches the photo and its licence from the source and refuses any other
 licence, a duplicate id, or an Alias equal to another Dish's name or Alias.
 `--publish` needs the same four uploader variables as Songs (`COS_BUCKET`,
 `COS_REGION`, `COS_UPLOAD_SECRET_ID`, `COS_UPLOAD_SECRET_KEY`). Photos are never
@@ -104,12 +110,6 @@ overwritten; the catalogue is republished each time, so adding Dishes later
 means editing the seed and running it again. Without COS, copy the folder to
 the VPS with `catalogue.json` last.
 
-## How it fits together
-
-Ingest runs on **your machine**, not the server:
-
-```
-  your laptop (residential IP, browser cookies)      the server
 ## People Topic
 
 The People Topic at `/people` reveals a Person's head-and-shoulders photo from
@@ -127,6 +127,12 @@ individuals and minors are excluded. A Person and their photo are removed on
 request. The photo source URL stays in the catalogue for internal removal
 handling and is never shown to players.
 
+## How it fits together
+
+Ingest runs on **your machine**, not the server:
+
+```
+  your laptop (residential IP, browser cookies)      the server
   ─────────────────────────────────────────────      ──────────────────────
   yt-dlp  →  ffmpeg: level, cut, strip metadata  →   short opaque clips only
                                                      never talks to YouTube
