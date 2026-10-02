@@ -72,6 +72,29 @@ describe('Food Zoom components', () => {
     assert.doesNotMatch(effects.at(-1)!.html, /filter:/);
   });
 
+  test('a Dish override reaches every rendered Stage', () => {
+    const [dish] = validateCatalogue([{ ...centredDish, obscuringLevels: [0.6, 0.45, 0.3, 0.15, 0] }]);
+    const effects = ladderFor(dish!).map((zoom) => {
+      const html = renderToStaticMarkup(createElement(FoodZoom, { zoom, url: photoUrl }));
+      const grayscale = /grayscale\(([\d.]+)\)/.exec(html);
+      return { html, blur: zoom.obscuring > 0 ? visibleBlur(html, 380) : 0,
+        grayscale: grayscale ? Number(grayscale[1]) : 0 };
+    });
+    ladderFor(centredDish).slice(0, -1).forEach((zoom, index) => {
+      const sharedHtml = renderToStaticMarkup(createElement(FoodZoom, { zoom, url: photoUrl }));
+      const sharedGrayscale = /grayscale\(([\d.]+)\)/.exec(sharedHtml);
+      assert.ok(sharedGrayscale);
+      assert.ok(effects[index]!.blur > 0 && effects[index]!.blur < visibleBlur(sharedHtml, 380));
+      assert.ok(effects[index]!.grayscale > 0 &&
+        effects[index]!.grayscale < Number(sharedGrayscale[1]));
+    });
+    for (let index = 1; index < effects.length; index++) {
+      assert.ok(effects[index]!.blur < effects[index - 1]!.blur);
+      assert.ok(effects[index]!.grayscale < effects[index - 1]!.grayscale);
+    }
+    assert.doesNotMatch(effects.at(-1)!.html, /filter:/);
+  });
+
   test('a finished Round shows its photo clear after an early win', () => {
     const round = submitGuess(createRound(focalDish, foodTopic.ladder(focalDish)), 'bun bo hue',
       (text, dish) => matchGuess(text, dish) ? 'exact' : 'none');
@@ -97,6 +120,10 @@ describe('Food Zoom components', () => {
 });
 
 describe('fixture catalogue', () => {
+  test('validates unchanged', () => {
+    assert.equal(validateCatalogue(fixture).length, fixture.length);
+  });
+
   test('can be won or lost across the five Stages', () => {
     const matcher = (text: string, dish: typeof focalDish) => matchGuess(text, dish) ? 'exact' as const : 'none' as const;
     let won = createRound(focalDish, foodTopic.ladder(focalDish));
