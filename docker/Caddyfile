@@ -68,14 +68,14 @@
 	# Inside handle so it runs after the basic_auth gate, like everything else.
 	@oldclips path_regexp oldclips ^/clips/(.*)$
 	handle @oldclips {
-		redir /assets/songs/{re.oldclips.1} permanent
+		redir * /assets/songs/{re.oldclips.1} permanent
 	}
 
 	# Keep the home redirect behind the same optional auth gate. Temporary (not
 	# 308) and mirrors DEFAULT_TOPIC_ID: change both when a second Topic is playable.
 	@home path /
 	handle @home {
-		redir /songs 302
+		redir * /songs 302
 	}
 
 	# The exported app.
