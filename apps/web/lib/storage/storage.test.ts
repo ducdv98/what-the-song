@@ -18,7 +18,20 @@ describe('storage degrades instead of throwing', () => {
 
   test('prefs fall back to defaults', () => {
     assert.deepEqual(loadPrefs(), DEFAULT_PREFS);
-    assert.doesNotThrow(() => savePrefs({ genre: 'bolero', tier: 'hard' }));
+    assert.doesNotThrow(() => savePrefs({ genre: 'bolero', tier: 'hard', memes: true }));
+  });
+
+  test('blocked localStorage keeps Memes on without throwing', () => {
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      get: () => { throw new Error('storage blocked'); },
+    });
+    try {
+      assert.equal(loadPrefs().memes, true);
+      assert.doesNotThrow(() => savePrefs({ genre: null, tier: null, memes: false }));
+    } finally {
+      delete (globalThis as Record<string, unknown>).localStorage;
+    }
   });
 });
 
@@ -76,17 +89,19 @@ describe('prefs', () => {
 
   test('a tier round-trips', () => {
     withStorage(() => {
-      savePrefs({ genre: 'bolero', tier: 'expert' });
-      assert.deepEqual(loadPrefs(), { genre: 'bolero', tier: 'expert' });
+      savePrefs({ genre: 'bolero', tier: 'expert', memes: false });
+      assert.deepEqual(loadPrefs(), { genre: 'bolero', tier: 'expert', memes: false });
     });
   });
 
   test('the old difficulty setting reads back as "pick for me", not as a bogus tier', () => {
     withStorage((store) => {
       store.set('what-the-song:prefs:v1', JSON.stringify({ genre: null, difficulty: 'normal' }));
-      assert.deepEqual(loadPrefs(), { genre: null, tier: null });
+      assert.deepEqual(loadPrefs(), { genre: null, tier: null, memes: true });
       store.set('what-the-song:prefs:v1', JSON.stringify({ genre: 'x', tier: 'Hard' }));
       assert.equal(loadPrefs().tier, null);
+      store.set('what-the-song:prefs:v1', JSON.stringify({ genre: 'x', tier: null, memes: 'off' }));
+      assert.equal(loadPrefs().memes, true);
     });
   });
 });

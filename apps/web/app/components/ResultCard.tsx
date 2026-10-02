@@ -5,6 +5,7 @@ import { TIERS, tierOf, type Round } from '@wts/core';
 import { coverUrl, type Song } from '@wts/topic-songs';
 import type { PlaybackState } from '@/lib/audio/engine';
 import { assetUrls } from '@/lib/assets/urls';
+import { retryMemeImage, visibleResultMeme, type MemeOutcome, type ResolvedMeme } from '@/lib/assets/memes';
 import { formatSeconds } from './PlayButton';
 import { useI18n } from './I18nProvider';
 
@@ -25,20 +26,33 @@ export function ResultCard({
   playback,
   onListen,
   onNext,
+  memes,
 }: {
   round: Round<Song, number>;
   playback: PlaybackState;
   onListen: () => void;
   onNext: () => void;
+  memes?: Record<MemeOutcome, ResolvedMeme | null>;
 }) {
   const { t, lang } = useI18n();
   const [copied, setCopied] = useState(false);
   const [failedCover, setFailedCover] = useState<string | null>(null);
   const [resolvedCover, setResolvedCover] = useState<string | null>(null);
   const [retriedCover, setRetriedCover] = useState(false);
+  const [resolvedMeme, setResolvedMeme] = useState<string | null>(null);
+  const [failedMeme, setFailedMeme] = useState(false);
+  const [retriedMeme, setRetriedMeme] = useState(false);
   const won = round.status === 'won';
+  const selectedMeme = round.status === 'playing' ? null : memes?.[round.status];
+  const memeUrl = selectedMeme?.url ?? null;
+  const visibleMeme = visibleResultMeme(round.status, memes, resolvedMeme, failedMeme);
   const song = round.subject;
   const cover = coverUrl(song);
+  useEffect(() => {
+    setResolvedMeme(memeUrl);
+    setFailedMeme(false);
+    setRetriedMeme(false);
+  }, [selectedMeme?.meme, memeUrl]);
   useEffect(() => {
     let active = true;
     setResolvedCover(null);
@@ -93,6 +107,23 @@ export function ResultCard({
         <span aria-hidden="true">{won ? '✓' : '×'}</span>
         {won ? t('result.guessedIn') : t('result.lost')}
       </span>
+      {visibleMeme && (
+        <img
+          className="result-meme"
+          data-testid="result-meme"
+          src={visibleMeme.url}
+          alt=""
+          width={320}
+          height={180}
+          onError={() => {
+            setRetriedMeme(true);
+            void retryMemeImage(visibleMeme.meme, visibleMeme.url, retriedMeme).then((url) => {
+              if (url) setResolvedMeme(url);
+              else setFailedMeme(true);
+            });
+          }}
+        />
+      )}
       <div className="result-cover">
         {cover && resolvedCover && cover !== failedCover ? (
           // Static export: native image, with a fallback for missing cover files.

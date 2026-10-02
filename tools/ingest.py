@@ -774,6 +774,38 @@ def write_catalogue(out: Path, records: list[dict | None]) -> Path:
     return catalogue
 
 
+def build_meme_library(source: Path, out: Path) -> Path:
+    """Validate a manifest and mirror its still images into the local library."""
+    entries = json.loads((source / "manifest.json").read_text(encoding="utf-8"))
+    if not isinstance(entries, list):
+        raise ValueError("meme manifest must contain a list")
+    planned: list[tuple[Path, str, dict]] = []
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            raise ValueError(f"invalid meme at index {index}")
+        name, outcome, provenance = (entry.get(key) for key in ("file", "outcome", "source"))
+        if (not isinstance(name, str) or not re.fullmatch(r"[^/\\]+\.(?:webp|jpg|png)", name)
+                or name in (".", "..")):
+            raise ValueError(f"invalid meme file at index {index}: {name}")
+        if outcome not in ("won", "lost"):
+            raise ValueError(f"invalid meme outcome at index {index}: {outcome}")
+        if not isinstance(provenance, str) or not provenance.strip():
+            raise ValueError(f"missing meme source at index {index}")
+        path = source / name
+        if not path.is_file():
+            raise FileNotFoundError(f"missing meme image: {path}")
+        hashed = hashlib.sha256(path.read_bytes()).hexdigest()[:24] + path.suffix
+        planned.append((path, hashed, {"file": hashed, "outcome": outcome,
+                                      "source": provenance}))
+
+    out.mkdir(parents=True, exist_ok=True)
+    for path, hashed, _ in planned:
+        target = out / hashed
+        if not target.exists():
+            shutil.copyfile(path, target)
+    return write_catalogue(out, [entry for _, _, entry in planned])
+
+
 def cos_client_from_env():
     """Create the uploader client only when a publish command needs COS."""
     names = ("COS_BUCKET", "COS_REGION", "COS_UPLOAD_SECRET_ID", "COS_UPLOAD_SECRET_KEY")
@@ -825,26 +857,43 @@ def publish_library(out: Path, client, bucket: str, *, dry_run: bool = False,
 
     existing = listed_keys()
     local: dict[str, Path] = {}
-    for song_dir in out.iterdir():
-        if not song_dir.is_dir():
-            continue
-        for path in song_dir.iterdir():
-            if path.is_file() and (path.suffix == ".mp3" or
-                                   (path.name.startswith("cover-") and path.suffix == ".jpg")):
-                local[f"{topic}/{path.relative_to(out).as_posix()}"] = path
     wanted = set()
-    for record in records:
-        slug = record["id"]
-        names = list(record["clips"].values())
-        if record.get("cover"):
-            names.append(record["cover"])
-        for name in names:
-            if (not isinstance(slug, str) or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", slug)
-                    or not isinstance(name, str) or
-                    not (re.fullmatch(r"[a-f0-9]{24}\.mp3", name) or
-                         re.fullmatch(r"cover-[a-f0-9]{16}\.jpg", name))):
-                raise ValueError(f"invalid catalogue asset: {slug}/{name}")
-            wanted.add(f"{topic}/{slug}/{name}")
+    if topic == "memes":
+        for record in records:
+            if not isinstance(record, dict):
+                raise ValueError("invalid meme catalogue entry")
+            name = record.get("file")
+            if (not isinstance(name, str) or
+                    not re.fullmatch(r"[a-f0-9]{24}\.(?:webp|jpg|png)", name) or
+                    record.get("outcome") not in ("won", "lost") or
+                    not isinstance(record.get("source"), str) or
+                    not record["source"].strip()):
+                raise ValueError(f"invalid meme catalogue entry: {record}")
+            key = f"{topic}/{name}"
+            wanted.add(key)
+            path = out / name
+            if path.is_file():
+                local[key] = path
+    else:
+        for song_dir in out.iterdir():
+            if not song_dir.is_dir():
+                continue
+            for path in song_dir.iterdir():
+                if path.is_file() and (path.suffix == ".mp3" or
+                                       (path.name.startswith("cover-") and path.suffix == ".jpg")):
+                    local[f"{topic}/{path.relative_to(out).as_posix()}"] = path
+        for record in records:
+            slug = record["id"]
+            names = list(record["clips"].values())
+            if record.get("cover"):
+                names.append(record["cover"])
+            for name in names:
+                if (not isinstance(slug, str) or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", slug)
+                        or not isinstance(name, str) or
+                        not (re.fullmatch(r"[a-f0-9]{24}\.mp3", name) or
+                             re.fullmatch(r"cover-[a-f0-9]{16}\.jpg", name))):
+                    raise ValueError(f"invalid catalogue asset: {slug}/{name}")
+                wanted.add(f"{topic}/{slug}/{name}")
 
     added = sorted(local.keys() - existing)
     orphans = sorted(key for key in existing | local.keys()
@@ -903,6 +952,8 @@ def main() -> int:
         " without downloading audio or requiring yt-dlp/ffmpeg.",
     )
     ap.add_argument("--publish", action="store_true", help="Mirror assets and publish the catalogue to private COS")
+    ap.add_argument("--memes", type=Path, metavar="DIR",
+                    help="Manifest and still images to mirror and publish with --publish")
     ap.add_argument("--dry-run", action="store_true", help="List publish changes without writing to COS")
     ap.add_argument("--prune", action="store_true", help="List then delete orphaned COS keys after publishing")
     ap.add_argument(
@@ -942,14 +993,35 @@ def main() -> int:
 
     if (args.dry_run or args.prune) and not args.publish:
         ap.error("--dry-run and --prune require --publish")
+    if args.memes and not args.publish:
+        ap.error("--memes requires --publish")
     if not args.seed and not args.publish:
         ap.error("seed is required unless --publish is used")
     if args.catalogue_only and not args.seed:
         ap.error("--catalogue-only requires a seed")
 
+    memes_out = args.out.parent / "memes"
+    # A dry run must leave the working tree untouched: stage the library aside.
+    # The folder name is the COS key prefix, so keep it "memes".
+    dry_stage = tempfile.TemporaryDirectory() if args.memes and args.dry_run else None
+    if dry_stage is not None:
+        memes_out = Path(dry_stage.name) / "memes"
+    if args.memes:
+        try:
+            build_meme_library(args.memes, memes_out)
+        except (OSError, ValueError) as exc:
+            print(f"meme manifest failed: {exc}", file=sys.stderr)
+            return 1
+
+    def publish_requested(*, dry_run: bool = False) -> None:
+        if args.seed or not args.memes:
+            publish_from_env(args.out, dry_run=dry_run, prune=args.prune)
+        if args.memes:
+            publish_from_env(memes_out, dry_run=dry_run, prune=args.prune)
+
     if args.publish and (not args.seed or args.dry_run):
         try:
-            publish_from_env(args.out, dry_run=args.dry_run, prune=args.prune)
+            publish_requested(dry_run=args.dry_run)
         except (OSError, ValueError, RuntimeError) as exc:
             print(f"publish failed: {exc}", file=sys.stderr)
             return 1
@@ -963,7 +1035,7 @@ def main() -> int:
         print(f"catalogue: {catalogue} ({count} completed songs, {len(seeds) - count} not built)")
         if args.publish:
             try:
-                publish_from_env(args.out, prune=args.prune)
+                publish_requested()
             except (OSError, ValueError, RuntimeError) as exc:
                 print(f"publish failed: {exc}", file=sys.stderr)
                 return 1
@@ -1084,7 +1156,7 @@ def main() -> int:
         print("  compressed, where -ss before -i would snap to a keyframe.")
     if args.publish:
         try:
-            publish_from_env(args.out, prune=args.prune)
+            publish_requested()
         except (OSError, ValueError, RuntimeError) as exc:
             print(f"publish failed: {exc}", file=sys.stderr)
             return 1

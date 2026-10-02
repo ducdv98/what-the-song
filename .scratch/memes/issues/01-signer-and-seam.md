@@ -1,6 +1,6 @@
 # Sign meme keys through the asset seam
 
-Status: ready-for-agent
+Status: done
 Blocked by: none
 
 See `spec.md` decisions 7-9 and `docs/adr/0003-clips-in-private-cos-bucket.md`.

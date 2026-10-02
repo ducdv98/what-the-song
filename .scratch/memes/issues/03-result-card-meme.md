@@ -1,6 +1,6 @@
 # Show the Meme on the result card
 
-Status: ready-for-agent
+Status: done
 Blocked by: 02
 
 See `spec.md` decisions 1, 3, 4, 10.

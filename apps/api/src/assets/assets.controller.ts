@@ -12,7 +12,7 @@ import type { Env } from '../config/env.validation.js';
 import { CosAssetUrls, LocalAssetUrls, type AssetUrls } from './asset-urls.js';
 
 const ASSET_KEY =
-  /^(?:[a-z0-9]+(?:-[a-z0-9]+)*\/[a-z0-9]+(?:-[a-z0-9]+)*\/(?:[a-f0-9]{24}\.mp3|cover-[a-f0-9]{16}\.jpg)|[a-z0-9]+(?:-[a-z0-9]+)*\/catalogue\.json)$/;
+  /^(?:(?!memes\/)[a-z0-9]+(?:-[a-z0-9]+)*\/[a-z0-9]+(?:-[a-z0-9]+)*\/(?:[a-f0-9]{24}\.mp3|cover-[a-f0-9]{16}\.jpg)|[a-z0-9]+(?:-[a-z0-9]+)*\/catalogue\.json|memes\/[a-f0-9]{24}\.(?:webp|jpg|png))$/;
 
 class AssetUrlsDto {
   @IsArray()

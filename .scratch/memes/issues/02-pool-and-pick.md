@@ -1,6 +1,6 @@
 # Meme pool: load the catalogue and pick
 
-Status: ready-for-agent
+Status: done
 Blocked by: 01
 
 See `spec.md` decisions 2, 7, 8, 10.

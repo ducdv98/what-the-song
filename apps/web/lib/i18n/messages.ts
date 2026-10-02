@@ -190,6 +190,7 @@ const vi = {
   'menu.open': 'Mở menu',
   'menu.close': 'Đóng menu',
   'menu.title': 'Cài đặt & thống kê',
+  'menu.memes': 'Ảnh vui sau mỗi ván',
   'menu.howTo': 'Cách chơi',
   'menu.howToBody':
     'Bấm phát để nghe, rồi tìm và chọn bài hát để đoán. Đoán sai hoặc bỏ qua sẽ mở đoạn dài hơn và giảm điểm có thể nhận. Độ dài đoạn nhạc tùy theo bài. Đổi độ khó hoặc thể loại sẽ bắt đầu bài mới.',
@@ -387,6 +388,7 @@ const en: Record<MessageKey, string> = {
   'menu.open': 'Open menu',
   'menu.close': 'Close menu',
   'menu.title': 'Settings & stats',
+  'menu.memes': 'Memes after each round',
   'menu.howTo': 'How to play',
   'menu.howToBody':
     'Play the clip, then search for and select a song to guess. A wrong guess or skip unlocks a longer clip and lowers the points available. Clip lengths vary by song. Changing difficulty or genre starts a new song.',

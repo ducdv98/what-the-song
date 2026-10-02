@@ -1,6 +1,6 @@
 # "Memes on/off" setting
 
-Status: ready-for-agent
+Status: done
 Blocked by: 03
 
 See `spec.md` decision 5.

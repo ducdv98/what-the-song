@@ -23,6 +23,9 @@ import {
 import type { TopicId } from '@wts/topics';
 import { loadPrefs, savePrefs } from '@/lib/storage/prefs';
 import { assetUrls } from '@/lib/assets/urls';
+import {
+  memePath, memePool, prepareRoundAssets, type Meme, type MemeOutcome,
+} from '@/lib/assets/memes';
 import { useAudioEngine } from './useAudioEngine';
 import { PlayButton, formatSeconds } from './PlayButton';
 import { Timeline } from './Timeline';
@@ -63,6 +66,11 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
   const [facetValues, setFacetValues] = useState<Record<string, string | null>>({});
   const genre = facetValues.genre ?? null;
   const [savedTier, setSavedTier] = useState<TierSlug | null>(null);
+  const [memesEnabled, setMemesEnabled] = useState(true);
+  const [prefsReady, setPrefsReady] = useState(false);
+  const [roundMemes, setRoundMemes] = useState<
+    Record<MemeOutcome, { meme: Meme; url: string } | null>
+  >({ won: null, lost: null });
   const [round, setRound] = useState<Round<Song, number> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -77,6 +85,8 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
     const prefs = loadPrefs();
     setFacetValues({ genre: prefs.genre });
     setSavedTier(prefs.tier);
+    setMemesEnabled(prefs.memes);
+    setPrefsReady(true);
   }, []);
 
   const facets = songsTopic.facets ?? [];
@@ -104,6 +114,7 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
     (excludeId?: string) => {
       engine.stop();
       setError(null);
+      setRoundMemes({ won: null, lost: null });
       const song = pickRandom(songs, excludeId);
       setRound(song ? createRound(song, songsTopic.ladder(song)) : null);
     },
@@ -116,20 +127,36 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
   // Sign every asset for this Round together; the client refreshes stale URLs
   // when an uncached Stage is eventually fetched.
   useEffect(() => {
-    if (!round) return;
+    if (!round || !prefsReady) return;
     let active = true;
     const paths = round.stages.map((seconds) => clipUrl(round.subject, seconds));
     const cover = coverUrl(round.subject);
     if (cover) paths.push(cover);
-    void assetUrls.prepare(paths).catch((err: unknown) => {
-      if (active) {
-        setError(err instanceof Error ? err.message : t('error.playFailed'));
-      }
-    });
+    void prepareRoundAssets(paths, memesEnabled)
+      .then(async (selected) => {
+        const resolved = await Promise.all(
+          (['won', 'lost'] as const).map(async (outcome) => {
+            const meme = selected[outcome];
+            if (!meme) return null;
+            try { return { meme, url: await assetUrls.resolve(memePath(meme)) }; }
+            catch { return null; }
+          }),
+        );
+        if (active) setRoundMemes({ won: resolved[0], lost: resolved[1] });
+      })
+      .catch((err: unknown) => {
+        if (active) setError(err instanceof Error ? err.message : t('error.playFailed'));
+      });
     return () => {
       active = false;
     };
-  }, [round?.subject.id, round?.stages, t]);
+  }, [round?.subject.id, round?.stages, memesEnabled, prefsReady]);
+
+  useEffect(() => {
+    if (!round || round.status === 'playing') return;
+    const selected = roundMemes[round.status];
+    if (selected && memesEnabled) memePool.markShown(round.status, selected.meme);
+  }, [round?.status, roundMemes, memesEnabled]);
 
   const playClip = useCallback(
     async (song: Song, seconds: number) => {
@@ -185,12 +212,18 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
 
   function onTier(slug: TierSlug) {
     setSavedTier(slug);
-    savePrefs({ genre, tier: slug });
+    savePrefs({ genre, tier: slug, memes: memesEnabled });
   }
 
   function onFacet(id: string, value: string | null) {
     setFacetValues((values) => ({ ...values, [id]: value }));
-    if (id === 'genre') savePrefs({ genre: value, tier: savedTier });
+    if (id === 'genre') savePrefs({ genre: value, tier: savedTier, memes: memesEnabled });
+  }
+
+  function onMemes(enabled: boolean) {
+    setMemesEnabled(enabled);
+    if (!enabled) setRoundMemes({ won: null, lost: null });
+    savePrefs({ genre, tier: savedTier, memes: enabled });
   }
 
   if (allSongs.length === 0) {
@@ -326,6 +359,7 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
       {round && over && (
         <ResultCard
           round={round}
+          memes={memesEnabled ? roundMemes : undefined}
           playback={state}
           onListen={() => {
             if (state === 'playing') engine.stop();
@@ -389,6 +423,15 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
         ))}
         <StreakBar stats={stats} syncFailed={syncFailed} />
         <Leaderboard version={synced} />
+        <section className="memes-setting">
+          <label htmlFor="memes-toggle" className="field-label">{t('menu.memes')}</label>
+          <input
+            id="memes-toggle"
+            type="checkbox"
+            checked={memesEnabled}
+            onChange={(event) => onMemes(event.target.checked)}
+          />
+        </section>
         <section
           style={{
             display: 'flex',

@@ -1,6 +1,6 @@
 # Publish memes to COS from ingest
 
-Status: ready-for-agent
+Status: done
 Blocked by: 01
 
 See `spec.md` decision 11 and `docs/adr/0003-clips-in-private-cos-bucket.md`. Reuse the `publish_library` ordering and safeguards in `tools/ingest.py`.

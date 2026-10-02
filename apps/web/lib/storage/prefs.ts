@@ -19,9 +19,10 @@ export interface Prefs {
    * older build's saved difficulty ("normal", …) reads back as.
    */
   tier: TierSlug | null;
+  memes: boolean;
 }
 
-export const DEFAULT_PREFS: Prefs = { genre: null, tier: null };
+export const DEFAULT_PREFS: Prefs = { genre: null, tier: null, memes: true };
 
 export function loadPrefs(): Prefs {
   try {
@@ -31,6 +32,7 @@ export function loadPrefs(): Prefs {
     return {
       genre: typeof p.genre === 'string' ? p.genre : null,
       tier: isTier(p.tier) ? p.tier : null,
+      memes: typeof p.memes === 'boolean' ? p.memes : true,
     };
   } catch {
     return DEFAULT_PREFS;

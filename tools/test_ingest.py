@@ -11,6 +11,7 @@ would have caught it, so that is what test_main_wiring does.
 """
 
 import importlib.util
+import hashlib
 import io
 import json
 import re
@@ -189,6 +190,110 @@ class TestCosPublish(unittest.TestCase):
              mock.patch.object(ingest.shutil, "which", side_effect=AssertionError("media tool lookup")):
             self.assertEqual(ingest.main(), 0)
         publish.assert_called_once_with(self.out, dry_run=False, prune=False)
+
+
+class TestMemePublish(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        self.source = self.root / "source"
+        self.source.mkdir()
+        self.out = self.root / "assets" / "memes"
+        (self.source / "happy.webp").write_bytes(b"happy image")
+        (self.source / "sad.jpg").write_bytes(b"sad image")
+        (self.source / "private.txt").write_text("private", encoding="utf-8")
+        self.entries = [
+            {"file": "happy.webp", "outcome": "won", "source": "my photo"},
+            {"file": "sad.jpg", "outcome": "lost", "source": "my drawing"},
+        ]
+        self.manifest()
+        self.cos = FakeCos()
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def manifest(self):
+        (self.source / "manifest.json").write_text(json.dumps(self.entries), encoding="utf-8")
+
+    def publish(self, **kw):
+        ingest.build_meme_library(self.source, self.out)
+        with mock.patch.object(sys, "stdout", io.StringIO()):
+            return ingest.publish_library(self.out, self.cos, "bucket-123", **kw)
+
+    def test_images_are_hashed_published_once_and_catalogue_is_last(self):
+        self.publish()
+        catalogue = json.loads((self.out / "catalogue.json").read_text(encoding="utf-8"))
+        self.assertEqual([entry["outcome"] for entry in catalogue], ["won", "lost"])
+        self.assertEqual([entry["source"] for entry in catalogue], ["my photo", "my drawing"])
+        self.assertEqual(catalogue[0]["file"], hashlib.sha256(b"happy image").hexdigest()[:24] + ".webp")
+        self.assertTrue(all(re.fullmatch(r"[a-f0-9]{24}\.(webp|jpg|png)", entry["file"])
+                            for entry in catalogue))
+        self.assertEqual([op for op, _ in self.cos.calls], ["list", "upload", "upload", "list", "put"])
+        self.assertEqual({data["Key"] for op, data in self.cos.calls if op == "upload"},
+                         {f"memes/{entry['file']}" for entry in catalogue})
+        self.assertEqual(next(data for op, data in self.cos.calls if op == "put")["CacheControl"], "no-store")
+        self.assertEqual(self.publish(), [])
+        self.assertFalse(any(op == "upload" for op, _ in self.cos.calls[5:]))
+        self.assertEqual({path.name for path in self.out.iterdir()},
+                         {"catalogue.json", *(entry["file"] for entry in catalogue)})
+
+    def test_missing_cos_image_blocks_catalogue(self):
+        self.cos.drop_uploads = True
+        with self.assertRaisesRegex(RuntimeError, "missing COS asset"):
+            self.publish()
+        self.assertFalse(any(op == "put" for op, _ in self.cos.calls))
+
+    def test_missing_local_image_blocks_catalogue(self):
+        ingest.build_meme_library(self.source, self.out)
+        catalogue = json.loads((self.out / "catalogue.json").read_text(encoding="utf-8"))
+        (self.out / catalogue[0]["file"]).unlink()
+        with mock.patch.object(sys, "stdout", io.StringIO()), \
+             self.assertRaisesRegex(RuntimeError, "missing COS asset"):
+            ingest.publish_library(self.out, self.cos, "bucket-123")
+        self.assertFalse(any(op == "put" for op, _ in self.cos.calls))
+
+    def test_bad_manifest_fails_before_upload(self):
+        for entry in (
+            {"file": "happy.webp", "outcome": "unknown", "source": "mine"},
+            {"file": "happy.webp", "outcome": "won"},
+            {"file": "happy.gif", "outcome": "won", "source": "mine"},
+            {"file": "missing.png", "outcome": "lost", "source": "mine"},
+        ):
+            with self.subTest(entry=entry):
+                self.entries = [entry]
+                self.manifest()
+                with self.assertRaises((ValueError, FileNotFoundError)):
+                    self.publish()
+                self.assertEqual(self.cos.calls, [])
+
+    def test_dry_run_and_prune_only_affect_orphans_when_requested(self):
+        orphan = "memes/" + "f" * 24 + ".png"
+        self.cos.keys.add(orphan)
+        self.publish(dry_run=True, prune=True)
+        self.assertEqual(self.cos.keys, {orphan})
+        self.assertFalse(any(op in ("upload", "put", "delete") for op, _ in self.cos.calls))
+        self.publish(prune=True)
+        self.assertNotIn(orphan, self.cos.keys)
+
+    def test_cli_publishes_memes_without_song_catalogue_or_media_tools(self):
+        argv = ["ingest.py", "--out", str(self.root / "assets" / "songs"),
+                "--publish", "--memes", str(self.source)]
+        with mock.patch.object(sys, "argv", argv), \
+             mock.patch.object(ingest, "publish_from_env") as publish, \
+             mock.patch.object(ingest.shutil, "which", side_effect=AssertionError("media tool lookup")):
+            self.assertEqual(ingest.main(), 0)
+        publish.assert_called_once_with(self.out, dry_run=False, prune=False)
+        self.assertTrue((self.out / "catalogue.json").exists())
+
+    def test_cli_dry_run_writes_nothing_locally(self):
+        argv = ["ingest.py", "--out", str(self.root / "assets" / "songs"),
+                "--publish", "--dry-run", "--memes", str(self.source)]
+        with mock.patch.object(sys, "argv", argv), \
+             mock.patch.object(ingest, "publish_from_env") as publish:
+            self.assertEqual(ingest.main(), 0)
+        self.assertFalse(self.out.exists())
+        self.assertEqual(publish.call_args.args[0].name, "memes")
+        self.assertTrue(publish.call_args.kwargs["dry_run"])
 
 
 class TestClipFormat(unittest.TestCase):

@@ -662,6 +662,36 @@ with `--publish --prune --dry-run` first; a real `--publish --prune` also prints
 the full deletion plan before deleting anything. Leave pruning off for normal
 publishes.
 
+### Publishing result Memes
+
+Keep still images (`.webp`, `.jpg`, or `.png`) and a `manifest.json` together in
+one local source folder. Each manifest entry names an image, its Round outcome,
+and its provenance:
+
+```json
+[
+  {"file": "celebration.webp", "outcome": "won", "source": "Owner's photo"},
+  {"file": "missed.jpg", "outcome": "lost", "source": "Owner's drawing"}
+]
+```
+
+To add a Meme, put the image in the source folder and add an entry. Then run:
+
+```sh
+./tools/ingest.py --publish --memes path/to/meme-source --dry-run
+./tools/ingest.py --publish --memes path/to/meme-source
+```
+
+The command validates the whole manifest, hashes the images, and mirrors them
+with `catalogue.json` into `apps/web/public/assets/memes/` for Caddy-local
+development. It uploads only the hashed images COS lacks, verifies that every
+catalogue image is present, and publishes `memes/catalogue.json` last. Repeating
+the command skips existing images. Use `--prune --dry-run` to review orphaned
+COS keys before a real `--prune`; normal publishing leaves them in place. With
+a Song seed, `--publish --memes` publishes both libraries. To roll back from
+COS serving, unset the API host's `COS_*` variables and restart the API; keep
+the local assets directory populated so Caddy can serve both libraries.
+
 **First COS migration (manual, after the current ingest completes):**
 
 1. Create the private bucket, its CORS rule and the two CAM sub-accounts above.
