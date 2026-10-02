@@ -626,6 +626,7 @@ button:disabled {
 }
 .food-zoom {
   position: relative;
+  container-type: inline-size;
   margin: 20px auto 0;
   overflow: hidden;
   background: var(--color-stage-rest);

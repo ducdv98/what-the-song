@@ -12,6 +12,8 @@ export function FoodZoom({ zoom, url }: { zoom: Zoom; url: string | null }) {
   const x = Math.max(fraction / 2, Math.min(1 - fraction / 2, focal.x));
   const y = Math.max(fraction / 2, Math.min(1 - fraction / 2, focal.y));
   const scale = 1 / fraction;
+  // cqw follows the displayed Stage width; dividing by scale keeps the visible blur steady.
+  const blur = (2.5 * 100 / 380) * zoom.obscuring / scale;
 
   return (
     <div
@@ -28,7 +30,7 @@ export function FoodZoom({ zoom, url }: { zoom: Zoom; url: string | null }) {
           style={{
             transform: `translate(${(0.5 - x) * scale * 100}%, ${(0.5 - y) * scale * 100}%) scale(${scale})`,
             filter: zoom.obscuring > 0
-              ? `blur(${2.5 * zoom.obscuring}px) grayscale(${0.9 * zoom.obscuring})`
+              ? `blur(${blur}cqw) grayscale(${0.9 * zoom.obscuring})`
               : undefined,
           }}
           onLoad={(event) => {

@@ -4,12 +4,18 @@
 
 **Blocked by:** 01
 
-**Status:** ready-for-agent
+**Status:** ready-for-human
 
-- [ ] At phone width and desktop width, a given level looks about equally blurry at every crop
-- [ ] With the system reduced-motion setting on, the Stage change is skipped or shortened
-- [ ] Zoom component tests check that the applied blur is compensated for the Stage's zoom, while still asserting only observable behaviour (effect present, absent, or stronger than the previous Stage)
+- [x] At phone width and desktop width, a given level looks about equally blurry at every crop
+- [x] With the system reduced-motion setting on, the Stage change is skipped or shortened
+- [x] Zoom component tests check that the applied blur is compensated for the Stage's zoom, while still asserting only observable behaviour (effect present, absent, or stronger than the previous Stage)
 - [ ] The shared levels are tuned by playing in the browser, and the chosen numbers are noted in the ticket's Comments
 - [ ] The photo stays smooth while Stages change on a low-end phone, or the strength is lowered until it does
-- [ ] The last Stage is still exactly clear
-- [ ] Root typecheck, lint, test and build pass
+- [x] The last Stage is still exactly clear
+- [x] Root typecheck, lint, test and build pass
+
+## Comments
+
+Implemented by Codex, verified by Claude: root typecheck, lint, test and build pass. Blur now uses container-width units (`cqw`) divided by the Stage's scale, so its visible size is steady across crops and widths; reduced motion is covered by the existing universal reduced-motion rule. Shared levels and zoom fractions unchanged.
+
+Open, needs a person with a real browser and phone: tune the shared levels by playing (Stage 1 hard enough, Stage 4 fair) and record the numbers here, and check smoothness on a low-end phone. Known risk: browsers without container-query units (before about 2022-23) drop the whole filter, so early Stages would show clear and in colour.

@@ -12,6 +12,14 @@ import { I18nProvider } from './I18nProvider';
 const [focalDish, centredDish] = validateCatalogue(fixture);
 const photoUrl = '/assets/food/pho/pho.jpg';
 
+function visibleBlur(html: string, displayedWidth: number): number {
+  const blur = /blur\(([\d.]+)(px|cqw)\)/.exec(html);
+  const scale = /scale\(([\d.]+)\)/.exec(html);
+  assert.ok(blur && scale, 'the photo has blur and a crop scale');
+  const radius = Number(blur[1]) * (blur[2] === 'cqw' ? displayedWidth / 100 : 1);
+  return radius * Number(scale[1]);
+}
+
 describe('Food Zoom components', () => {
   test('each Stage sets the CSS crop and the final Stage shows the whole photo', () => {
     const expected = [4, 2.5, 5 / 3, 1.25, 1];
@@ -33,13 +41,26 @@ describe('Food Zoom components', () => {
     assert.match(last, /translate\(0%, 0%\) scale\(1\)/);
   });
 
+  test('the same Obscuring level has the same relative visible blur at every crop and width', () => {
+    const stages = ladderFor(centredDish).slice(0, 4).map((zoom) => ({ ...zoom, obscuring: 0.5 }));
+    const rendered = stages.map((zoom) =>
+      renderToStaticMarkup(createElement(FoodZoom, { zoom, url: photoUrl })));
+    const expectedRelativeBlur = visibleBlur(rendered[0]!, 380) / 380;
+    for (const displayedWidth of [180, 300, 380]) {
+      const relativeBlur = rendered.map((html) => visibleBlur(html, displayedWidth) / displayedWidth);
+      for (const blur of relativeBlur) {
+        assert.ok(Math.abs(blur - expectedRelativeBlur) < 0.000001);
+      }
+    }
+  });
+
   test('each Stage shows a sharper, more colourful photo until fully clear', () => {
     const stages = ladderFor(centredDish);
     const effects = stages.map((zoom) => {
       const html = renderToStaticMarkup(createElement(FoodZoom, { zoom, url: photoUrl }));
-      const blur = /blur\(([\d.]+)px\)/.exec(html);
       const grayscale = /grayscale\(([\d.]+)\)/.exec(html);
-      return { html, blur: blur ? Number(blur[1]) : 0, grayscale: grayscale ? Number(grayscale[1]) : 0 };
+      return { html, blur: zoom.obscuring > 0 ? visibleBlur(html, 380) : 0,
+        grayscale: grayscale ? Number(grayscale[1]) : 0 };
     });
     assert.ok(effects[0]!.blur > 0);
     assert.ok(effects[0]!.grayscale > 0);
@@ -48,6 +69,7 @@ describe('Food Zoom components', () => {
       assert.ok(effects[index]!.grayscale < effects[index - 1]!.grayscale);
     }
     assert.doesNotMatch(effects.at(-1)!.html, /blur\(|grayscale\(/);
+    assert.doesNotMatch(effects.at(-1)!.html, /filter:/);
   });
 
   test('a finished Round shows its photo clear after an early win', () => {
