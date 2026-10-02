@@ -17,7 +17,7 @@ A Subject of the Songs Topic: one title, one artist, optional aliases, a tier an
 _Avoid_: track
 
 **Person**:
-A Subject of the People Topic: one name, optional aliases and one face photo.
+A Subject of the People Topic: a public figure with an established public profile, never a private individual or a minor. One name, optional aliases, one head-and-shoulders face photo, one Tier and one field. The name is the one the public knows them by (a stage name or handle); a real name or other handle is an Alias. A Person, with their photo, is removed on request.
 _Avoid_: celebrity, figure
 
 **Dish**:
@@ -40,7 +40,7 @@ _Avoid_: hint
 The Clue of the Songs Topic: pre-cut audio of fixed length for one Stage of one Song (default 0.1s, 0.5s, 2s, 8s, 16s).
 
 **Reveal**:
-The Clue of the People Topic: the top part of a Person's photo, from the hair down, shown at one Stage until the whole face is visible at the last. The same fractions apply to every Person unless a Person is tuned individually. The full photo is sent to the browser; hiding the rest is not a security boundary.
+The Clue of the People Topic: the top part of a Person's photo, from the hair down, shown at one Stage until the whole face is visible at the last. Every Person's photo is a head-and-shoulders crop, so the same fractions apply to every Person unless a Person is tuned individually. The full photo is sent to the browser; hiding the rest is not a security boundary.
 
 **Zoom**:
 The Clue of the Food Topic: a crop and an Obscuring level for a Dish's photo. The crop zooms out and Obscuring falls Stage by Stage until the whole photo is clear at the last. The same fractions and Obscuring levels apply to every Dish unless a Dish is tuned individually, for instance with its own focal point when the Dish is not at the centre of the photo. Blur and grayscale are applied in the browser only. Like Reveal, the full photo is sent to the browser; hiding detail is not a security boundary.
@@ -50,7 +50,7 @@ _Avoid_: reveal (that is the People Topic's Clue)
 The amount by which a Food Zoom's photo is blurred and drained of colour at a Stage. It is a normalised value from 0 (fully clear) to 1 (strongest effect), and the last Stage is always 0.
 
 **Credit**:
-The photographer, licence and source shown with a Dish's photo once its Round is finished. Every Dish has one, because its photo is used under a Creative Commons licence.
+The photographer, licence and source shown with a Dish's photo once its Round is finished. Every Dish has one, because its photo is used under a Creative Commons licence. A Person has no Credit: their photo is one already published on the internet, used without a licence and without attribution.
 
 **Meme**:
 A still image shown on the result of a Round, chosen by whether the Round was won or lost. Decoration only: it is not a Clue and never affects Score.
@@ -77,10 +77,10 @@ Points for a won Round: Stage-based points, highest on the first Stage and lowes
 Consecutive won Rounds.
 
 **Tier**:
-How well known a Subject is (for a Dish, how widely known across Vietnam and abroad, not how recognisable its photo is): easy, medium, hard, expert or impossible. The scale is the same for every Topic and picks the difficulty a Subject plays under. A Subject with no Tier counts as medium.
+How well known a Subject is (for a Dish, how widely known across Vietnam and abroad, not how recognisable its photo is; for a Person, fame among Vietnamese players in general, not within their own field): easy, medium, hard, expert or impossible. The scale is the same for every Topic and picks the difficulty a Subject plays under. A Subject with no Tier counts as medium.
 
 **Facet**:
-An optional label a Topic puts on its Subjects so players can narrow what they play, such as a Song's genre, a Dish's region or, later, a Person's field. A Subject has at most one value per Facet, and the Food Topic declares one Facet, region (Bắc, Trung, Nam, Tây Nguyên, or Toàn quốc for a Dish with no single home region; a Dish takes a region only when clearly tied to one). A Topic declares which Facets it has; the shared game knows only that a Facet is an optional tag.
+An optional label a Topic puts on its Subjects so players can narrow what they play, such as a Song's genre, a Dish's region or a Person's field. A Subject has at most one value per Facet, and the Food Topic declares one Facet, region (Bắc, Trung, Nam, Tây Nguyên, or Toàn quốc for a Dish with no single home region; a Dish takes a region only when clearly tied to one). The People Topic declares one Facet, field: the area a Person is best known for, one value only even when they span several (Ca sĩ, Diễn viên, MC / Hài, Streamer, Influencer; Thể thao only if athletes are added). "Artist" is not a field value, because a Song already has an artist, its performer. A Topic declares which Facets it has; the shared game knows only that a Facet is an optional tag.
 _Avoid_: genre (for the shared idea; genre is the Songs Topic's Facet)
 
 **Leaderboard**:
