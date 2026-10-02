@@ -43,8 +43,11 @@ The Clue of the Songs Topic: pre-cut audio of fixed length for one Stage of one 
 The Clue of the People Topic: the top part of a Person's photo, from the hair down, shown at one Stage until the whole face is visible at the last. The same fractions apply to every Person unless a Person is tuned individually. The full photo is sent to the browser; hiding the rest is not a security boundary.
 
 **Zoom**:
-The Clue of the Food Topic: a centre crop of a Dish's photo that zooms out Stage by Stage until the whole photo is visible at the last. The same fractions apply to every Dish unless a Dish is tuned individually, for instance with its own focal point when the dish is not at the centre of the photo. Like Reveal, the full photo is sent to the browser.
+The Clue of the Food Topic: a crop and an Obscuring level for a Dish's photo. The crop zooms out and Obscuring falls Stage by Stage until the whole photo is clear at the last. The same fractions and Obscuring levels apply to every Dish unless a Dish is tuned individually, for instance with its own focal point when the Dish is not at the centre of the photo. Blur and grayscale are applied in the browser only. Like Reveal, the full photo is sent to the browser; hiding detail is not a security boundary.
 _Avoid_: reveal (that is the People Topic's Clue)
+
+**Obscuring**:
+The amount by which a Food Zoom's photo is blurred and drained of colour at a Stage. It is a normalised value from 0 (fully clear) to 1 (strongest effect), and the last Stage is always 0.
 
 **Credit**:
 The photographer, licence and source shown with a Dish's photo once its Round is finished. Every Dish has one, because its photo is used under a Creative Commons licence.

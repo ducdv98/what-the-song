@@ -25,7 +25,12 @@ export function FoodZoom({ zoom, url }: { zoom: Zoom; url: string | null }) {
           src={url}
           alt=""
           data-testid="food-photo"
-          style={{ transform: `translate(${(0.5 - x) * scale * 100}%, ${(0.5 - y) * scale * 100}%) scale(${scale})` }}
+          style={{
+            transform: `translate(${(0.5 - x) * scale * 100}%, ${(0.5 - y) * scale * 100}%) scale(${scale})`,
+            filter: zoom.obscuring > 0
+              ? `blur(${2.5 * zoom.obscuring}px) grayscale(${0.9 * zoom.obscuring})`
+              : undefined,
+          }}
           onLoad={(event) => {
             const image = event.currentTarget;
             if (image.naturalWidth && image.naturalHeight) setRatio(image.naturalWidth / image.naturalHeight);

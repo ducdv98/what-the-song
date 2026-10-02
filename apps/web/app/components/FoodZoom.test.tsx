@@ -33,6 +33,33 @@ describe('Food Zoom components', () => {
     assert.match(last, /translate\(0%, 0%\) scale\(1\)/);
   });
 
+  test('each Stage shows a sharper, more colourful photo until fully clear', () => {
+    const stages = ladderFor(centredDish);
+    const effects = stages.map((zoom) => {
+      const html = renderToStaticMarkup(createElement(FoodZoom, { zoom, url: photoUrl }));
+      const blur = /blur\(([\d.]+)px\)/.exec(html);
+      const grayscale = /grayscale\(([\d.]+)\)/.exec(html);
+      return { html, blur: blur ? Number(blur[1]) : 0, grayscale: grayscale ? Number(grayscale[1]) : 0 };
+    });
+    assert.ok(effects[0]!.blur > 0);
+    assert.ok(effects[0]!.grayscale > 0);
+    for (let index = 1; index < effects.length; index++) {
+      assert.ok(effects[index]!.blur < effects[index - 1]!.blur);
+      assert.ok(effects[index]!.grayscale < effects[index - 1]!.grayscale);
+    }
+    assert.doesNotMatch(effects.at(-1)!.html, /blur\(|grayscale\(/);
+  });
+
+  test('a finished Round shows its photo clear after an early win', () => {
+    const round = submitGuess(createRound(focalDish, foodTopic.ladder(focalDish)), 'bun bo hue',
+      (text, dish) => matchGuess(text, dish) ? 'exact' : 'none');
+    assert.equal(round.status, 'won');
+    const html = renderToStaticMarkup(createElement(I18nProvider, null,
+      createElement(ResultCard, { round, foodPhotoUrl: photoUrl, onNext: () => {} })));
+    assert.match(html, /class="result-cover result-food-photo"/);
+    assert.doesNotMatch(html, /blur\(|grayscale\(/);
+  });
+
   test('Credit renders author, licence and source link', () => {
     const round = giveUp(createRound(focalDish, foodTopic.ladder(focalDish)));
     const html = renderToStaticMarkup(createElement(I18nProvider, null,
@@ -43,6 +70,7 @@ describe('Food Zoom components', () => {
     assert.match(html, /rel="noopener noreferrer"/);
     assert.match(html, /data-status="lost"/);
     assert.match(html, /Bún bò Huế/);
+    assert.doesNotMatch(html, /blur\(|grayscale\(/);
   });
 });
 

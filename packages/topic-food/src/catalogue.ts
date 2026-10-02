@@ -23,22 +23,26 @@ export interface Dish {
   /** Bare photo filename in /assets/food/<id>/. */
   photo: string;
   focalPoint?: FocalPoint;
+  obscuringLevels?: number[];
   credit: Credit;
 }
 
 export interface Zoom {
   photo: string;
   fraction: number;
+  obscuring: number;
   focalPoint?: FocalPoint;
 }
 
 /** One shared ladder to tune for every Dish. */
 export const ZOOM_FRACTIONS = [0.25, 0.4, 0.6, 0.8, 1] as const;
+export const OBSCURING_LEVELS = [1, 0.75, 0.5, 0.25, 0] as const;
 
 export function ladderFor(dish: Dish): Zoom[] {
-  return ZOOM_FRACTIONS.map((fraction) => ({
+  return ZOOM_FRACTIONS.map((fraction, index) => ({
     photo: dish.photo,
     fraction,
+    obscuring: (dish.obscuringLevels ?? OBSCURING_LEVELS)[index]!,
     ...(dish.focalPoint ? { focalPoint: dish.focalPoint } : {}),
   }));
 }
@@ -65,6 +69,16 @@ function isSourceUrl(value: unknown): value is string {
   }
 }
 
+function isObscuringLevels(value: unknown): value is number[] {
+  return Array.isArray(value) &&
+    value.length === ZOOM_FRACTIONS.length &&
+    typeof value[0] === 'number' && value[0] > 0 &&
+    value.at(-1) === 0 &&
+    value.every((level: unknown, index: number) =>
+      typeof level === 'number' && Number.isFinite(level) && level >= 0 && level <= 1 &&
+      (index === 0 || level <= value[index - 1]));
+}
+
 /** Validate untrusted Food catalogue data and cross-Dish Alias collisions. */
 export function validateCatalogue(data: unknown): Dish[] {
   if (!Array.isArray(data)) throw new Error('Invalid Food catalogue: expected an array');
@@ -85,6 +99,7 @@ export function validateCatalogue(data: unknown): Dish[] {
             !Number.isFinite(value.focalPoint.x) || !Number.isFinite(value.focalPoint.y) ||
             (value.focalPoint.x as number) < 0 || (value.focalPoint.x as number) > 1 ||
             (value.focalPoint.y as number) < 0 || (value.focalPoint.y as number) > 1)) ||
+        (value.obscuringLevels !== undefined && !isObscuringLevels(value.obscuringLevels)) ||
         !isRecord(value.credit) || !nonEmpty(value.credit.author) ||
         !isPhotoLicence(value.credit.licence) || !isSourceUrl(value.credit.sourceUrl)) {
       throw new Error(`Invalid Food catalogue entry at index ${index}`);

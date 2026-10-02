@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Topic } from '@wts/core';
 import { foodTopic } from './topic.ts';
-import { ZOOM_FRACTIONS, type Dish, type Zoom } from './catalogue.ts';
+import { OBSCURING_LEVELS, ZOOM_FRACTIONS, type Dish, type Zoom } from './catalogue.ts';
 
 const dish: Dish = {
   id: 'bun-bo-hue', name: 'Bún bò Huế', aliases: ['Hue beef noodle soup'],
@@ -13,10 +13,19 @@ const dish: Dish = {
 test('Food satisfies the Topic contract and returns five Zoom Clues', () => {
   const topic: Topic<Dish, Zoom> = foodTopic;
   assert.equal(topic.id, 'food');
-  assert.deepEqual(topic.ladder(dish), ZOOM_FRACTIONS.map((fraction) => ({ photo: dish.photo, fraction })));
+  assert.equal(OBSCURING_LEVELS.length, ZOOM_FRACTIONS.length);
+  const ladder = topic.ladder(dish);
+  assert.equal(ladder.length, 5);
+  assert.deepEqual(ladder.map((stage) => stage.obscuring), [1, 0.75, 0.5, 0.25, 0]);
+  assert.ok(ladder[0]!.obscuring > 0);
+  assert.equal(ladder.at(-1)!.obscuring, 0);
+  assert.ok(ladder.every((stage, index) => index === 0 || stage.obscuring <= ladder[index - 1]!.obscuring));
+  assert.deepEqual(ladder, ZOOM_FRACTIONS.map((fraction, index) => ({
+    photo: dish.photo, fraction, obscuring: [1, 0.75, 0.5, 0.25, 0][index],
+  })));
   const focalPoint = { x: 0, y: 1 };
   assert.deepEqual(topic.ladder({ ...dish, focalPoint }), ZOOM_FRACTIONS.map((fraction) => ({
-    photo: dish.photo, fraction, focalPoint,
+    photo: dish.photo, fraction, focalPoint, obscuring: [1, 0.75, 0.5, 0.25, 0][ZOOM_FRACTIONS.indexOf(fraction)],
   })));
   assert.equal(topic.matches(dish, 'bun bo hue'), true);
   assert.equal(topic.matches(dish, 'bun bo'), false);
@@ -57,6 +66,26 @@ test('validates a catalogue and its required Dish fields', () => {
     { ...dish, focalPoint: { x: NaN, y: 0.5 } },
   ]) {
     assert.throws(() => foodTopic.validateCatalogue([invalid]), /index 0/);
+  }
+});
+
+test('a Dish can override its Obscuring ladder', () => {
+  const tuned = { ...dish, obscuringLevels: [0.6, 0.45, 0.3, 0.1, 0] };
+  assert.deepEqual(foodTopic.validateCatalogue([tuned]), [tuned]);
+  assert.deepEqual(foodTopic.ladder(tuned).map((stage) => stage.obscuring), tuned.obscuringLevels);
+});
+
+test('rejects invalid Obscuring overrides', () => {
+  for (const obscuringLevels of [
+    [0.5, 0.25, 0],
+    [0.5, 0.4, 0.3, 0.2, 0.1],
+    [0.5, 0.4, 1.1, 0.2, 0],
+    [0.5, -0.1, 0.3, 0.2, 0],
+    [0.5, 0.4, NaN, 0.2, 0],
+    [0.5, 0.4, 0.45, 0.2, 0],
+    [0, 0, 0, 0, 0],
+  ]) {
+    assert.throws(() => foodTopic.validateCatalogue([{ ...dish, obscuringLevels }]), /index 0/);
   }
 });
 
