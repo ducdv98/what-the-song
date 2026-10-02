@@ -423,7 +423,7 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
           />
         ))}
         <StreakBar stats={stats} syncFailed={syncFailed} />
-        <Leaderboard version={synced} />
+        <Leaderboard version={synced} topic={topicId} />
         <section className="memes-setting">
           <label htmlFor="memes-toggle" className="field-label">{t('menu.memes')}</label>
           <input

@@ -17,8 +17,10 @@ type Load = { state: 'loading' } | { state: 'error' } | { state: 'ok'; board: Le
  * Refetches when `version` changes — useStats bumps it once the server has
  * stored a round — so a win shows up without a reload. Guests can read it;
  * only signed-in players' rounds are recorded, so only they are on it.
+ *
+ * Shows the board of one Topic: each Topic's page ranks its own Rounds only.
  */
-export function Leaderboard({ version }: { version: number }) {
+export function Leaderboard({ version, topic }: { version: number; topic: string }) {
   const { lang, t } = useI18n();
   const { status, user, available, openDialog } = useAuth();
   const [period, setPeriod] = useState<LeaderboardPeriod>('week');
@@ -28,13 +30,13 @@ export function Leaderboard({ version }: { version: number }) {
   useEffect(() => {
     let live = true;
     authApi
-      .leaderboard(period, back)
+      .leaderboard(period, back, topic)
       .then((board) => live && setLoad({ state: 'ok', board }))
       .catch(() => live && setLoad({ state: 'error' }));
     return () => {
       live = false;
     };
-  }, [period, back, version, user?.id]);
+  }, [period, back, topic, version, user?.id]);
 
   // Usernames are unique case-insensitively (users_username_lower_key).
   const me = user?.username.toLowerCase();

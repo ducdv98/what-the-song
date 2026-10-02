@@ -180,7 +180,7 @@ export function FoodGame({ catalogue }: { catalogue: Dish[] }) {
           options={[{ value: null, label: t('picker.all'), count: catalogue.length }, ...options.map((option) => ({ value: option.value, label: option.labels[lang], hint: option.labels[lang === 'vi' ? 'en' : 'vi'], count: option.count }))]}
         />
         <StreakBar stats={stats} syncFailed={syncFailed} />
-        <Leaderboard version={synced} />
+        <Leaderboard version={synced} topic="food" />
         <section className="memes-setting"><label htmlFor="memes-toggle" className="field-label">{t('menu.memes')}</label><input id="memes-toggle" type="checkbox" checked={memesEnabled} onChange={(event) => onMemes(event.target.checked)} /></section>
         <section style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}><span className="field-label">{t('app.language')}</span><LangToggle /></section>
       </MenuDrawer>
