@@ -6,6 +6,7 @@ import type { Song } from '@wts/topic-songs';
 import type { Dish, Zoom } from '@wts/topic-food';
 import type { PlaybackState } from '@/lib/audio/engine';
 import { retryMemeImage, visibleResultMeme, type MemeOutcome, type ResolvedMeme } from '@/lib/assets/memes';
+import { pickMemeCaption } from '@/lib/i18n/meme-captions';
 import { useI18n } from './I18nProvider';
 import { ResultCard } from './ResultCard';
 
@@ -27,6 +28,7 @@ export function ResultView({ round, memes, ...cardProps }: {
   const [loadedUrl, setLoadedUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
   const [retried, setRetried] = useState(false);
+  const [caption] = useState(() => pickMemeCaption(round.status === 'won' ? 'won' : 'lost'));
   const visible = visibleResultMeme(round.status, memes, resolvedUrl, failed);
   const open = Boolean(visible && loadedUrl === visible.url && !dismissed);
 
@@ -84,7 +86,7 @@ export function ResultView({ round, memes, ...cardProps }: {
       onClick={(event) => { if (event.target === event.currentTarget) dismiss(); }}
     >
       <div className="dialog-header">
-        <strong>{t('result.meme')}</strong>
+        <strong>{caption}</strong>
         <button ref={closeButton} className="icon-btn" type="button" aria-label={t('menu.close')} onClick={dismiss}>✕</button>
       </div>
       {open && visible && <img

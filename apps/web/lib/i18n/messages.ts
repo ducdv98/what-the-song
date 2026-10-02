@@ -136,7 +136,7 @@ const vi = {
   'food.shareText': `${APP_NAME} · {tier}\n{squares} · {outcome} · {score} điểm`,
   'food.shareWon': 'Đúng (ảnh {at})',
   'result.heading': 'Kết quả',
-  'result.meme': 'Ảnh vui',
+  'result.meme': 'Meme',
   'result.history': 'Các lần đoán',
   'result.correct': 'Đúng',
   'result.wrong': 'Sai',
@@ -233,7 +233,7 @@ const vi = {
   'menu.open': 'Mở menu',
   'menu.close': 'Đóng menu',
   'menu.title': 'Cài đặt & thống kê',
-  'menu.memes': 'Ảnh vui sau mỗi ván',
+  'menu.memes': 'Meme sau mỗi ván',
   'menu.howTo': 'Cách chơi',
   'menu.howToBody':
     'Bấm phát để nghe, rồi tìm và chọn bài hát để đoán. Đoán sai hoặc bỏ qua sẽ mở đoạn dài hơn và giảm điểm có thể nhận. Độ dài đoạn nhạc tùy theo bài. Đổi độ khó hoặc thể loại sẽ bắt đầu bài mới.',
