@@ -340,7 +340,7 @@ describe('rounds and stats', () => {
     subjectId: 'noi-nay-co-anh',
     won: true,
     score: 800,
-    difficulty: 'medium',
+    difficulty: 'impossible',
     facet: 'nhac-tre',
   };
 
@@ -457,6 +457,56 @@ describe('rounds and stats', () => {
     }
   });
 
+  it('stores scaled wins, clamps old clients, and rejects wins below the Tier floor', async () => {
+    const before = (
+      await http()
+        .get('/api/stats/me')
+        .set('Cookie', cookieHeader(jar))
+        .expect(200)
+    ).body.stats.totalScore;
+    const scaled = await http()
+      .post('/api/rounds')
+      .set('Cookie', cookieHeader(jar))
+      .send({ ...round, difficulty: 'easy', score: 20 })
+      .expect(201);
+    expect(scaled.body.stats.totalScore).toBe(before + 20);
+    const old = await http()
+      .post('/api/rounds')
+      .set('Cookie', cookieHeader(jar))
+      .send({ ...round, difficulty: 'easy', score: 1000 })
+      .expect(201);
+    expect(old.body.stats.totalScore).toBe(before + 420);
+    const saved = await db.query(
+      `SELECT score FROM rounds WHERE difficulty = 'easy' ORDER BY played_at DESC, id DESC LIMIT 2`,
+    );
+    expect(
+      saved
+        .map((row: { score: number }) => row.score)
+        .sort((a: number, b: number) => a - b),
+    ).toEqual([20, 400]);
+    const topic = await http()
+      .get('/api/stats/me?topic=songs')
+      .set('Cookie', cookieHeader(jar))
+      .expect(200);
+    expect(topic.body.stats.totalScore).toBe(old.body.stats.totalScore);
+    const board = await http().get('/api/leaderboard?period=week').expect(200);
+    expect(
+      board.body.rows.find(
+        (row: { username: string }) => row.username === 'alice',
+      ).points,
+    ).toBe(old.body.stats.totalScore);
+    await http()
+      .post('/api/rounds')
+      .set('Cookie', cookieHeader(jar))
+      .send({ ...round, difficulty: 'easy', score: 19 })
+      .expect(400);
+    await http()
+      .post('/api/rounds')
+      .set('Cookie', cookieHeader(jar))
+      .send({ ...round, won: false, score: 20 })
+      .expect(400);
+  });
+
   it('accepts an omitted Topic as Songs and an explicit Songs Topic', async () => {
     const omitted = await http()
       .post('/api/rounds')
@@ -520,7 +570,7 @@ describe('leaderboard', () => {
         subjectId: 'noi-nay-co-anh',
         won: score > 0,
         score,
-        difficulty: 'medium',
+        difficulty: 'impossible',
         facet: null,
       })
       .expect(201);

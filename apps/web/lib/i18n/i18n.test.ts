@@ -108,4 +108,14 @@ describe('message catalogue', () => {
     const out = translate('en', 'no.such.key' as MessageKey);
     assert.equal(out, 'no.such.key');
   });
+
+  test('both languages explain Tier multipliers and the picker hints at points', () => {
+    for (const lang of LANGUAGES) {
+      const answer = translate(lang, 'faq.score.answer');
+      for (const multiplier of ['0.4', '0.6', '0.8', '0.9', '1.0']) {
+        assert.ok(answer.includes(multiplier), `${lang} omits ${multiplier}`);
+      }
+      assert.ok(translate(lang, 'picker.tierScoreHint' as MessageKey).length > 20);
+    }
+  });
 });

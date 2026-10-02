@@ -2,7 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { EMPTY_STATS } from '@wts/core';
 import { loadStats, saveStats, clearStats } from './guest-stats.ts';
-import { loadPrefs, savePrefs, DEFAULT_PREFS } from './prefs.ts';
+import { loadPrefs, savePrefs, DEFAULT_PREFS, isInstallHintDismissed, dismissInstallHint } from './prefs.ts';
 
 describe('storage degrades instead of throwing', () => {
   // There is no localStorage in Node — the same situation as a private window
@@ -90,6 +90,16 @@ describe('prefs', () => {
   test('a tier round-trips', () => {
     withStorage(() => {
       savePrefs({ genre: 'bolero', tier: 'expert', memes: false });
+      assert.deepEqual(loadPrefs(), { genre: 'bolero', tier: 'expert', memes: false });
+    });
+  });
+
+  test('install dismissal survives a new view without changing picker choices', () => {
+    withStorage(() => {
+      assert.equal(isInstallHintDismissed(), false);
+      savePrefs({ genre: 'bolero', tier: 'expert', memes: false });
+      dismissInstallHint();
+      assert.equal(isInstallHintDismissed(), true);
       assert.deepEqual(loadPrefs(), { genre: 'bolero', tier: 'expert', memes: false });
     });
   });

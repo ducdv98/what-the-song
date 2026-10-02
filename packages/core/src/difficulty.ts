@@ -1,8 +1,8 @@
 /**
  * Tier is a property of a Subject: how well known it is.
  *
- * Picking a tier selects a pool of Subjects. Round rules are identical at
- * every tier. A Subject without a tier counts as medium.
+ * Picking a tier selects a pool of Subjects and scales Stage-based Score by
+ * that Tier's multiplier. A Subject without a tier counts as medium.
  */
 
 export const TIER_SLUGS = ['easy', 'medium', 'hard', 'expert', 'impossible'] as const;
@@ -26,6 +26,15 @@ export const TIERS: readonly Tier[] = [
 
 /** What an untagged Subject counts as. */
 export const DEFAULT_TIER: TierSlug = 'medium';
+
+/** Score multiplier for each Tier, shared by Round scoring and API validation. */
+export const TIER_MULTIPLIERS: Readonly<Record<TierSlug, number>> = {
+  easy: 0.4,
+  medium: 0.6,
+  hard: 0.8,
+  expert: 0.9,
+  impossible: 1.0,
+};
 
 export function isTier(value: unknown): value is TierSlug {
   return typeof value === 'string' && (TIER_SLUGS as readonly string[]).includes(value);

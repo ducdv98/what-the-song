@@ -12,8 +12,8 @@ It depends on two workspace packages:
   return its response types, so the web client and this service are checked
   against one definition.
 - **`@wts/core`** — the game's own rules. Round reports are validated against
-  the real `TIER_SLUGS`, `BEST_SCORE` and `WORST_SCORE` the browser played
-  with, not a copy.
+  the real `TIER_SLUGS`, global `BEST_SCORE` and per-Tier Score bounds the browser
+  played with, not a copy.
 
 ## What it does
 
@@ -79,7 +79,8 @@ There is no CORS configuration because nothing legitimate is cross-origin.
 **Rounds.** The game is played in the browser, so the server cannot prove a
 result is honest (among friends that is accepted — `docs/RESEARCH.md` §10.5). It
 does refuse the impossible: scores off the 0–1000 scale, a scoring loss, a win
-below the 50-point floor, unknown tiers. Totals are updated with one
+below its Tier's floor, unknown tiers. Old-client wins above their Tier ceiling
+are clamped to that ceiling before storage and totals update. Totals use one
 atomic `INSERT … ON CONFLICT DO UPDATE` computed in SQL, so concurrent rounds
 cannot lose updates, whichever instance handles them.
 

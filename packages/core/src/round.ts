@@ -9,14 +9,21 @@
 
 import type { MatchQuality } from './match-quality.ts';
 import type { Subject } from './topic.ts';
+import { DEFAULT_TIER, TIER_MULTIPLIERS, tierOf, type TierSlug } from './difficulty.ts';
 
 /** A Topic's matching rule, including the quality recorded for feedback. */
 export type RoundMatcher<S extends Subject> = (guess: string, subject: S) => MatchQuality;
 
 /** A first-stage win — the most one round can score. */
 export const BEST_SCORE = 1000;
-/** A last-stage win — the least a win can score. */
+/** Unscaled last-stage Score; lower Tiers have a lower floor. */
 export const WORST_SCORE = 50;
+
+/** Valid Score bounds for a winning Round at one Tier. */
+export function scoreBoundsForTier(tier: TierSlug): { floor: number; ceiling: number } {
+  const multiplier = TIER_MULTIPLIERS[tier];
+  return { floor: Math.round(WORST_SCORE * multiplier), ceiling: Math.round(BEST_SCORE * multiplier) };
+}
 
 /**
  * Points for winning at a given stage.
@@ -24,10 +31,11 @@ export const WORST_SCORE = 50;
  * Decays geometrically from BEST_SCORE on the first stage to WORST_SCORE on
  * the last, so guessing from the first Clue always counts for most.
  */
-export function scoreForStep(stageIndex: number, stages: number): number {
-  if (stages <= 1) return BEST_SCORE;
+export function scoreForStep(stageIndex: number, stages: number, tier: TierSlug = DEFAULT_TIER): number {
+  if (stages <= 1) return Math.round(BEST_SCORE * TIER_MULTIPLIERS[tier]);
   const frac = Math.min(stageIndex, stages - 1) / (stages - 1);
-  return Math.round(BEST_SCORE * (WORST_SCORE / BEST_SCORE) ** frac);
+  const stageScore = Math.round(BEST_SCORE * (WORST_SCORE / BEST_SCORE) ** frac);
+  return Math.round(stageScore * TIER_MULTIPLIERS[tier]);
 }
 
 export type RoundStatus = 'playing' | 'won' | 'lost';
@@ -91,7 +99,7 @@ export function submitGuess<S extends Subject, C>(round: Round<S, C>, guess: str
     return {
       ...round,
       status: 'won',
-      score: scoreForStep(round.stageIndex, round.stages.length),
+      score: scoreForStep(round.stageIndex, round.stages.length, tierOf(round.subject)),
       attempts: [...round.attempts, { text, kind: 'guess', at, quality }],
     };
   }

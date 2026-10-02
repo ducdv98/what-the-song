@@ -9,6 +9,8 @@
 /** The one thing a Round asks the player to guess. Every Topic's catalogue entry extends this. */
 export interface Subject {
   id: string;
+  /** Optional Tier; an untagged Subject counts as medium. */
+  tier?: string | null;
   /** Hand-curated extra accepted names. */
   aliases?: string[];
 }

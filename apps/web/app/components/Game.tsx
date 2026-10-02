@@ -297,7 +297,7 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
               </p>
               <span className="points-tag">
                 {t('round.points', {
-                  n: scoreForStep(round.stageIndex, round.stages.length),
+                  n: scoreForStep(round.stageIndex, round.stages.length, tierOf(round.subject)),
                 })}
               </span>
             </div>
@@ -348,6 +348,7 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
                     points: scoreForStep(
                       round.stageIndex + 1,
                       round.stages.length,
+                      tierOf(round.subject),
                     ),
                   })
                 : t('round.finalHint')}

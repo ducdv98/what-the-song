@@ -57,7 +57,7 @@ _Avoid_: correct answer
 A hand-curated extra accepted title or name for a Subject, such as a bilingual title, a nickname or a stage name.
 
 **Score**:
-Points for a won Round, highest on the first Stage and lowest on the last. Feeds the Leaderboard.
+Points for a won Round: Stage-based points, highest on the first Stage and lowest on the last, scaled by the Subject's Tier multiplier. Feeds the Leaderboard.
 
 **Streak**:
 Consecutive won Rounds.

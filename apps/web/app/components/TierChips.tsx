@@ -42,6 +42,7 @@ export function TierChips({
           </button>
         ))}
       </div>
+      <p className="field-label">{t('picker.tierScoreHint')}</p>
     </div>
   );
 }

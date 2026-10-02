@@ -10,6 +10,23 @@
 import { isTier, type TierSlug } from '@wts/core';
 
 const KEY = 'what-the-song:prefs:v1';
+const INSTALL_HINT_KEY = 'what-the-song:install-hint-dismissed:v1';
+
+export function isInstallHintDismissed(): boolean {
+  try {
+    return localStorage.getItem(INSTALL_HINT_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export function dismissInstallHint(): void {
+  try {
+    localStorage.setItem(INSTALL_HINT_KEY, 'true');
+  } catch {
+    // The hint still closes for this view when storage is unavailable.
+  }
+}
 
 export interface Prefs {
   /** null means "all genres". */

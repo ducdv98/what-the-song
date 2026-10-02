@@ -9,6 +9,7 @@ import { useI18n } from '../components/I18nProvider';
 import { AccountBar } from '../components/AccountBar';
 import { GuestNotice } from '../components/GuestNotice';
 import { SiteFooter } from '../components/SiteFooter';
+import { InstallHint } from '../components/InstallHint';
 import { MenuButton, MenuProvider } from '../components/GameMenu';
 
 /** Runtime catalogue keeps the static build independent of the clip library. */
@@ -21,6 +22,12 @@ export function TopicPage({ topicId }: { topicId: TopicId }) {
   const [error, setError] = useState(false);
   const [reloadVersion, setReloadVersion] = useState(0);
   useEffect(() => {
+    // A cached shell can open offline, but Rounds need fresh catalogue and
+    // clips. Show the dedicated explanation instead of a library error.
+    if (!navigator.onLine) {
+      window.location.replace('/offline.html');
+      return;
+    }
     setError(false);
     setCatalogue(null);
     const controller = new AbortController();
@@ -37,7 +44,10 @@ export function TopicPage({ topicId }: { topicId: TopicId }) {
         setCatalogue(topic.validateCatalogue(data));
       })
       .catch(() => {
-        if (!controller.signal.aborted) setError(true);
+        if (!controller.signal.aborted) {
+          if (!navigator.onLine) window.location.replace('/offline.html');
+          else setError(true);
+        }
       });
     return () => controller.abort();
   }, [reloadVersion, topic, topicId]);
@@ -110,6 +120,7 @@ export function TopicPage({ topicId }: { topicId: TopicId }) {
             <GuestNotice />
           </div>
         </div>
+        <InstallHint />
         <SiteFooter />
       </main>
     </MenuProvider>

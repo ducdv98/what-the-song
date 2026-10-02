@@ -31,6 +31,9 @@ commercial, not public.
 the account service end to end against a real Postgres. The game still builds
 to a static export.
 
+See [`docs/PWA.md`](docs/PWA.md) for installability, worker caching and icon
+updates.
+
 Read [`docs/RESEARCH.md`](docs/RESEARCH.md) before changing anything in
 `packages/topic-songs/src/matching.ts` or `tools/ingest.py`. Both exist in the shape
 they do for specific reasons, and §10 records the decisions that got them here.

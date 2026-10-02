@@ -2,7 +2,7 @@ import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   createRound, submitGuess, skip, giveUp, currentClue, isLastStage,
-  scoreForStep, BEST_SCORE, WORST_SCORE,
+  scoreForStep, BEST_SCORE,
 } from './round.ts';
 
 const subject = { id: 'subject-1', name: 'Correct' };
@@ -34,20 +34,20 @@ describe('round setup', () => {
 });
 
 describe('winning', () => {
-  test('typing the right guess on the first stage scores the maximum', () => {
+  test('an untagged Subject scores as medium on the first Stage', () => {
     const r = submitGuess(createRound(subject, [0.1, 0.5, 2, 8, 16]), 'Correct', matcher);
     assert.equal(r.status, 'won');
-    assert.equal(r.score, BEST_SCORE);
+    assert.equal(r.score, 600);
     assert.deepEqual(r.attempts, [{ text: 'Correct', kind: 'guess', at: 0.1, quality: 'exact' }]);
   });
 
-  test('later wins score less, down to the floor on the last stage', () => {
+  test('an untagged Subject scores as medium on the last Stage', () => {
     let r = createRound(subject, [0.1, 0.5, 2, 8, 16]);
     for (let i = 0; i < 4; i++) r = skip(r);
     assert.ok(isLastStage(r));
     const won = submitGuess(r, 'Correct', matcher);
     assert.equal(won.status, 'won');
-    assert.equal(won.score, WORST_SCORE);
+    assert.equal(won.score, 30);
   });
 });
 
@@ -130,23 +130,60 @@ describe('scoring', () => {
       const clues = Array.from({ length }, (_, i) => `clue-${i}`);
       const first = createRound(subject, clues);
       assert.deepEqual(first.stages, clues);
-      assert.equal(submitGuess(first, 'Correct', matcher).score, BEST_SCORE);
+      assert.equal(submitGuess(first, 'Correct', matcher).score, 600);
 
       let last = first;
       for (let i = 1; i < length; i++) last = skip(last);
-      assert.equal(submitGuess(last, 'Correct', matcher).score, length === 1 ? BEST_SCORE : WORST_SCORE);
+      assert.equal(submitGuess(last, 'Correct', matcher).score, length === 1 ? 600 : 30);
       assert.equal(last.stages.length, length);
     }
   });
   test('decays from best to worst across the stages', () => {
-    const scores = [0, 1, 2, 3, 4].map((i) => scoreForStep(i, 5));
-    assert.equal(scores[0], BEST_SCORE);
-    assert.equal(scores[4], WORST_SCORE);
+    const scores = [0, 1, 2, 3, 4].map((i) => scoreForStep(i, 5, 'medium'));
+    assert.equal(scores[0], 600);
+    assert.equal(scores[4], 30);
     for (let i = 1; i < 5; i++) assert.ok(scores[i] < scores[i - 1]);
   });
 
-  test('a one-stage round still awards the top score', () => {
+  test('scales the rounded Stage score', () => {
+    assert.equal(scoreForStep(1, 3, 'expert'), 202);
+  });
+
+  test('a one-stage untagged Round awards the medium ceiling', () => {
     const r = submitGuess(createRound(subject, [4]), 'Correct', matcher);
-    assert.equal(r.score, BEST_SCORE);
+    assert.equal(r.score, 600);
+  });
+
+  test('each Tier scales first and last Stage, with impossible retaining the global ceiling', () => {
+    const cases = [
+      ['easy', 400, 20], ['medium', 600, 30], ['hard', 800, 40],
+      ['expert', 900, 45], ['impossible', 1000, 50],
+    ] as const;
+    for (const [tier, first, last] of cases) {
+      const start = createRound({ ...subject, tier }, [1, 2, 3, 4, 5]);
+      assert.equal(submitGuess(start, 'Correct', matcher).score, first);
+      let end = start;
+      for (let i = 1; i < 5; i++) end = skip(end);
+      assert.equal(submitGuess(end, 'Correct', matcher).score, last);
+    }
+    assert.equal(BEST_SCORE, 1000);
+  });
+
+  test('Score falls by Stage and rises by Tier for every ladder length', () => {
+    for (const length of [1, 3, 5, 7]) {
+      const tiers = ['easy', 'medium', 'hard', 'expert', 'impossible'] as const;
+      const rows = tiers.map((tier) => Array.from({ length }, (_, stage) => scoreForStep(stage, length, tier)));
+      for (const row of rows) for (let stage = 1; stage < length; stage++) assert.ok(row[stage] <= row[stage - 1]);
+      for (let tier = 1; tier < rows.length; tier++) for (let stage = 0; stage < length; stage++) {
+        assert.ok(rows[tier][stage] > rows[tier - 1][stage]);
+      }
+    }
+  });
+
+  test('losing at any Tier scores zero', () => {
+    for (const tier of ['easy', 'medium', 'hard', 'expert', 'impossible']) {
+      assert.equal(giveUp(createRound({ ...subject, tier }, [1])).score, 0);
+      assert.equal(skip(createRound({ ...subject, tier }, [1])).score, 0);
+    }
   });
 });
