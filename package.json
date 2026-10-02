@@ -15,7 +15,7 @@
     "lint": "turbo run lint",
     "test": "turbo run test && npm run test:ingest",
     "test:e2e": "turbo run test:e2e",
-    "test:ingest": "python tools/test_ingest.py && python tools/test_validate_seed.py && python tools/test_ingest_food.py && python tools/test_validate_food_seed.py",
+    "test:ingest": "python tools/test_ingest.py && python tools/test_validate_seed.py && python tools/test_ingest_food.py && python tools/test_validate_food_seed.py && python tools/test_ingest_people.py && python tools/test_validate_people_seed.py",
     "validate": "python tools/validate_seed.py seed.jsonl",
     "docker:build": "docker compose build",
     "docker:up": "docker compose up -d",
