@@ -55,7 +55,7 @@ describe('recording a round with a Topic', () => {
   it('rejects an unknown Topic before writing', async () => {
     const { service, transaction } = setup();
     await expect(
-      service.record('player', { ...round, topic: 'people' }),
+      service.record('player', { ...round, topic: 'unknown' }),
     ).rejects.toMatchObject({
       response: { code: 'unknown_topic' },
       status: 400,
@@ -72,6 +72,17 @@ describe('recording a round with a Topic', () => {
       topic: 'food', subjectId: 'bun-bo-hue', facet: 'trung',
     });
     expect(query.mock.calls[1]?.[1]).toEqual(['player', 'food', 1, 800]);
+  });
+
+  it('accepts People as a Topic in a round report', async () => {
+    const { service, insert, query } = setup();
+    await expect(service.record('player', {
+      ...round, topic: 'people', subjectId: 'hoa-minzy', facet: 'ca-si',
+    })).resolves.toMatchObject({ played: 1 });
+    expect(insert.mock.calls[0]?.[1]).toMatchObject({
+      topic: 'people', subjectId: 'hoa-minzy', facet: 'ca-si',
+    });
+    expect(query.mock.calls[1]?.[1]).toEqual(['player', 'people', 1, 800]);
   });
 
   it('stores an in-range win as reported', async () => {
@@ -137,7 +148,7 @@ describe('recording a round with a Topic', () => {
       userId: 'player',
       topic: 'songs',
     });
-    await expect(service.get('player', 'people')).rejects.toMatchObject({
+    await expect(service.get('player', 'unknown')).rejects.toMatchObject({
       response: { code: 'unknown_topic' },
       status: 400,
     });

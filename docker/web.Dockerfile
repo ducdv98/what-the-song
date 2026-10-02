@@ -23,7 +23,7 @@ RUN npm ci
 COPY --from=prune /app/out/full/ .
 # Shared compiler settings; turbo prune only carries workspace directories.
 COPY tsconfig.base.json ./
-# Turbo builds @wts/core, @wts/topic-songs, @wts/topics and @wts/contracts first.
+# Turbo builds the Topic packages, @wts/core, @wts/topics and @wts/contracts first.
 # next.config.ts sets output: 'export', so this writes a fully static site to
 # apps/web/out — no Node process is needed to serve it.
 RUN npx turbo run build --filter=@wts/web

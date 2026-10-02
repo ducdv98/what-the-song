@@ -1,8 +1,8 @@
 {
-  "name": "@wts/topics",
+  "name": "@wts/topic-people",
   "version": "0.0.1",
   "private": true,
-  "description": "Registry of playable Topics",
+  "description": "People catalogue, matching, reveal clues and fields",
   "type": "module",
   "exports": {
     ".": {
@@ -18,10 +18,7 @@
     "test": "node --experimental-strip-types --disable-warning=ExperimentalWarning --test \"src/**/*.test.ts\""
   },
   "dependencies": {
-    "@wts/core": "*",
-    "@wts/topic-food": "*",
-    "@wts/topic-people": "*",
-    "@wts/topic-songs": "*"
+    "@wts/core": "*"
   },
   "devDependencies": {
     "@types/node": "^22.18.0",

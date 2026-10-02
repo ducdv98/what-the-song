@@ -18,7 +18,7 @@ COPY --from=prune /app/out/json/ .
 RUN npm ci
 COPY --from=prune /app/out/full/ .
 COPY tsconfig.base.json ./
-# Builds @wts/core, @wts/topic-songs, @wts/topics and @wts/contracts first.
+# Builds the Topic packages, @wts/core, @wts/topics and @wts/contracts first.
 RUN npx turbo run build --filter=@wts/api && npm prune --omit=dev
 
 # ── Stage 3: run ─────────────────────────────────────────────────────────────

@@ -1,6 +1,6 @@
 # `@wts/topic-people`: Person, matcher, catalogue validator
 
-Status: ready-for-agent
+Status: done
 
 Add `@wts/topic-people` exporting one value that satisfies the core `Topic` contract, and register it in `@wts/topics`. Model it on `@wts/topic-food`.
 
@@ -14,3 +14,7 @@ Add `@wts/topic-people` exporting one value that satisfies the core `Topic` cont
 ## Done when
 - Unit tests cover matching (diacritics, tone placement, no partial credit), the ladder and override, the Facet, and each validation failure.
 - The registry lists `people`, and the API accepts `people` as a Topic id in round reports with no migration.
+
+## Comments
+
+Implemented by Codex, verified by Claude: typecheck and full test suite pass; standards and spec reviews found nothing. The API e2e test was updated but not run (no `TEST_DATABASE_URL` here). No renderer or page yet (issue 03).

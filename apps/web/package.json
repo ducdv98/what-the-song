@@ -15,6 +15,7 @@
     "@wts/contracts": "*",
     "@wts/core": "*",
     "@wts/topic-food": "*",
+    "@wts/topic-people": "*",
     "@wts/topic-songs": "*",
     "@wts/topics": "*",
     "next": "^15.5.4",

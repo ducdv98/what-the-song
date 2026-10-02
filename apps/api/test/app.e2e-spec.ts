@@ -521,22 +521,36 @@ describe('rounds and stats', () => {
     expect(explicit.body.stats.played).toBe(omitted.body.stats.played + 1);
   });
 
+  it('accepts People as a Topic in round reports without a migration', async () => {
+    await http()
+      .post('/api/rounds')
+      .set('Cookie', cookieHeader(jar))
+      .send({ ...round, topic: 'people', subjectId: 'hoa-minzy', facet: 'ca-si' })
+      .expect(201);
+    const rows = await db.query(
+      `SELECT topic, subject_id, facet FROM rounds WHERE topic = 'people' AND subject_id = 'hoa-minzy'`,
+    );
+    expect(rows).toContainEqual(expect.objectContaining({
+      topic: 'people', subject_id: 'hoa-minzy', facet: 'ca-si',
+    }));
+  });
+
   it('rejects an unknown Topic with a typed error and no recorded round', async () => {
     const before = await db.query(`SELECT count(*)::int AS n FROM rounds`);
     const res = await http()
       .post('/api/rounds')
       .set('Cookie', cookieHeader(jar))
-      .send({ ...round, topic: 'people' })
+      .send({ ...round, topic: 'unknown' })
       .expect(400);
     expect(res.body).toMatchObject({ statusCode: 400, code: 'unknown_topic' });
     const after = await db.query(`SELECT count(*)::int AS n FROM rounds`);
     expect(after[0].n).toBe(before[0].n);
     const stats = await http()
-      .get('/api/stats/me?topic=people')
+      .get('/api/stats/me?topic=unknown')
       .set('Cookie', cookieHeader(jar))
       .expect(400);
     expect(stats.body.code).toBe('unknown_topic');
-    const board = await http().get('/api/leaderboard?topic=people').expect(400);
+    const board = await http().get('/api/leaderboard?topic=unknown').expect(400);
     expect(board.body.code).toBe('unknown_topic');
     const malformed = await http()
       .get('/api/stats/me?topic=Bad%20Topic')
