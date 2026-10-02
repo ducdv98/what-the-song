@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useI18n } from './I18nProvider';
+import { InstallLink } from './InstallLink';
 import { LangToggle } from './LangToggle';
 
 export function SiteFooter() {
@@ -19,6 +20,7 @@ export function SiteFooter() {
         <Link href="/terms" aria-current={pathname === '/terms' ? 'page' : undefined}>
           {t('terms.label')}
         </Link>
+        <InstallLink />
       </nav>
       <LangToggle />
     </footer>

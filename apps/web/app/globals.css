@@ -208,6 +208,24 @@ button:disabled {
   color: var(--ink-900);
   text-underline-offset: 4px;
 }
+.footer-install {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: var(--ink-900);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  cursor: pointer;
+}
+.footer-install__help {
+  flex-basis: 100%;
+  margin: 0;
+  font: var(--t-caption);
+}
 .footer-links a[aria-current='page'] {
   text-decoration-thickness: 3px;
 }
