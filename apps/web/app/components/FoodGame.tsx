@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  createRound, currentClue, filterByTier, giveUp, isLastStage, scoreForStep,
+  createRound, currentClue, filterByTier, pickSubject, giveUp, isLastStage, scoreForStep,
   skip, submitGuess, tierCounts, tierOf, type Round, type TierSlug,
 } from '@wts/core';
 import { foodTopic, matchGuess, type Dish, type Zoom } from '@wts/topic-food';
@@ -21,17 +21,13 @@ import { TierChips } from './TierChips';
 import { useI18n } from './I18nProvider';
 import { useStats } from './useStats';
 
-function pickRandom(items: Dish[], excludeId?: string): Dish | undefined {
-  const pool = excludeId ? items.filter((dish) => dish.id !== excludeId) : items;
-  const from = pool.length ? pool : items;
-  return from[Math.floor(Math.random() * from.length)];
-}
-
 export function FoodGame({ catalogue }: { catalogue: Dish[] }) {
   const [region, setRegion] = useState<string | null>(null);
   const [savedTier, setSavedTier] = useState<TierSlug | null>(null);
   const [memesEnabled, setMemesEnabled] = useState(true);
   const [prefsReady, setPrefsReady] = useState(false);
+  // Ids already played, so a Subject is not repeated until the pool is used up.
+  const playedRef = useRef(new Set<string>());
   const [round, setRound] = useState<Round<Dish, Zoom> | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [roundMemes, setRoundMemes] = useState<Record<MemeOutcome, { meme: Meme; url: string } | null>>({ won: null, lost: null });
@@ -55,11 +51,11 @@ export function FoodGame({ catalogue }: { catalogue: Dish[] }) {
     tiers.find((item) => item.count > 0)?.tier.slug || 'medium';
   const dishes = useMemo(() => filterByTier(inRegion, tier), [inRegion, tier]);
 
-  const newRound = useCallback((excludeId?: string) => {
+  const newRound = useCallback(() => {
     setError(null);
     setPhotoUrl(null);
     setRoundMemes({ won: null, lost: null });
-    const dish = pickRandom(dishes, excludeId);
+    const dish = pickSubject(dishes, playedRef.current);
     setRound(dish ? createRound(dish, foodTopic.ladder(dish)) : null);
   }, [dishes]);
 
@@ -169,7 +165,7 @@ export function FoodGame({ catalogue }: { catalogue: Dish[] }) {
         </>
       )}
 
-      {round && over && <ResultView round={round} foodPhotoUrl={photoUrl} memes={memesEnabled ? roundMemes : undefined} onNext={() => newRound(round.subject.id)} />}
+      {round && over && <ResultView round={round} foodPhotoUrl={photoUrl} memes={memesEnabled ? roundMemes : undefined} onNext={() => newRound()} />}
       {error && <p role="alert" className="inline-error">{error}</p>}
       <p className="game-stats"><span>{t('stats.streak')} <strong>{stats.currentStreak}</strong></span>{' · '}<span>{t('stats.best')} <strong>{stats.bestStreak}</strong></span></p>
 

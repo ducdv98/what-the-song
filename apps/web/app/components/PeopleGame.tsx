@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  createRound, currentClue, filterByTier, giveUp, isLastStage, scoreForStep,
+  createRound, currentClue, filterByTier, pickSubject, giveUp, isLastStage, scoreForStep,
   skip, submitGuess, tierCounts, tierOf, type Round, type TierSlug,
 } from '@wts/core';
 import { peopleTopic, matchGuess, type Person, type Reveal } from '@wts/topic-people';
@@ -21,17 +21,13 @@ import { TierChips } from './TierChips';
 import { useI18n } from './I18nProvider';
 import { useStats } from './useStats';
 
-function pickRandom(items: Person[], excludeId?: string): Person | undefined {
-  const pool = excludeId ? items.filter((person) => person.id !== excludeId) : items;
-  const from = pool.length ? pool : items;
-  return from[Math.floor(Math.random() * from.length)];
-}
-
 export function PeopleGame({ catalogue }: { catalogue: Person[] }) {
   const [field, setField] = useState<string | null>(null);
   const [savedTier, setSavedTier] = useState<TierSlug | null>(null);
   const [memesEnabled, setMemesEnabled] = useState(true);
   const [prefsReady, setPrefsReady] = useState(false);
+  // Ids already played, so a Subject is not repeated until the pool is used up.
+  const playedRef = useRef(new Set<string>());
   const [round, setRound] = useState<Round<Person, Reveal> | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [roundMemes, setRoundMemes] = useState<Record<MemeOutcome, { meme: Meme; url: string } | null>>({ won: null, lost: null });
@@ -55,11 +51,11 @@ export function PeopleGame({ catalogue }: { catalogue: Person[] }) {
     tiers.find((item) => item.count > 0)?.tier.slug || 'medium';
   const people = useMemo(() => filterByTier(inField, tier), [inField, tier]);
 
-  const newRound = useCallback((excludeId?: string) => {
+  const newRound = useCallback(() => {
     setError(null);
     setPhotoUrl(null);
     setRoundMemes({ won: null, lost: null });
-    const person = pickRandom(people, excludeId);
+    const person = pickSubject(people, playedRef.current);
     setRound(person ? createRound(person, peopleTopic.ladder(person)) : null);
   }, [people]);
 
@@ -169,7 +165,7 @@ export function PeopleGame({ catalogue }: { catalogue: Person[] }) {
         </>
       )}
 
-      {round && over && <ResultView round={round} peoplePhotoUrl={photoUrl} memes={memesEnabled ? roundMemes : undefined} onNext={() => newRound(round.subject.id)} />}
+      {round && over && <ResultView round={round} peoplePhotoUrl={photoUrl} memes={memesEnabled ? roundMemes : undefined} onNext={() => newRound()} />}
       {error && <p role="alert" className="inline-error">{error}</p>}
       <p className="game-stats"><span>{t('stats.streak')} <strong>{stats.currentStreak}</strong></span>{' · '}<span>{t('stats.best')} <strong>{stats.bestStreak}</strong></span></p>
 

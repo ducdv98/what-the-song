@@ -5,6 +5,7 @@
  */
 export * from './difficulty.ts';
 export * from './match-quality.ts';
+export * from './pick-subject.ts';
 export * from './leaderboard.ts';
 export * from './round.ts';
 export * from './stats.ts';

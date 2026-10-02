@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   createRound,
-  filterByTier,
+ filterByTier, pickSubject,
   giveUp,
   isLastStage,
   currentClue,
@@ -40,14 +40,6 @@ import { StreakBar } from './StreakBar';
 import { Leaderboard } from './Leaderboard';
 import { useStats } from './useStats';
 
-/** Pick a song at random, avoiding an immediate repeat. */
-function pickRandom(items: Song[], excludeId?: string): Song | undefined {
-  const pool = excludeId ? items.filter((s) => s.id !== excludeId) : items;
-  // With a one-song pool there is nothing else to pick.
-  const from = pool.length > 0 ? pool : items;
-  return from[Math.floor(Math.random() * from.length)];
-}
-
 /**
  * The game: one round at a time, SongSpot-style.
  *
@@ -71,6 +63,8 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
   const [roundMemes, setRoundMemes] = useState<
     Record<MemeOutcome, { meme: Meme; url: string } | null>
   >({ won: null, lost: null });
+  // Ids already played, so a Subject is not repeated until the pool is used up.
+  const playedRef = useRef(new Set<string>());
   const [round, setRound] = useState<Round<Song, number> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -111,11 +105,11 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
   // only offered this tier's songs would give the answer away.
 
   const newRound = useCallback(
-    (excludeId?: string) => {
+    () => {
       engine.stop();
       setError(null);
       setRoundMemes({ won: null, lost: null });
-      const song = pickRandom(songs, excludeId);
+      const song = pickSubject(songs, playedRef.current);
       setRound(song ? createRound(song, songsTopic.ladder(song)) : null);
     },
     [songs, engine],
@@ -367,7 +361,7 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
             else
               void playClip(round.subject, round.stages[round.stages.length - 1]);
           }}
-          onNext={() => newRound(round.subject.id)}
+          onNext={() => newRound()}
         />
       )}
 
