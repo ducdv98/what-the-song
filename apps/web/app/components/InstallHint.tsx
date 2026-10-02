@@ -14,10 +14,10 @@ function isStandalone(): boolean {
     (navigator as Navigator & { standalone?: boolean }).standalone === true;
 }
 
-function isIosSafari(): boolean {
-  const ua = navigator.userAgent;
-  return /iPhone|iPad|iPod/.test(ua) && /Safari/.test(ua) &&
-    !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);
+function isIos(): boolean {
+  // iPadOS 13+ reports a desktop Mac user agent, so check touch support too.
+  return /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 }
 
 export function InstallHint() {
@@ -28,7 +28,7 @@ export function InstallHint() {
 
   useEffect(() => {
     setHidden(isStandalone() || isInstallHintDismissed());
-    setIos(isIosSafari());
+    setIos(isIos());
     const onPrompt = (event: Event) => {
       event.preventDefault();
       setPrompt(event as InstallPromptEvent);
