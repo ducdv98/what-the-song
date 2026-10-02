@@ -122,6 +122,49 @@ class FoodIngestTests(unittest.TestCase):
         self.assertEqual([call[1]["Key"] for call in cos.calls if call[0] == "put"],
                          ["food/catalogue.json"])
 
+    def test_rerun_reuses_the_photo_unless_the_commons_file_changed(self):
+        with mock.patch.object(ingest_food, "fetch_bytes", side_effect=self.fake_fetch) as fetch:
+            first = ingest_food.ingest_row(validate_rows([self.row])[0], self.out)
+            calls = fetch.call_count
+            again = ingest_food.ingest_row(validate_rows([self.row])[0], self.out)
+            self.assertEqual(first, again)
+            self.assertEqual(fetch.call_count, calls + 1)  # metadata only, no photo
+            other = dict(self.row, commons_url=URL.replace("Pho", "Other"))
+            ingest_food.ingest_row(validate_rows([other])[0], self.out)
+            self.assertEqual(fetch.call_count, calls + 3)  # metadata and a fresh photo
+
+    def test_commons_info_prefers_the_thumbnail_rendition(self):
+        data = json.loads(commons_response())
+        info = data["query"]["pages"]["1"]["imageinfo"][0]
+        info["thumburl"] = "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b2/photo.jpg/1600px-photo.jpg"
+        with mock.patch.object(ingest_food, "fetch_bytes", return_value=json.dumps(data).encode()):
+            self.assertEqual(ingest_food.commons_info(URL)["imageUrl"], info["thumburl"])
+
+    def test_commons_info_rejects_a_non_wikimedia_image_host(self):
+        data = json.loads(commons_response())
+        data["query"]["pages"]["1"]["imageinfo"][0]["thumburl"] = "https://evil.example/photo.jpg"
+        with mock.patch.object(ingest_food, "fetch_bytes", return_value=json.dumps(data).encode()):
+            with self.assertRaisesRegex(ValueError, "unexpected Commons image URL"):
+                ingest_food.commons_info(URL)
+
+    def test_fetch_retries_after_a_429_and_gives_up_on_a_404(self):
+        from urllib.error import HTTPError
+        class Response:
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+            def read(self): return b"ok"
+        limited = HTTPError("u", 429, "Too many requests", {"Retry-After": "1"}, None)
+        with mock.patch.object(ingest_food, "urlopen", side_effect=[limited, Response()]) as opened, \
+                mock.patch.object(ingest_food.time, "sleep") as sleep:
+            self.assertEqual(ingest_food.fetch_bytes("https://example.test"), b"ok")
+        self.assertEqual(opened.call_count, 2)
+        sleep.assert_called_once_with(1.0)
+        missing = HTTPError("u", 404, "Not found", {}, None)
+        with mock.patch.object(ingest_food, "urlopen", side_effect=missing) as opened:
+            with self.assertRaises(HTTPError):
+                ingest_food.fetch_bytes("https://example.test")
+        self.assertEqual(opened.call_count, 1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -11,9 +11,11 @@ import hashlib
 import io
 import json
 import re
+import time
 from html import unescape
 from html.parser import HTMLParser
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -23,6 +25,11 @@ from validate_food_seed import commons_title, load_seed
 DEFAULT_OUT = Path(__file__).resolve().parent.parent / "apps/web/public/assets/food"
 API = "https://commons.wikimedia.org/w/api.php"
 MAX_SIZE = 1600
+IMAGE_HOSTS = ("https://upload.wikimedia.org/", "https://thumb.wikimedia.org/")
+PAUSE = 2.0  # seconds between Dishes; Commons rate-limits bursts with 429
+RETRIES = 6
+MAX_WAIT = 900  # honour a long Retry-After rather than burning retries
+SOURCE_FILE = "source.json"  # which Commons file a Dish's local photo came from
 LICENCE = re.compile(r"^(?:CC BY(?:-SA)?(?: [1-4](?:\.\d)?)?|CC0(?: 1\.0)?)$")
 
 
@@ -43,13 +50,25 @@ def plain_html(value: str) -> str:
 
 def fetch_bytes(url: str) -> bytes:
     request = Request(url, headers={"User-Agent": "WhatTheSongFoodIngest/1.0 (Commons attribution tool)"})
-    with urlopen(request, timeout=30) as response:
-        return response.read()
+    for attempt in range(RETRIES):
+        try:
+            with urlopen(request, timeout=30) as response:
+                return response.read()
+        except (HTTPError, URLError) as exc:
+            status = getattr(exc, "code", None)
+            retryable = status in (429, 500, 502, 503, 504) or (status is None and isinstance(exc, URLError))
+            if not retryable or attempt == RETRIES - 1:
+                raise
+            retry_after = exc.headers.get("Retry-After") if isinstance(exc, HTTPError) else None
+            wait = float(retry_after) if retry_after and retry_after.isdigit() else 5 * 2 ** attempt
+            print(f"  {status or exc.reason}: waiting {wait:.0f}s before retry {attempt + 1}/{RETRIES - 1}", flush=True)
+            time.sleep(min(wait, MAX_WAIT))
+    raise AssertionError("unreachable")
 
 
 def commons_info(url: str) -> dict:
     title = commons_title(url)
-    query = urlencode({"action": "query", "format": "json", "prop": "imageinfo", "iiprop": "url|extmetadata", "titles": title})
+    query = urlencode({"action": "query", "format": "json", "prop": "imageinfo", "iiprop": "url|extmetadata", "iiurlwidth": MAX_SIZE, "titles": title})
     data = json.loads(fetch_bytes(f"{API}?{query}"))
     pages = data["query"]["pages"]
     info = next(iter(pages.values()))["imageinfo"][0]
@@ -63,8 +82,9 @@ def commons_info(url: str) -> dict:
     source = info.get("descriptionurl", url)
     if not source.startswith("https://commons.wikimedia.org/wiki/File:"):
         raise ValueError("invalid Commons source URL")
-    image_url = info["url"]
-    if not image_url.startswith("https://upload.wikimedia.org/"):
+    # A MAX_SIZE-wide rendition is all we keep, and far lighter than the original.
+    image_url = info.get("thumburl") or info["url"]
+    if not image_url.startswith(IMAGE_HOSTS):
         raise ValueError("unexpected Commons image URL")
     return {"imageUrl": image_url, "credit": {"author": author, "licence": licence, "sourceUrl": source}}
 
@@ -89,18 +109,41 @@ def resize_jpeg(source: bytes) -> bytes:
         return output.getvalue()
 
 
+def existing_photo(folder: Path, commons_url: str) -> str | None:
+    """The photo already ingested for this Dish from this Commons file, so a rerun
+    after an interruption does not download it again. A folder with no record of
+    its source (an interrupted earlier run) is trusted once and then recorded."""
+    photos = sorted(folder.glob("*.jpg")) if folder.is_dir() else []
+    if len(photos) != 1 or not re.fullmatch(r"[a-f0-9]{24}\.jpg", photos[0].name):
+        return None
+    record = folder / SOURCE_FILE
+    if record.is_file():
+        try:
+            recorded = json.loads(record.read_text(encoding="utf-8")).get("commonsUrl")
+        except ValueError:
+            return None
+        if recorded != commons_url:
+            return None
+    else:
+        record.write_text(json.dumps({"commonsUrl": commons_url}), encoding="utf-8")
+    return photos[0].name
+
+
 def ingest_row(row: dict, out: Path) -> dict:
     info = commons_info(row["commons_url"])
-    photo = resize_jpeg(fetch_bytes(info["imageUrl"]))
-    filename = hashlib.sha256(photo).hexdigest()[:24] + ".jpg"
     folder = out / row["id"]
-    folder.mkdir(parents=True, exist_ok=True)
-    destination = folder / filename
-    if destination.exists():
-        if destination.read_bytes() != photo:
-            raise RuntimeError(f"hash collision at {destination}")
-    else:
-        destination.write_bytes(photo)
+    filename = existing_photo(folder, row["commons_url"])
+    if filename is None:
+        photo = resize_jpeg(fetch_bytes(info["imageUrl"]))
+        filename = hashlib.sha256(photo).hexdigest()[:24] + ".jpg"
+        folder.mkdir(parents=True, exist_ok=True)
+        destination = folder / filename
+        if destination.exists():
+            if destination.read_bytes() != photo:
+                raise RuntimeError(f"hash collision at {destination}")
+        else:
+            destination.write_bytes(photo)
+        (folder / SOURCE_FILE).write_text(json.dumps({"commonsUrl": row["commons_url"]}), encoding="utf-8")
     record = {"id": row["id"], "name": row["name"], "photo": filename, "credit": info["credit"]}
     for key in ("aliases", "tier", "region"):
         if key in row:
@@ -123,7 +166,12 @@ def main() -> int:
         parser.error("--out must end in food so COS keys use the food/ prefix")
     if args.seed:
         rows = load_seed(args.seed)
-        records = [ingest_row(row, args.out) for row in rows]
+        records = []
+        for number, row in enumerate(rows, 1):
+            if number > 1:
+                time.sleep(PAUSE)
+            print(f"[{number}/{len(rows)}] {row['name']}", flush=True)
+            records.append(ingest_row(row, args.out))
         ingest.write_catalogue(args.out, records)
         print(f"wrote {len(records)} Dishes to {args.out / 'catalogue.json'}")
     if args.publish:
