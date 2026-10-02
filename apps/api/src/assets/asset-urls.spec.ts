@@ -1,4 +1,16 @@
-import { CosAssetUrls, LocalAssetUrls } from './asset-urls.js';
+import { CosAssetUrls, LocalAssetUrls, isSignableAssetKey } from './asset-urls.js';
+
+describe('signable asset keys', () => {
+  it('accepts Food photos and catalogue', () => {
+    expect(isSignableAssetKey('food/bun-bo-hue/0123456789abcdef01234567.jpg')).toBe(true);
+    expect(isSignableAssetKey('food/catalogue.json')).toBe(true);
+  });
+
+  it('rejects other Food paths', () => {
+    expect(isSignableAssetKey('food/bun-bo-hue/0123456789abcdef01234567.mp3')).toBe(false);
+    expect(isSignableAssetKey('food/bun-bo-hue/../0123456789abcdef01234567.jpg')).toBe(false);
+  });
+});
 
 describe('asset URL adapters', () => {
   it('serves local assets from Caddy unchanged', () => {
@@ -24,6 +36,8 @@ describe('asset URL adapters', () => {
     const { urls, expiresAt } = adapter.sign([
       'songs/nnca/0123456789abcdef01234567.mp3',
       'songs/catalogue.json',
+      'food/bun-bo-hue/0123456789abcdef01234567.jpg',
+      'food/catalogue.json',
     ]);
     expect(urls['songs/nnca/0123456789abcdef01234567.mp3']).toContain(
       'q-signature=',
@@ -38,6 +52,8 @@ describe('asset URL adapters', () => {
       Number(url.searchParams.get('q-sign-time')?.split(';')[0]);
     expect(lifetime(asset)).toBe(1800);
     expect(lifetime(catalogue)).toBe(300);
+    expect(lifetime(new URL(urls['food/bun-bo-hue/0123456789abcdef01234567.jpg']))).toBe(1800);
+    expect(lifetime(new URL(urls['food/catalogue.json']))).toBe(300);
     expect(
       expiresAt['songs/nnca/0123456789abcdef01234567.mp3'],
     ).toBeGreaterThanOrEqual(now + 1_800_000);

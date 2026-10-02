@@ -68,6 +68,27 @@ describe('asset signing', () => {
   );
 
   it.each([undefined, 'library-1250000000'])(
+    'signs Food photos and catalogue with bucket %s',
+    (bucket) => {
+      const keys = ['food/bun-bo-hue/0123456789abcdef01234567.jpg', 'food/catalogue.json'];
+      const { urls } = controller(bucket).sign({ keys });
+      expect(Object.keys(urls)).toEqual(keys);
+      for (const key of keys) expect(urls[key]).toContain(key);
+    },
+  );
+
+  it('rejects unsupported Food asset keys', () => {
+    for (const key of [
+      'food/bun-bo-hue/0123456789abcdef01234567.mp3',
+      'food/bun-bo-hue/cover-0123456789abcdef.jpg',
+      'food/bun-bo-hue/ABCDEF0123456789ABCDEF01.jpg',
+      'food/../0123456789abcdef01234567.jpg',
+    ]) {
+      expect(() => controller().sign({ keys: [key] }), key).toThrow();
+    }
+  });
+
+  it.each([undefined, 'library-1250000000'])(
     'rejects unsupported meme key shapes with bucket %s',
     (bucket) => {
       const invalid = [

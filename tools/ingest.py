@@ -858,7 +858,20 @@ def publish_library(out: Path, client, bucket: str, *, dry_run: bool = False,
     existing = listed_keys()
     local: dict[str, Path] = {}
     wanted = set()
-    if topic == "memes":
+    if topic == "food":
+        for record in records:
+            if not isinstance(record, dict):
+                raise ValueError("invalid Food catalogue entry")
+            slug, name = record.get("id"), record.get("photo")
+            if (not isinstance(slug, str) or not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", slug) or
+                    not isinstance(name, str) or not re.fullmatch(r"[a-f0-9]{24}\.jpg", name)):
+                raise ValueError(f"invalid Food catalogue asset: {slug}/{name}")
+            wanted.add(f"food/{slug}/{name}")
+        for key in wanted:
+            path = out / key.removeprefix("food/")
+            if path.is_file():
+                local[key] = path
+    elif topic == "memes":
         for record in records:
             if not isinstance(record, dict):
                 raise ValueError("invalid meme catalogue entry")
