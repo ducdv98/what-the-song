@@ -17,6 +17,8 @@ Single-context: one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agent
 
 When running Matt Pocock engineering workflows, Claude is the orchestrator. Codex is consider as executor or sub-agent to help speed up implementation and review work. Claude owns the final decision and is responsible for the quality of the work.
 
+Note: Codex usually hangs and did not produce any output. Check its progress after a 2 minutes. If Codex is stuck, you can cancel the current task and re-run it.
+
 ### /implement
 
 For each ticket:

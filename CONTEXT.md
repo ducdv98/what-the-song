@@ -38,6 +38,10 @@ The Clue of the Songs Topic: pre-cut audio of fixed length for one Stage of one 
 **Reveal**:
 The Clue of the People Topic: the top part of a Person's photo, from the hair down, shown at one Stage until the whole face is visible at the last. The same fractions apply to every Person unless a Person is tuned individually. The full photo is sent to the browser; hiding the rest is not a security boundary.
 
+**Meme**:
+A still image shown on the result of a Round, chosen by whether the Round was won or lost. Decoration only: it is not a Clue and never affects Score.
+_Avoid_: reaction, gif
+
 **Guess**:
 Free text the player types as their answer. There is no suggestion list; the player must produce the answer from memory.
 _Avoid_: pick, selection, suggestion
@@ -73,6 +77,7 @@ Weekly and monthly rankings of players by Score.
 - A **Topic** has many **Subjects**; a **Song** is a **Subject** of the Songs **Topic**.
 - A **Round** is for exactly one **Subject** and has one **Stage** per **Clue**.
 - A **Subject** has one **Tier** and at most one **Facet** value.
+- A finished **Round** shows at most one **Meme**, picked from the pool for its outcome (won or lost), whatever its **Topic**.
 - A **Guess** is judged against the **Subject** of the **Round** it is made in, and nothing else.
 - A won **Round** yields a **Score** that depends on the **Stage** it was won on.
 - **Score**, **Streak** and the **Leaderboard** are global across **Topics**, and can also be viewed per **Topic**.

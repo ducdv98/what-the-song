@@ -14,6 +14,7 @@ Decisions made together:
 - Two CAM sub-accounts: the API's is read-only on this bucket, the uploader's is write-only and stays on the laptop. No root keys.
 - Publishing is one command (`tools/ingest.py --publish`, Python COS SDK): upload missing assets, verify, then publish the catalogue, never overwriting an existing key. Removing songs is a separate `--prune`.
 - The bucket's CORS rule allows only the production origin.
+- Memes live in the same bucket under `memes/<hash>.<webp|jpg|png>`, listed by a signed `memes/catalogue.json` that says which are for a won Round and which for a lost one. The signer's allow-list gains that one pattern. The same Round-start signing call also signs one won and one lost Meme, so the result appears instantly. With no `COS_*` settings they are served from Caddy like everything else, and a missing or empty pool just means no Meme is shown. `tools/ingest.py --publish` takes a `--memes <dir>` source with the same local-master, never-overwrite rules.
 
 Rejected: public-read bucket (above); Tencent CDN with URL authentication up front (edge caching would restore cross-session caching, but it adds a service and does not change the signing interface, so it can come later); shelling out to `coscli`/`rclone` (another binary on every ingest machine, and the assets-before-catalogue ordering is easier in code).
 
