@@ -46,10 +46,10 @@ export function InstallHint() {
     };
   }, []);
 
-  if (hidden || (!prompt && !ios)) return null;
+  if (hidden) return null;
   return (
     <aside className="install-hint" aria-label={t('install.title')}>
-      <p>{prompt ? t('install.prompt') : t('install.ios')}</p>
+      <p>{prompt ? t('install.prompt') : ios ? t('install.ios') : t('install.generic')}</p>
       {prompt && <button className="pill pill--accent" onClick={() => {
         void prompt.prompt().then(() => prompt.userChoice).then((choice) => {
           if (choice.outcome === 'accepted') setHidden(true);
