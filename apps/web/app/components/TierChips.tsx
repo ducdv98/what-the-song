@@ -14,7 +14,7 @@ export function TierChips({
   onChange,
   topic = 'songs',
 }: {
-  topic?: 'songs' | 'food';
+  topic?: 'songs' | 'food' | 'people';
   tiers: { tier: Tier; count: number }[];
   value: TierSlug;
   onChange: (t: TierSlug) => void;
@@ -44,7 +44,7 @@ export function TierChips({
           </button>
         ))}
       </div>
-      <p className="field-label">{topic === 'food' ? t('food.tierScoreHint') : t('picker.tierScoreHint')}</p>
+      <p className="field-label">{topic === 'food' ? t('food.tierScoreHint') : topic === 'people' ? t('people.tierScoreHint') : t('picker.tierScoreHint')}</p>
     </div>
   );
 }

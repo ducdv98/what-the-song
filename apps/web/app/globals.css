@@ -662,6 +662,22 @@ button:disabled {
   object-fit: fill;
   transition: transform 260ms ease, filter 260ms ease;
 }
+.reveal-photo {
+  position: relative;
+  margin: 20px auto 0;
+  width: 100%;
+  overflow: hidden;
+  background: var(--color-stage-rest);
+  outline: 3px solid var(--ink-900);
+  transition: aspect-ratio 260ms ease;
+}
+.reveal-photo img {
+  position: absolute;
+  inset: 0 auto auto 0;
+  display: block;
+  width: 100%;
+  height: auto;
+}
 .food-credit {
   margin: 8px auto 0;
   max-width: 100%;

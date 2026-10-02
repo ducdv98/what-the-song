@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { Round } from '@wts/core';
 import type { Song } from '@wts/topic-songs';
 import type { Dish, Zoom } from '@wts/topic-food';
+import type { Person, Reveal } from '@wts/topic-people';
 import type { PlaybackState } from '@/lib/audio/engine';
 import { retryMemeImage, visibleResultMeme, type MemeOutcome, type ResolvedMeme } from '@/lib/assets/memes';
 import { pickMemeCaption } from '@/lib/i18n/meme-captions';
@@ -12,12 +13,13 @@ import { ResultCard } from './ResultCard';
 
 /** One instance per finished Round. Unmounting on Next resets dismissal and retry state. */
 export function ResultView({ round, memes, ...cardProps }: {
-  round: Round<Song, number> | Round<Dish, Zoom>;
+  round: Round<Song, number> | Round<Dish, Zoom> | Round<Person, Reveal>;
   memes?: Record<MemeOutcome, ResolvedMeme | null>;
   playback?: PlaybackState;
   onListen?: () => void;
   onNext: () => void;
   foodPhotoUrl?: string | null;
+  peoplePhotoUrl?: string | null;
 }) {
   const { t } = useI18n();
   const dialog = useRef<HTMLDialogElement>(null);

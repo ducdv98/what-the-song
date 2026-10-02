@@ -21,7 +21,7 @@ export function GuessBar({
   onGiveUp,
   topic = 'songs',
 }: {
-  topic?: 'songs' | 'food';
+  topic?: 'songs' | 'food' | 'people';
   lastStage: boolean;
   /** The text of the previous wrong guess on this round, if any. */
   lastWrong?: string;
@@ -30,9 +30,9 @@ export function GuessBar({
   onGiveUp: () => void;
 }) {
   const { t } = useI18n();
-  const guessLabel = topic === 'food' ? t('food.guessLabel') : t('round.guessLabel');
-  const placeholder = topic === 'food' ? t('food.guessPlaceholder') : t('round.guessPlaceholder');
-  const answerHint = topic === 'food' ? t('food.answerHint') : t('round.answerHint');
+  const guessLabel = topic === 'food' ? t('food.guessLabel') : topic === 'people' ? t('people.guessLabel') : t('round.guessLabel');
+  const placeholder = topic === 'food' ? t('food.guessPlaceholder') : topic === 'people' ? t('people.guessPlaceholder') : t('round.guessPlaceholder');
+  const answerHint = topic === 'food' ? t('food.answerHint') : topic === 'people' ? t('people.answerHint') : t('round.answerHint');
   const [text, setText] = useState('');
 
   const action: RoundAction = text.trim() ? 'guess' : lastStage ? 'giveup' : 'skip';

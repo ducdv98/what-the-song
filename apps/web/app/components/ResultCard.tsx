@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { TIERS, tierOf, type Round } from '@wts/core';
 import { coverUrl, type Song } from '@wts/topic-songs';
 import type { Dish, Zoom } from '@wts/topic-food';
+import type { Person, Reveal } from '@wts/topic-people';
 import type { PlaybackState } from '@/lib/audio/engine';
 import { assetUrls } from '@/lib/assets/urls';
 import { formatSeconds } from './PlayButton';
@@ -11,7 +12,7 @@ import { useI18n } from './I18nProvider';
 import { FoodCredit } from './FoodCredit';
 
 /** Spoiler-free history: wrong, skipped, correct, and not reached. */
-export function shareSquares(round: Round<Song, number> | Round<Dish, Zoom>): string {
+export function shareSquares(round: Round<Song, number> | Round<Dish, Zoom> | Round<Person, Reveal>): string {
   return round.stages
     .map((_, i) => {
       const a = round.attempts[i];
@@ -30,14 +31,16 @@ export function ResultCard({
   nextButtonRef,
   autoFocusNext = true,
   foodPhotoUrl,
+  peoplePhotoUrl,
 }: {
-  round: Round<Song, number> | Round<Dish, Zoom>;
+  round: Round<Song, number> | Round<Dish, Zoom> | Round<Person, Reveal>;
   playback?: PlaybackState;
   onListen?: () => void;
   onNext: () => void;
   nextButtonRef?: React.Ref<HTMLButtonElement>;
   autoFocusNext?: boolean;
   foodPhotoUrl?: string | null;
+  peoplePhotoUrl?: string | null;
 }) {
   const { t, lang } = useI18n();
   const [copied, setCopied] = useState(false);
@@ -46,7 +49,8 @@ export function ResultCard({
   const [retriedCover, setRetriedCover] = useState(false);
   const won = round.status === 'won';
   const subject = round.subject;
-  const dish = 'name' in subject ? subject : null;
+  const dish = 'credit' in subject ? subject : null;
+  const person = 'name' in subject && !('credit' in subject) ? subject : null;
   const song = 'title' in subject ? subject : null;
   const food = dish !== null;
   const cover = song ? coverUrl(song) : null;
@@ -60,17 +64,19 @@ export function ResultCard({
     }).catch(() => { if (active) setFailedCover(cover); });
     return () => { active = false; };
   }, [cover]);
-  const at = food
+  const photo = food || person !== null;
+  const photoUrl = food ? foodPhotoUrl : peoplePhotoUrl;
+  const at = photo
     ? `${Math.round((round.stages[round.stageIndex] as Zoom).fraction * 100)}%`
     : formatSeconds(round.stages[round.stageIndex] as number);
-  const longest = food ? 0 : round.stages[round.stages.length - 1] as number;
+  const longest = photo ? 0 : round.stages[round.stages.length - 1] as number;
   const tier = TIERS.find((x) => x.slug === tierOf(subject))!;
 
   async function share() {
     const text = t(food ? 'food.shareText' : 'result.shareText', {
       tier: lang === 'vi' ? tier.label : tier.gloss,
       squares: shareSquares(round),
-      outcome: won ? t(food ? 'food.shareWon' : 'result.shareWon', { at }) : t('result.shareLost'),
+      outcome: won ? t(food ? 'food.shareWon' : person ? 'people.shareWon' : 'result.shareWon', { at }) : t('result.shareLost'),
       score: round.score,
     });
     try {
@@ -112,9 +118,9 @@ export function ResultCard({
         <span aria-hidden="true">{won ? '✓' : '×'}</span>
         {won ? t('result.guessedIn') : t('result.lost')}
       </span>
-      <div className={food ? 'result-cover result-food-photo' : 'result-cover'}>
-        {food && foodPhotoUrl ? (
-          <img src={foodPhotoUrl} alt="" width={160} height={160} />
+      <div className={photo ? 'result-cover result-food-photo' : 'result-cover'}>
+        {photo && photoUrl ? (
+          <img src={photoUrl} alt="" width={160} height={160} />
         ) : cover && resolvedCover && cover !== failedCover ? (
           // Static export: native image, with a fallback for missing cover files.
           <img
@@ -137,7 +143,7 @@ export function ResultCard({
             data-testid="cover-fallback"
             aria-hidden="true"
           >
-            {initials(dish?.name ?? song?.title ?? '')}
+            {initials(dish?.name ?? person?.name ?? song?.title ?? '')}
           </span>
         )}
       </div>
@@ -148,13 +154,13 @@ export function ResultCard({
           </p>
         )}
         <h2 id="result-title" className="result-title">
-          {dish?.name ?? song?.title}
+          {dish?.name ?? person?.name ?? song?.title}
         </h2>
         {song && <p className="result-artist">{song.artist}</p>}
         {dish && <FoodCredit credit={dish.credit} />}
       </div>
       <div className="result-summary">
-        {won && <p className="result-clip">{food ? t('food.wonAt', { at }) : t('result.wonAt', { at })}</p>}
+        {won && <p className="result-clip">{food ? t('food.wonAt', { at }) : person ? t('people.wonAt', { at }) : t('result.wonAt', { at })}</p>}
         <p className="result-score">
           {t('round.points', { n: won ? round.score : 0 })}
         </p>
@@ -165,7 +171,7 @@ export function ResultCard({
         aria-label={t('result.history')}
       >
         {round.stages.map((stage, i) => {
-          const stageLabel = food ? `${Math.round((stage as Zoom).fraction * 100)}%` : formatSeconds(stage as number);
+          const stageLabel = photo ? `${Math.round((stage as Zoom).fraction * 100)}%` : formatSeconds(stage as number);
           const attempt = round.attempts[i];
           const kind = !attempt
             ? 'unreached'
@@ -210,7 +216,7 @@ export function ResultCard({
         })}
       </div>
       <div className="result-actions">
-        {!food && <button
+        {!photo && <button
           className="pill"
           onClick={onListen}
           disabled={playback === 'loading'}
@@ -224,7 +230,7 @@ export function ResultCard({
           {copied ? t('result.copied') : t('result.share')}
         </button>
         <button ref={nextButtonRef} className="pill next-button" onClick={onNext} autoFocus={autoFocusNext}>
-          {food ? t('food.next') : won ? t('result.next') : t('result.tryAgain')}{' '}
+          {food ? t('food.next') : person ? t('people.next') : won ? t('result.next') : t('result.tryAgain')}{' '}
           <span aria-hidden="true">↗</span>
         </button>
       </div>
