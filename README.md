@@ -79,6 +79,31 @@ app keeps its own toolchain (Next's bundler, Nest's `tsc`). Package sources use
 into `.js` in the build. Turborepo builds packages before anything that needs
 them (`dependsOn: ["^build"]`), so there is no manual ordering to remember.
 
+## Food topic: growing the Dish catalogue
+
+The Food Topic (`/food`) shows a Dish photo that zooms out over five Stages.
+Photos come only from Wikimedia Commons under CC BY, CC BY-SA or CC0; each Dish
+carries its Credit (author, licence, source URL), shown after the Round. A seed
+row is `{name, aliases, tier, region, commons_url}`, with an optional
+`focalPoint` `{x, y}` (0 to 1) when the dish is off-centre; the candidate list
+lives in `.scratch/food/candidates.jsonl`.
+
+```sh
+python tools/validate_food_seed.py .scratch/food/candidates.jsonl   # offline
+python tools/ingest_food.py .scratch/food/candidates.jsonl          # fetch + write local master
+python tools/ingest_food.py --publish --dry-run                     # list what COS would change
+python tools/ingest_food.py --publish                               # upload photos, then the catalogue
+```
+
+The local folder `apps/web/public/assets/food/` (gitignored) is the master.
+Ingest fetches the photo and its licence from Commons and refuses any other
+licence, a duplicate id, or an Alias equal to another Dish's name or Alias.
+`--publish` needs the same four uploader variables as Songs (`COS_BUCKET`,
+`COS_REGION`, `COS_UPLOAD_SECRET_ID`, `COS_UPLOAD_SECRET_KEY`). Photos are never
+overwritten; the catalogue is republished each time, so adding Dishes later
+means editing the seed and running it again. Without COS, copy the folder to
+the VPS with `catalogue.json` last.
+
 ## How it fits together
 
 Ingest runs on **your machine**, not the server:
