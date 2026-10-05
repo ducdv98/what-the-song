@@ -888,19 +888,57 @@ button:disabled {
   background: var(--ink-900);
   color: var(--cream-100);
 }
-.action-btn--giveup {
-  border-color: var(--text-muted);
-  color: var(--text-muted);
+.giveup-link {
+  justify-self: end;
+  min-height: 44px;
+  padding: 0 4px;
+  margin-top: 6px;
+  border: none;
   background: transparent;
+  color: var(--color-error-text);
+  font: var(--t-small-bold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.giveup-link:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+.giveup-confirm {
+  display: grid;
+  gap: 10px;
+  margin-top: 6px;
+  padding: 12px;
+  border: 2px solid var(--color-error-text);
+  border-radius: 4px;
+  background: var(--cream-100);
+}
+.giveup-warning {
+  margin: 0;
+  color: var(--color-error-text);
+  font: var(--t-small-bold);
+}
+.giveup-confirm-actions {
+  display: flex;
+  gap: 8px;
+}
+.giveup-confirm-actions .action-btn {
+  flex: 1;
+}
+.action-btn--danger {
+  border-color: var(--color-error-text);
+  background: var(--color-error-text);
+  color: var(--cream-100);
 }
 .action-btn:focus-visible,
 .action-btn:active:not(:disabled) {
   background: var(--color-control-light-active);
   color: var(--ink-900);
 }
-.action-btn--giveup:focus-visible,
-.action-btn--giveup:active:not(:disabled) {
-  color: var(--ink-900);
+.action-btn--danger:focus-visible,
+.action-btn--danger:active:not(:disabled) {
+  background: var(--color-error-text);
+  color: var(--cream-100);
 }
 .action-btn--guess:focus-visible,
 .action-btn--guess:active:not(:disabled) {
@@ -912,8 +950,10 @@ button:disabled {
     background: var(--color-control-light-hover);
     color: var(--ink-900);
   }
-  .action-btn--giveup:hover:not(:disabled) {
-    color: var(--ink-900);
+  .action-btn--danger:hover:not(:disabled) {
+    background: var(--color-error-text);
+    color: var(--cream-100);
+    filter: brightness(0.9);
   }
   .action-btn--guess:hover:not(:disabled) {
     background: var(--color-control-dark-hover);
@@ -1602,5 +1642,5 @@ button:disabled {
 .celebration-emoji span:nth-child(3n) { animation-delay: 260ms; }
 @keyframes emoji-rain { from { opacity: 0; transform: translateY(-32px) rotate(-20deg); } to { opacity: 1; transform: translateY(50px) rotate(20deg); } }
 @media (prefers-reduced-motion: reduce) {
-  .celebration-visuals { display: none; }
+  .celebration-visuals *, .celebration-visuals { animation: none !important; }
 }

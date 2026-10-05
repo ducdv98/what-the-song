@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useI18n } from './I18nProvider';
 
 /**
  * Free-text Guess with separate Reveal more and Give up actions.
- * Enter only submits a nonempty Guess. A wrong guess is echoed back.
+ * Enter only submits a nonempty Guess (a real form, so IME and mobile keyboards submit too).
+ * Give up is destructive: it asks for confirmation before it ends the Round.
+ * A wrong guess is echoed back.
  */
 export function GuessBar({
   lastStage,
@@ -30,16 +32,19 @@ export function GuessBar({
   const placeholder = topic === 'food' ? t('food.guessPlaceholder') : topic === 'people' ? t('people.guessPlaceholder') : t('round.guessPlaceholder');
   const answerHint = topic === 'food' ? t('food.answerHint') : topic === 'people' ? t('people.answerHint') : t('round.answerHint');
   const [text, setText] = useState('');
+  const [confirmingGiveUp, setConfirmingGiveUp] = useState(false);
 
-  function guess() {
+  function guess(event?: FormEvent) {
+    event?.preventDefault();
     if (!text.trim()) return;
+    setConfirmingGiveUp(false);
     onGuess(text);
     setText('');
   }
 
   return (
     <>
-      <div className="guess-bar">
+      <form className="guess-bar" onSubmit={guess}>
         <label className="guess-field">
           <span className="visually-hidden">{guessLabel}</span>
           <input
@@ -52,36 +57,44 @@ export function GuessBar({
             placeholder={placeholder}
             value={text}
             onChange={(e) => setText(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                guess();
-              }
-            }}
+            enterKeyHint="go"
             aria-describedby="guess-help"
           />
         </label>
 
         <button
-          type="button"
+          type="submit"
           className="action-btn action-btn--guess"
-          onClick={guess}
           disabled={!text.trim()}
         >
           {t('round.guess')}
         </button>
-      </div>
-      <div className="guess-secondary-actions">
-        {!lastStage && (
+      </form>
+      {!lastStage && (
+        <div className="guess-secondary-actions">
           <button type="button" className="action-btn action-btn--reveal" onClick={onRevealMore}>
             <span>{t('round.revealMore')}</span>
             {revealCost && <span className="reveal-cost">{revealCost}</span>}
           </button>
-        )}
-        <button type="button" className="action-btn action-btn--giveup" onClick={onGiveUp}>
+        </div>
+      )}
+      {confirmingGiveUp ? (
+        <div className="giveup-confirm" role="alertdialog" aria-labelledby="giveup-warning">
+          <p id="giveup-warning" className="giveup-warning">{t('round.giveUpWarning')}</p>
+          <div className="giveup-confirm-actions">
+            <button type="button" className="action-btn action-btn--keep" autoFocus onClick={() => setConfirmingGiveUp(false)}>
+              {t('round.giveUpCancel')}
+            </button>
+            <button type="button" className="action-btn action-btn--danger" onClick={onGiveUp}>
+              {t('round.giveUpConfirm')}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" className="giveup-link" onClick={() => setConfirmingGiveUp(true)}>
           {t('round.giveUp')}
         </button>
-      </div>
+      )}
       <p
         id="guess-help"
         className={lastWrong ? 'answer-hint' : 'visually-hidden'}

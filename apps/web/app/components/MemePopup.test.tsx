@@ -108,6 +108,7 @@ describe.each(['songs', 'food'] as const)('%s result', (topic) => {
     start(topic);
     await waitFor(() => expect(screen.getByRole('textbox')).toBeTruthy());
     fireEvent.click(screen.getByRole('button', { name: /give up|bỏ qua/i }));
+    fireEvent.click(screen.getByRole('button', { name: /bỏ qua luôn|give up for good/i }));
     const dialog = await screen.findByRole('dialog', { name: /meme|ảnh vui/i });
     expect(dialog.querySelector('img')?.getAttribute('src')).toContain('bbbbbbbbbbbbbbbbbbbbbbbb.webp');
     expect(screen.getByTestId('result').getAttribute('data-status')).toBe('lost');

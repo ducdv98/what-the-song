@@ -33,6 +33,7 @@ test('a guest gets three middle-Stage Warm-up Rounds and resumes at the next Rou
   const view = render(<I18nProvider><PeopleGame catalogue={[person]} /></I18nProvider>);
   await waitFor(() => assert.equal(screen.getByTestId('reveal-photo').getAttribute('data-fraction'), '0.6'));
   fireEvent.click(screen.getByRole('button', { name: /bỏ qua|give up/i }));
+  fireEvent.click(screen.getByRole('button', { name: /bỏ qua luôn|give up for good/i }));
   assert.equal(recorded.mock.calls.length, 1);
   assert.equal(recorded.mock.calls[0]?.[0]?.score, 0);
   view.unmount();
@@ -41,6 +42,7 @@ test('a guest gets three middle-Stage Warm-up Rounds and resumes at the next Rou
   await waitFor(() => assert.equal(screen.getByTestId('reveal-photo').getAttribute('data-fraction'), '0.6'));
   for (let i = 0; i < 2; i++) {
     fireEvent.click(screen.getByRole('button', { name: /bỏ qua|give up/i }));
+    fireEvent.click(screen.getByRole('button', { name: /bỏ qua luôn|give up for good/i }));
     fireEvent.click(screen.getByRole('button', { name: /next|tiếp|again|lại/i }));
   }
   await waitFor(() => assert.equal(screen.getByTestId('reveal-photo').getAttribute('data-fraction'), '0.15'));
@@ -52,6 +54,7 @@ test('a signed-in player resumes an unfinished Warm-up after the server records 
   const view = render(<I18nProvider><PeopleGame catalogue={[person]} /></I18nProvider>);
   await waitFor(() => assert.equal(screen.getByTestId('reveal-photo').getAttribute('data-fraction'), '0.6'));
   fireEvent.click(screen.getByRole('button', { name: /bỏ qua|give up/i }));
+  fireEvent.click(screen.getByRole('button', { name: /bỏ qua luôn|give up for good/i }));
   assert.equal(recorded.mock.calls.length, 1);
   view.unmount();
 
@@ -105,6 +108,7 @@ test('Warm-up uses Topic-wide easy People when the selected Field has only mediu
   fireEvent.click(screen.getByRole('radio', { name: /Actor/, hidden: true }));
   await waitFor(() => assert.equal(screen.getByTestId('reveal-photo').getAttribute('data-fraction'), '0.6'));
   fireEvent.click(screen.getByRole('button', { name: /give up/i }));
+  fireEvent.click(screen.getByRole('button', { name: /give up for good/i }));
   assert.match(recorded.mock.calls[0]?.[0]?.subjectId ?? '', /^singer-/);
   assert.equal(recorded.mock.calls[0]?.[0]?.difficulty, 'easy');
 });
@@ -114,6 +118,7 @@ test('Give up on the first People Stage ends the Round and shows the Person', as
   await waitFor(() => assert.ok(screen.getByRole('textbox')));
   assert.ok(screen.getByRole('button', { name: /gợi ý thêm|reveal more/i }));
   fireEvent.click(screen.getByRole('button', { name: /bỏ qua|give up/i }));
+  fireEvent.click(screen.getByRole('button', { name: /bỏ qua luôn|give up for good/i }));
   const result = screen.getByTestId('result');
   assert.equal(result.getAttribute('data-status'), 'lost');
   assert.match(result.textContent ?? '', /Ca Sĩ Test/);

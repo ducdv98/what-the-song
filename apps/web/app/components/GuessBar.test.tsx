@@ -34,6 +34,8 @@ describe.each(['songs', 'food', 'people'] as const)('%s GuessBar', (topic) => {
     assert.equal(handlers.onGiveUp.mock.calls.length, 0);
     assert.equal(handlers.onGuess.mock.calls.length, 0);
     fireEvent.click(screen.getByRole('button', { name: /bỏ qua|give up/i }));
+    assert.equal(handlers.onGiveUp.mock.calls.length, 0, 'Give up asks for confirmation first');
+    fireEvent.click(screen.getByRole('button', { name: /bỏ qua luôn|give up for good/i }));
     assert.equal(handlers.onGiveUp.mock.calls.length, 1);
     assert.equal(handlers.onGuess.mock.calls.length, 0);
   });
@@ -43,15 +45,23 @@ describe.each(['songs', 'food', 'people'] as const)('%s GuessBar', (topic) => {
     const input = screen.getByRole('textbox');
     const guess = screen.getByRole('button', { name: /đoán|guess/i });
     assert.equal(guess.hasAttribute('disabled'), true);
-    fireEvent.keyDown(input, { key: 'Enter' });
+    fireEvent.submit(input.closest('form')!);
     fireEvent.change(input, { target: { value: '   ' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
+    fireEvent.submit(input.closest('form')!);
     assert.equal(handlers.onGuess.mock.calls.length, 0);
     assert.equal(handlers.onRevealMore.mock.calls.length, 0);
     assert.equal(handlers.onGiveUp.mock.calls.length, 0);
     fireEvent.change(input, { target: { value: 'Test' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
+    fireEvent.submit(input.closest('form')!);
     assert.deepEqual(handlers.onGuess.mock.calls[0], ['Test']);
+  });
+
+  test('Keep playing dismisses the Give up confirmation without ending the Round', () => {
+    const handlers = setup();
+    fireEvent.click(screen.getByRole('button', { name: /bỏ qua|give up/i }));
+    fireEvent.click(screen.getByRole('button', { name: /chơi tiếp|keep playing/i }));
+    assert.equal(handlers.onGiveUp.mock.calls.length, 0);
+    assert.ok(screen.getByRole('button', { name: /^(bỏ qua|give up)$/i }));
   });
 
   test('last Stage hides Reveal more but keeps Give up', () => {

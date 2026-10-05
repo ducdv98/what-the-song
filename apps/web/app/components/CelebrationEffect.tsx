@@ -64,6 +64,6 @@ export function CelebrationEffect({ plan, topic }: { plan: CelebrationPlan; topi
   return <div className="celebration" data-primary={plan.primary} data-bursts={plan.bursts}>
     <p className="celebration-cheer">{t(`celebration.${plan.cheer}`)}</p>
     {plan.milestones.length > 0 && <p className="celebration-milestones">{plan.milestones.map((milestone) => t(`celebration.${milestone}`)).join(' · ')}</p>}
-    {!reduced && <div className="celebration-visuals"><Effect effect={plan.primary} topic={topic} />{plan.secondary && <Effect effect={plan.secondary} topic={topic} />}</div>}
+    <div className="celebration-visuals"><Effect effect={plan.primary} topic={topic} />{plan.secondary && <Effect effect={plan.secondary} topic={topic} />}</div>
   </div>;
 }
