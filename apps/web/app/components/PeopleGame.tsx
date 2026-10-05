@@ -16,6 +16,7 @@ import { LangToggle } from './LangToggle';
 import { Leaderboard } from './Leaderboard';
 import { PillRow } from './PillRow';
 import { ResultView } from './ResultView';
+import type { ResultContext } from '@/lib/celebration';
 import { StreakBar } from './StreakBar';
 import { TierChips } from './TierChips';
 import { useI18n } from './I18nProvider';
@@ -30,6 +31,7 @@ export function PeopleGame({ catalogue }: { catalogue: Person[] }) {
   // Ids already played, so a Subject is not repeated until the pool is used up.
   const playedRef = useRef(new Set<string>());
   const roundWasWarmUp = useRef(false);
+  const resultContext = useRef<ResultContext>({ wasWarmUp: false, firstWarmUpWin: false, streak: 0, previousStreak: 0, bestStreak: 0 });
   const [round, setRound] = useState<Round<Person, Reveal> | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [roundMemes, setRoundMemes] = useState<Record<MemeOutcome, { meme: Meme; url: string } | null>>({ won: null, lost: null });
@@ -100,6 +102,7 @@ export function PeopleGame({ catalogue }: { catalogue: Person[] }) {
     const before = round;
     setRound(next);
     if (!before || before.status !== 'playing' || next.status === 'playing') return;
+    resultContext.current = { wasWarmUp: roundWasWarmUp.current, firstWarmUpWin: roundWasWarmUp.current && next.status === 'won', streak: next.status === 'won' ? stats.currentStreak + 1 : 0, previousStreak: stats.currentStreak, bestStreak: stats.bestStreak };
     warmUp.finish(next.status === 'won', roundWasWarmUp.current);
     record({
       topic: 'people', subjectId: next.subject.id, won: next.status === 'won',
@@ -172,7 +175,7 @@ export function PeopleGame({ catalogue }: { catalogue: Person[] }) {
         </>
       )}
 
-      {round && over && <ResultView round={round} peoplePhotoUrl={photoUrl} memes={memesEnabled ? roundMemes : undefined} onNext={() => newRound()} />}
+      {round && over && <ResultView round={round} resultContext={resultContext.current} nextWarmUp={roundWasWarmUp.current && warmUp.active} peoplePhotoUrl={photoUrl} memes={memesEnabled ? roundMemes : undefined} onNext={() => newRound()} />}
       {error && <p role="alert" className="inline-error">{error}</p>}
       <p className="game-stats"><span>{t('stats.streak')} <strong>{stats.currentStreak}</strong></span>{' · '}<span>{t('stats.best')} <strong>{stats.bestStreak}</strong></span></p>
 

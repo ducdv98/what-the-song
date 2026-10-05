@@ -1572,3 +1572,35 @@ button:disabled {
   padding: 8px;
   font-weight: 700;
 }
+/* Result decoration stays behind the content and never takes pointer events. */
+.result-card { position: relative; isolation: isolate; }
+.result-consolation { padding: 12px; background: var(--cream-100); border: 2px solid var(--ink-900); }
+.result-consolation p { margin: 0 0 6px; }
+.result-consolation p:last-child { margin-bottom: 0; font-weight: 700; }
+.result-card[data-status='lost'] .result-cover { animation: answer-reveal 300ms ease-out both; }
+@keyframes answer-reveal { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.result-card[data-status='won'] .history-stage { animation: tile-flip 420ms ease-out both; }
+.result-card[data-status='won'] .history-stage:nth-child(2) { animation-delay: 80ms; }
+.result-card[data-status='won'] .history-stage:nth-child(3) { animation-delay: 160ms; }
+.result-card[data-status='won'] .history-stage:nth-child(4) { animation-delay: 240ms; }
+.result-card[data-status='won'] .history-stage:nth-child(5) { animation-delay: 320ms; }
+@keyframes tile-flip { from { transform: rotateY(90deg); } to { transform: rotateY(0); } }
+.celebration { position: relative; min-height: 52px; }
+.celebration-cheer { margin: 0; color: var(--color-success); font: 800 18px/1.35 var(--font-ui); }
+.celebration-milestones { margin: 4px 0 0; font: var(--t-small-bold); }
+.celebration-visuals { position: absolute; inset: 0; pointer-events: none; z-index: -1; }
+.celebration-decoration { position: absolute; left: 50%; top: 0; color: var(--color-success); font: 800 30px/1 var(--font-ui); animation: cheer-pop 700ms ease-out both; }
+.celebration-decoration--cheerBubble { left: auto; right: -10px; top: -48px; padding: 8px 12px; background: var(--coral-500); border: 2px solid var(--ink-900); font: var(--t-small-bold); transform: rotate(8deg); }
+.celebration-decoration--vinyl { left: -10px; top: -38px; width: 58px; height: 58px; display: grid; place-items: center; background: var(--ink-900); color: var(--cream-100); border-radius: 50%; animation: vinyl-pulse 900ms ease-out both; }
+.celebration-decoration--gold { color: #9b6500; text-shadow: 0 0 16px var(--yellow-300); }
+.celebration-decoration--cheerText { left: auto; right: 0; top: -36px; color: var(--text-negative); }
+@keyframes cheer-pop { from { opacity: 0; scale: .3; } to { opacity: 1; scale: 1; } }
+@keyframes vinyl-pulse { from { scale: .3; rotate: -90deg; opacity: 0; } to { scale: 1; rotate: 0; opacity: 1; } }
+.celebration-emoji { position: absolute; inset: -20px 0 0; display: flex; justify-content: space-around; overflow: hidden; }
+.celebration-emoji span { animation: emoji-rain 1100ms ease-in both; font-size: 22px; }
+.celebration-emoji span:nth-child(2n) { animation-delay: 130ms; }
+.celebration-emoji span:nth-child(3n) { animation-delay: 260ms; }
+@keyframes emoji-rain { from { opacity: 0; transform: translateY(-32px) rotate(-20deg); } to { opacity: 1; transform: translateY(50px) rotate(20deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .celebration-visuals { display: none; }
+}

@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import type { Round } from '@wts/core';
+import { tierOf, type Round } from '@wts/core';
+import { selectCelebration, type BigEffect, type ResultContext } from '@/lib/celebration';
 import type { Song } from '@wts/topic-songs';
 import type { Dish, Zoom } from '@wts/topic-food';
 import type { Person, Reveal } from '@wts/topic-people';
@@ -11,10 +12,14 @@ import { pickMemeCaption } from '@/lib/i18n/meme-captions';
 import { useI18n } from './I18nProvider';
 import { ResultCard } from './ResultCard';
 
+let previousBigEffect: BigEffect | null = null;
+
 /** One instance per finished Round. Unmounting on Next resets dismissal and retry state. */
-export function ResultView({ round, memes, ...cardProps }: {
+export function ResultView({ round, memes, resultContext, nextWarmUp = false, ...cardProps }: {
   round: Round<Song, number> | Round<Dish, Zoom> | Round<Person, Reveal>;
   memes?: Record<MemeOutcome, ResolvedMeme | null>;
+  resultContext?: ResultContext;
+  nextWarmUp?: boolean;
   playback?: PlaybackState;
   onListen?: () => void;
   onNext: () => void;
@@ -22,6 +27,14 @@ export function ResultView({ round, memes, ...cardProps }: {
   peoplePhotoUrl?: string | null;
 }) {
   const { t } = useI18n();
+  const [celebration] = useState(() => round.status === 'won' ? selectCelebration({
+    topic: 'title' in round.subject ? 'songs' : 'credit' in round.subject ? 'food' : 'people',
+    stageIndex: round.stageIndex,
+    tier: tierOf(round.subject),
+    streak: resultContext?.streak ?? 1,
+    firstWarmUpWin: resultContext?.firstWarmUpWin ?? false,
+  }, previousBigEffect, Math.random()) : null);
+  useEffect(() => { if (celebration) previousBigEffect = celebration.primary; }, [celebration]);
   const dialog = useRef<HTMLDialogElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const nextButton = useRef<HTMLButtonElement>(null);
@@ -75,7 +88,7 @@ export function ResultView({ round, memes, ...cardProps }: {
   }
 
   return <>
-    <ResultCard round={round} {...cardProps} nextButtonRef={nextButton} autoFocusNext={!open} />
+    <ResultCard round={round} {...cardProps} resultContext={resultContext} nextWarmUp={nextWarmUp} celebration={celebration} nextButtonRef={nextButton} autoFocusNext={!open} />
     <dialog
       ref={dialog}
       className="dialog meme-dialog"

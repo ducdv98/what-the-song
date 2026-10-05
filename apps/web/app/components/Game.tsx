@@ -32,6 +32,7 @@ import { Timeline } from './Timeline';
 import { TierChips } from './TierChips';
 import { GuessBar } from './GuessBar';
 import { ResultView } from './ResultView';
+import type { ResultContext } from '@/lib/celebration';
 import { MenuDrawer } from './GameMenu';
 import { PillRow } from './PillRow';
 import { LangToggle } from './LangToggle';
@@ -67,6 +68,7 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
   // Ids already played, so a Subject is not repeated until the pool is used up.
   const playedRef = useRef(new Set<string>());
   const roundWasWarmUp = useRef(false);
+  const resultContext = useRef<ResultContext>({ wasWarmUp: false, firstWarmUpWin: false, streak: 0, previousStreak: 0, bestStreak: 0 });
   const [round, setRound] = useState<Round<Song, number> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -184,6 +186,7 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
       setRound(next);
       if (!before || before.status !== 'playing') return;
       if (next.status !== 'playing') {
+        resultContext.current = { wasWarmUp: roundWasWarmUp.current, firstWarmUpWin: roundWasWarmUp.current && next.status === 'won', streak: next.status === 'won' ? stats.currentStreak + 1 : 0, previousStreak: stats.currentStreak, bestStreak: stats.bestStreak };
         warmUp.finish(next.status === 'won', roundWasWarmUp.current);
         record({
           topic: topicId,
@@ -197,7 +200,7 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
         void playClip(next.subject, currentClue(next));
       }
     },
-    [round, record, genre, playClip, topicId, warmUp.finish],
+    [round, record, genre, playClip, topicId, warmUp.finish, stats],
   );
 
   // Warm the next stage so revealing it feels immediate.
@@ -359,6 +362,8 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
       {round && over && (
         <ResultView
           round={round}
+          resultContext={resultContext.current}
+          nextWarmUp={roundWasWarmUp.current && warmUp.active}
           memes={memesEnabled ? roundMemes : undefined}
           playback={state}
           onListen={() => {

@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: resolved
 
 # Celebrations and loss effects
 

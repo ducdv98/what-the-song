@@ -7,6 +7,8 @@ import fixture from '../../test/fixtures/food-catalogue.json';
 import { Game } from './Game';
 import { FoodGame } from './FoodGame';
 import { I18nProvider } from './I18nProvider';
+vi.mock('canvas-confetti', () => ({ default: vi.fn() }));
+
 
 const selected = vi.hoisted(() => ({ available: true }));
 vi.mock('@/lib/assets/memes', async (importOriginal) => {

@@ -10,6 +10,8 @@ import { assetUrls } from '@/lib/assets/urls';
 import { formatSeconds } from './PlayButton';
 import { useI18n } from './I18nProvider';
 import { FoodCredit } from './FoodCredit';
+import { CelebrationEffect } from './CelebrationEffect';
+import { lossProgress, type CelebrationPlan, type ResultContext } from '@/lib/celebration';
 
 /** Spoiler-free history: wrong, revealed, correct, and not reached. */
 export function shareSquares(round: Round<Song, number> | Round<Dish, Zoom> | Round<Person, Reveal>): string {
@@ -32,6 +34,9 @@ export function ResultCard({
   autoFocusNext = true,
   foodPhotoUrl,
   peoplePhotoUrl,
+  resultContext,
+  nextWarmUp = false,
+  celebration,
 }: {
   round: Round<Song, number> | Round<Dish, Zoom> | Round<Person, Reveal>;
   playback?: PlaybackState;
@@ -41,6 +46,9 @@ export function ResultCard({
   autoFocusNext?: boolean;
   foodPhotoUrl?: string | null;
   peoplePhotoUrl?: string | null;
+  resultContext?: ResultContext;
+  nextWarmUp?: boolean;
+  celebration?: CelebrationPlan | null;
 }) {
   const { t, lang } = useI18n();
   const [copied, setCopied] = useState(false);
@@ -118,6 +126,7 @@ export function ResultCard({
         <span aria-hidden="true">{won ? '✓' : '×'}</span>
         {won ? t('result.guessedIn') : t('result.lost')}
       </span>
+      {won && celebration && <CelebrationEffect plan={celebration} topic={song ? 'songs' : food ? 'food' : 'people'} />}
       <div className={photo ? 'result-cover result-food-photo' : 'result-cover'}>
         {photo && photoUrl ? (
           <img src={photoUrl} alt="" width={160} height={160} />
@@ -159,11 +168,14 @@ export function ResultCard({
         {song && <p className="result-artist">{song.artist}</p>}
         {dish && <FoodCredit credit={dish.credit} />}
       </div>
+      {!won && <div className="result-consolation">
+        <p>{t(`celebration.loss.${lossProgress(round.stageIndex, round.stages.length)}`)}</p>
+        {resultContext && <p>{t('celebration.streakLost', { n: resultContext.previousStreak })} · {t('celebration.bestStreak', { n: resultContext.bestStreak })}</p>}
+        {nextWarmUp && <p>{t('celebration.warmUpPrompt')}</p>}
+      </div>}
       <div className="result-summary">
         {won && <p className="result-clip">{food ? t('food.wonAt', { at }) : person ? t('people.wonAt', { at }) : t('result.wonAt', { at })}</p>}
-        <p className="result-score">
-          {t('round.points', { n: won ? round.score : 0 })}
-        </p>
+        <ScoreDisplay score={won ? round.score : 0} label={t('round.points', { n: won ? round.score : 0 })} format={(n) => t('round.points', { n })} animate={won} />
       </div>
       <div
         className="result-history"
@@ -230,7 +242,7 @@ export function ResultCard({
           {copied ? t('result.copied') : t('result.share')}
         </button>
         <button ref={nextButtonRef} className="pill next-button" onClick={onNext} autoFocus={autoFocusNext}>
-          {food ? t('food.next') : person ? t('people.next') : won ? t('result.next') : t('result.tryAgain')}{' '}
+          {!won ? t('celebration.playOn') : food ? t('food.next') : person ? t('people.next') : t('result.next')}{' '}
           <span aria-hidden="true">↗</span>
         </button>
       </div>
@@ -245,4 +257,26 @@ function initials(title: string): string {
     .slice(0, 2)
     .map((w) => w[0]!.toUpperCase())
     .join('');
+}
+
+function ScoreDisplay({ score, label, format, animate }: { score: number; label: string; format: (n: number) => string; animate: boolean }) {
+  const [shown, setShown] = useState(animate ? 0 : score);
+  useEffect(() => {
+    if (!animate) return;
+    const media = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    if (media?.matches || typeof requestAnimationFrame !== 'function') { setShown(score); return; }
+    let frame = 0;
+    let start = 0;
+    const tick = (time: number) => {
+      if (!start) start = time;
+      const progress = Math.min(1, (time - start) / 650);
+      setShown(Math.round(score * (1 - (1 - progress) ** 3)));
+      if (progress < 1) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    const finish = () => { if (media?.matches) { cancelAnimationFrame(frame); setShown(score); } };
+    media?.addEventListener('change', finish);
+    return () => { cancelAnimationFrame(frame); media?.removeEventListener('change', finish); };
+  }, [score, animate]);
+  return <p className="result-score" aria-label={label}><span aria-hidden="true">{format(shown)}</span></p>;
 }
