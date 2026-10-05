@@ -52,6 +52,10 @@ The amount by which a Food Zoom's photo is blurred and drained of colour at a St
 **Credit**:
 The photographer, licence and source shown with a Dish's photo once its Round is finished. Every Dish has one, because its photo is used under a Creative Commons licence. A Person has no Credit: their photo is one already published on the internet, used without a licence and without attribution.
 
+**Celebration**:
+The animated reward shown when a Round is won, varied between wins and stronger for a harder or earlier win, a Streak milestone or a first Warm-up win. A lost Round gets a quieter, consoling counterpart instead. Decoration only: never a Clue and never affects Score.
+_Avoid_: animation, reward
+
 **Meme**:
 A still image shown on the result of a Round, chosen by whether the Round was won or lost. Decoration only: it is not a Clue and never affects Score.
 _Avoid_: reaction, gif
@@ -60,8 +64,16 @@ _Avoid_: reaction, gif
 Free text the player types as their answer. There is no suggestion list; the player must produce the answer from memory.
 _Avoid_: pick, selection, suggestion
 
-**Skip**:
-Opening the next Stage without Guessing.
+**Reveal more**:
+Opening the next Stage without Guessing. It costs Score, because Score falls with the Stage. It is unavailable on the last Stage. It is not a way to leave a Round.
+_Avoid_: skip (it used to carry that name and players read it as giving up), hint
+
+**Give up**:
+Ending a Round as lost at once, on any Stage, so the player sees the Subject before the next Round. It scores nothing and ends the Streak. Shown to players as "Bỏ qua".
+_Avoid_: skip, surrender
+
+**Warm-up**:
+The first Rounds of a player with no history in a Topic, made easier so they win early: only easy-Tier Subjects, opened at a later Stage than the first. It ends after the player's first win or three Rounds, whichever comes first. A player who has saved a Tier or has recorded Rounds in that Topic never gets one.
 
 **Match**:
 A Guess counts as the Subject when it names the Subject's title or name, or one of its aliases; each Topic decides what that means. For Songs, the rule is this: it names the Song's title or one of its aliases, tolerant of diacritics and tone placement: both sides are reduced to accent-free words and compared, so "nơi này co anh" and "noi nay co anh" both Match "Nơi Này Có Anh". Typo tolerance and IME-off typing (Telex tail keys such as "cuar") do not Match. Matching is judged against the Round's own Song only, so two Songs sharing a title are not told apart.
@@ -98,4 +110,5 @@ Weekly and monthly rankings of players by Score.
 
 ## Flagged ambiguities
 
+- "Skip" used to mean opening the next Stage, while players took it to mean leaving the Round. It is now two terms: **Reveal more** (next Stage) and **Give up** (leave the Round, "Bỏ qua" in the UI).
 - "Guess" used to mean either a typed text or a picked suggestion. Suggestions are gone, so **Guess** is free text only.

@@ -17,7 +17,7 @@ export function shareSquares(round: Round<Song, number> | Round<Dish, Zoom> | Ro
     .map((_, i) => {
       const a = round.attempts[i];
       if (!a) return '⬜';
-      if (a.kind === 'skip') return '⬛';
+      if (a.kind === 'reveal') return '⬛';
       return a.quality === 'none' ? '🟥' : '🟩';
     })
     .join('');
@@ -175,7 +175,7 @@ export function ResultCard({
           const attempt = round.attempts[i];
           const kind = !attempt
             ? 'unreached'
-            : attempt.kind === 'skip'
+            : attempt.kind === 'reveal'
               ? 'skip'
               : attempt.quality === 'none'
                 ? 'wrong'

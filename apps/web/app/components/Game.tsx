@@ -8,7 +8,7 @@ import {
   isLastStage,
   currentClue,
   scoreForStep,
-  skip,
+  revealMore,
   submitGuess,
   tierCounts,
   tierOf,
@@ -275,7 +275,7 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
         <>
           <section
             key={`${round.subject.id}-${round.stageIndex}`}
-            className={`play-card round-card${round.attempts[round.stageIndex - 1]?.kind === 'skip' ? ' round-card--skip' : ''}`}
+            className={`play-card round-card${round.attempts[round.stageIndex - 1]?.kind === 'reveal' ? ' round-card--skip' : ''}`}
             aria-labelledby="round-title"
           >
             <div className="card-masthead">
@@ -332,7 +332,7 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
                   .find((a) => a.kind === 'guess' && a.quality === 'none')?.text
               }
               onGuess={(text: string) => apply(submitGuess(round, text, matchGuess))}
-              onSkip={() => apply(skip(round))}
+              onSkip={() => apply(revealMore(round))}
               onGiveUp={() => apply(giveUp(round))}
             />
             <p className="answer-hint">

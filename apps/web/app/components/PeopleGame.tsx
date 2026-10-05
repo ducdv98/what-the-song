@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   createRound, currentClue, filterByTier, pickSubject, giveUp, isLastStage, scoreForStep,
-  skip, submitGuess, tierCounts, tierOf, type Round, type TierSlug,
+  revealMore, submitGuess, tierCounts, tierOf, type Round, type TierSlug,
 } from '@wts/core';
 import { peopleTopic, matchGuess, type Person, type Reveal } from '@wts/topic-people';
 import { assetUrls } from '@/lib/assets/urls';
@@ -155,7 +155,7 @@ export function PeopleGame({ catalogue }: { catalogue: Person[] }) {
               lastStage={isLastStage(round)}
               lastWrong={[...round.attempts].reverse().find((attempt) => attempt.kind === 'guess' && attempt.quality === 'none')?.text}
               onGuess={(guess) => apply(submitGuess(round, guess, (text, person) => matchGuess(text, person) ? 'exact' : 'none'))}
-              onSkip={() => apply(skip(round))}
+              onSkip={() => apply(revealMore(round))}
               onGiveUp={() => apply(giveUp(round))}
             />
             <p className="answer-hint">{nextReveal

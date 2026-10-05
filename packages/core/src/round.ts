@@ -1,10 +1,10 @@
 /**
  * Round state machine. Pure — no audio, no DOM, no fetch.
  *
- * A round follows an ordered ladder of stages. You start on the first. A wrong
- * guess or a skip opens the next stage; a wrong guess on the last stage, or
- * giving up, loses. There are
- * no lives on top of that — the stages *are* the attempts.
+ * A Round follows an ordered ladder of Stages. You start on the first. A wrong
+ * Guess or Reveal more opens the next Stage. A wrong Guess on the last Stage,
+ * or Give up on any Stage, loses. Reveal more on the last Stage does nothing.
+ * There are no lives on top of that — the Stages are the attempts.
  */
 
 import type { MatchQuality } from './match-quality.ts';
@@ -41,9 +41,9 @@ export function scoreForStep(stageIndex: number, stages: number, tier: TierSlug 
 export type RoundStatus = 'playing' | 'won' | 'lost';
 
 export interface Attempt<C = unknown> {
-  /** What was guessed; empty for a skip. */
+  /** What was guessed; empty for Reveal more. */
   text: string;
-  kind: 'guess' | 'skip';
+  kind: 'guess' | 'reveal';
   /** The Clue it was made on. */
   at: C;
   /** How a text guess matched, when it did. */
@@ -106,14 +106,14 @@ export function submitGuess<S extends Subject, C>(round: Round<S, C>, guess: str
   return advance(round, { text, kind: 'guess', at, quality });
 }
 
-/** Skip: open the next stage without guessing. On the last stage it loses. */
-export function skip<S extends Subject, C>(round: Round<S, C>): Round<S, C> {
-  if (round.status !== 'playing') return round;
-  return advance(round, { text: '', kind: 'skip', at: currentClue(round) });
+/** Reveal more: open the next Stage without guessing; no-op on the last Stage. */
+export function revealMore<S extends Subject, C>(round: Round<S, C>): Round<S, C> {
+  if (round.status !== 'playing' || isLastStage(round)) return round;
+  return advance(round, { text: '', kind: 'reveal', at: currentClue(round) });
 }
 
 /** Give up immediately. */
 export function giveUp<S extends Subject, C>(round: Round<S, C>): Round<S, C> {
   if (round.status !== 'playing') return round;
-  return { ...round, status: 'lost' };
+  return { ...round, status: 'lost', score: 0 };
 }

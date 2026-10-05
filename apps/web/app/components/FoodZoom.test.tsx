@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, test } from 'vitest';
-import { createRound, giveUp, skip, submitGuess } from '@wts/core';
+import { createRound, giveUp, revealMore, submitGuess } from '@wts/core';
 import { foodTopic, ladderFor, matchGuess, validateCatalogue } from '@wts/topic-food';
 import fixture from '../../test/fixtures/food-catalogue.json';
 import { FoodZoom } from './FoodZoom';
@@ -127,14 +127,14 @@ describe('fixture catalogue', () => {
   test('can be won or lost across the five Stages', () => {
     const matcher = (text: string, dish: typeof focalDish) => matchGuess(text, dish) ? 'exact' as const : 'none' as const;
     let won = createRound(focalDish, foodTopic.ladder(focalDish));
-    for (let i = 0; i < 4; i++) won = skip(won);
+    for (let i = 0; i < 4; i++) won = revealMore(won);
     assert.equal(won.stageIndex, 4);
     won = submitGuess(won, 'bun bo hue', matcher);
     assert.equal(won.status, 'won');
     assert.equal(won.attempts.length, 5);
 
     let lost = createRound(centredDish, foodTopic.ladder(centredDish));
-    for (let i = 0; i < 4; i++) lost = skip(lost);
+    for (let i = 0; i < 4; i++) lost = revealMore(lost);
     lost = giveUp(lost);
     assert.equal(lost.status, 'lost');
     assert.equal(lost.stageIndex, 4);

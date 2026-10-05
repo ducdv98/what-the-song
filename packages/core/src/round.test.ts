@@ -1,7 +1,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  createRound, submitGuess, skip, giveUp, currentClue, isLastStage,
+  createRound, submitGuess, revealMore, giveUp, currentClue, isLastStage,
   scoreForStep, BEST_SCORE,
 } from './round.ts';
 
@@ -29,7 +29,7 @@ describe('round setup', () => {
     const clues = ['face', 'hair', 'face'];
     const round = createRound(subject, clues);
     assert.deepEqual(round.stages, clues);
-    assert.deepEqual([currentClue(round), currentClue(skip(round)), currentClue(skip(skip(round)))], clues);
+    assert.deepEqual([currentClue(round), currentClue(revealMore(round)), currentClue(revealMore(revealMore(round)))], clues);
   });
 });
 
@@ -43,7 +43,7 @@ describe('winning', () => {
 
   test('an untagged Subject scores as medium on the last Stage', () => {
     let r = createRound(subject, [0.1, 0.5, 2, 8, 16]);
-    for (let i = 0; i < 4; i++) r = skip(r);
+    for (let i = 0; i < 4; i++) r = revealMore(r);
     assert.ok(isLastStage(r));
     const won = submitGuess(r, 'Correct', matcher);
     assert.equal(won.status, 'won');
@@ -51,7 +51,7 @@ describe('winning', () => {
   });
 });
 
-describe('wrong guesses and skips open the next stage', () => {
+describe('wrong guesses and Reveal more', () => {
   test('a wrong guess advances one stage and is recorded', () => {
     const r = submitGuess(createRound(subject, [0.1, 0.5, 2, 8, 16]), 'Wrong', matcher);
     assert.equal(r.status, 'playing');
@@ -59,17 +59,27 @@ describe('wrong guesses and skips open the next stage', () => {
     assert.deepEqual(r.attempts, [{ text: 'Wrong', kind: 'guess', at: 0.1, quality: 'none' }]);
   });
 
-  test('a skip advances one stage and is recorded', () => {
-    const r = skip(createRound(subject, [0.1, 0.5, 2, 8, 16]));
-    assert.equal(currentClue(r), 0.5);
-    assert.deepEqual(r.attempts, [{ text: '', kind: 'skip', at: 0.1 }]);
+  test('Reveal more opens the next Stage from the first and middle Stages', () => {
+    const first = createRound(subject, [0.1, 0.5, 2, 8, 16]);
+    const second = revealMore(first);
+    assert.equal(second.stageIndex, 1);
+    assert.equal(second.status, 'playing');
+    assert.equal(second.score, 0);
+    assert.deepEqual(second.attempts, [{ text: '', kind: 'reveal', at: 0.1 }]);
+
+    const middle = revealMore(second);
+    const fourth = revealMore(middle);
+    assert.equal(fourth.stageIndex, 3);
+    assert.equal(fourth.status, 'playing');
+    assert.deepEqual(fourth.attempts[2], { text: '', kind: 'reveal', at: 2 });
+    assert.equal(submitGuess(fourth, 'Correct', matcher).score, 64);
   });
 
   test('walking the whole ladder visits every stage in order', () => {
     let r = createRound(subject, [0.1, 0.5, 2, 8, 16]);
     const seen = [currentClue(r)];
     while (!isLastStage(r)) {
-      r = skip(r);
+      r = revealMore(r);
       seen.push(currentClue(r));
     }
     assert.deepEqual(seen, [0.1, 0.5, 2, 8, 16]);
@@ -77,17 +87,18 @@ describe('wrong guesses and skips open the next stage', () => {
 
   test('a wrong guess on the last stage loses', () => {
     let r = createRound(subject, [0.1, 0.5, 2, 8, 16]);
-    for (let i = 0; i < 4; i++) r = skip(r);
+    for (let i = 0; i < 4; i++) r = revealMore(r);
     const lost = submitGuess(r, 'wrong', matcher);
     assert.equal(lost.status, 'lost');
     assert.equal(lost.attempts.length, 5);
   });
 
-  test('skipping the last stage loses', () => {
+  test('Reveal more on the last Stage returns the same Round without recording an attempt', () => {
     let r = createRound(subject, [0.1, 0.5, 2, 8, 16]);
-    for (let i = 0; i < 5; i++) r = skip(r);
-    assert.equal(r.status, 'lost');
-    assert.equal(currentClue(r), 16, 'the reveal never runs off the end');
+    for (let i = 0; i < 4; i++) r = revealMore(r);
+    assert.strictEqual(revealMore(r), r);
+    assert.equal(r.status, 'playing');
+    assert.equal(r.attempts.length, 4);
   });
 
   test('an empty guess is a no-op, not a wasted stage', () => {
@@ -98,25 +109,32 @@ describe('wrong guesses and skips open the next stage', () => {
 });
 
 describe('giving up and terminal states', () => {
-  test('give up loses immediately, on any stage', () => {
-    assert.equal(giveUp(createRound(subject, [0.1, 0.5, 2, 8, 16])).status, 'lost');
-    assert.equal(giveUp(skip(skip(createRound(subject, [0.1, 0.5, 2, 8, 16])))).status, 'lost');
+  test('Give up loses with zero Score on the first, middle and last Stage', () => {
+    let round = createRound(subject, [0.1, 0.5, 2, 8, 16]);
+    for (const index of [0, 2, 4]) {
+      while (round.stageIndex < index) round = revealMore(round);
+      const lost = giveUp(round);
+      assert.equal(lost.status, 'lost');
+      assert.equal(lost.score, 0);
+      assert.equal(lost.stageIndex, index);
+      assert.deepEqual(lost.attempts, round.attempts);
+    }
   });
 
   test('nothing changes a won or lost round', () => {
     const won = submitGuess(createRound(subject, [0.1, 0.5, 2, 8, 16]), 'Correct', matcher);
-    assert.deepEqual(skip(won), won);
+    assert.deepEqual(revealMore(won), won);
     assert.deepEqual(giveUp(won), won);
     assert.deepEqual(submitGuess(won, 'anything', matcher), won);
     const lost = giveUp(createRound(subject, [0.1, 0.5, 2, 8, 16]));
-    assert.deepEqual(skip(lost), lost);
+    assert.deepEqual(revealMore(lost), lost);
     assert.deepEqual(submitGuess(lost, 'Correct', matcher), lost);
   });
 
   test('transitions never mutate the previous state', () => {
     const r = createRound(subject, [0.1, 0.5, 2, 8, 16]);
     const snapshot = structuredClone(r);
-    skip(r);
+    revealMore(r);
     submitGuess(r, 'wrong', matcher);
     submitGuess(r, 'Correct', matcher);
     giveUp(r);
@@ -133,7 +151,7 @@ describe('scoring', () => {
       assert.equal(submitGuess(first, 'Correct', matcher).score, 600);
 
       let last = first;
-      for (let i = 1; i < length; i++) last = skip(last);
+      for (let i = 1; i < length; i++) last = revealMore(last);
       assert.equal(submitGuess(last, 'Correct', matcher).score, length === 1 ? 600 : 30);
       assert.equal(last.stages.length, length);
     }
@@ -163,7 +181,7 @@ describe('scoring', () => {
       const start = createRound({ ...subject, tier }, [1, 2, 3, 4, 5]);
       assert.equal(submitGuess(start, 'Correct', matcher).score, first);
       let end = start;
-      for (let i = 1; i < 5; i++) end = skip(end);
+      for (let i = 1; i < 5; i++) end = revealMore(end);
       assert.equal(submitGuess(end, 'Correct', matcher).score, last);
     }
     assert.equal(BEST_SCORE, 1000);
@@ -183,7 +201,6 @@ describe('scoring', () => {
   test('losing at any Tier scores zero', () => {
     for (const tier of ['easy', 'medium', 'hard', 'expert', 'impossible']) {
       assert.equal(giveUp(createRound({ ...subject, tier }, [1])).score, 0);
-      assert.equal(skip(createRound({ ...subject, tier }, [1])).score, 0);
     }
   });
 });
