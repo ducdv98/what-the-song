@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { EMPTY_STATS } from '@wts/core';
 import { loadStats, saveStats, clearStats } from './guest-stats.ts';
 import { loadPrefs, savePrefs, DEFAULT_PREFS, isInstallHintDismissed, dismissInstallHint } from './prefs.ts';
+import { loadWarmUp, saveWarmUp } from './warm-up.ts';
 
 describe('storage degrades instead of throwing', () => {
   // There is no localStorage in Node — the same situation as a private window
@@ -114,4 +115,22 @@ describe('prefs', () => {
       assert.equal(loadPrefs().memes, true);
     });
   });
+});
+
+test('guest Warm-up progress survives reload per Topic and rejects malformed data', () => {
+  const store = new Map<string, string>();
+  const g = globalThis as Record<string, unknown>;
+  g.localStorage = {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => void store.set(key, value),
+  };
+  try {
+    saveWarmUp('people', { rounds: 1, won: false, warmUp: true });
+    assert.deepEqual(loadWarmUp('people'), { rounds: 1, won: false, warmUp: true });
+    assert.equal(loadWarmUp('food'), null);
+    store.set('what-the-song:warm-up:food:v1', '{"rounds":-1,"won":false,"warmUp":true}');
+    assert.equal(loadWarmUp('food'), null);
+  } finally {
+    delete g.localStorage;
+  }
 });

@@ -14,7 +14,7 @@ import { useAuth } from './AuthProvider';
  * which owns the numbers; the local update is only there so the bar moves
  * immediately, and is replaced by the server's answer.
  */
-export function useStats() {
+export function useStats(topic?: string) {
   const { status, user, sessionLost } = useAuth();
   const userId = user?.id ?? null;
   const [stats, setStats] = useState<Stats>(EMPTY_STATS);
@@ -22,6 +22,7 @@ export function useStats() {
   // Counts rounds the server has confirmed, so the leaderboard knows when to
   // refetch — after the round is stored, not when it is merely reported.
   const [synced, setSynced] = useState(0);
+  const [topicPlayed, setTopicPlayed] = useState<number | null>(null);
 
   // Bumped on every identity change and every report, so a response that
   // arrives late — for a previous player, or overtaken by a newer round —
@@ -32,8 +33,10 @@ export function useStats() {
     if (status === 'loading') return;
     const mine = ++seq.current;
     setSyncFailed(false);
+    setTopicPlayed(null);
     if (userId === null) {
       setStats(loadStats());
+      setTopicPlayed(0);
       return;
     }
     setStats(EMPTY_STATS);
@@ -47,7 +50,14 @@ export function useStats() {
         if (err instanceof AuthError && err.code === 'unauthenticated') sessionLost();
         else setSyncFailed(true);
       });
-  }, [status, userId, sessionLost]);
+    authApi.stats({ topic }).then((s) => {
+      if (seq.current === mine) setTopicPlayed(s.played);
+    }).catch((err: unknown) => {
+      if (seq.current !== mine) return;
+      if (err instanceof AuthError && err.code === 'unauthenticated') sessionLost();
+      else { setSyncFailed(true); setTopicPlayed(1); }
+    });
+  }, [status, userId, sessionLost, topic]);
 
   const record = useCallback(
     (report: RoundReport) => {
@@ -75,5 +85,5 @@ export function useStats() {
     [stats, userId, sessionLost],
   );
 
-  return { stats, record, syncFailed, synced };
+  return { stats, record, syncFailed, synced, topicPlayed, guest: userId === null };
 }

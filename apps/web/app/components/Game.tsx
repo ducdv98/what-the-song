@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   createRound,
- filterByTier, pickSubject,
+ filterByTier, pickSubject, warmUpRound, warmUpSubjects,
   giveUp,
   isLastStage,
   currentClue,
@@ -39,6 +39,7 @@ import { useI18n } from './I18nProvider';
 import { StreakBar } from './StreakBar';
 import { Leaderboard } from './Leaderboard';
 import { useStats } from './useStats';
+import { useWarmUp } from './useWarmUp';
 
 /**
  * The game: one round at a time, SongSpot-style.
@@ -65,10 +66,12 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
   >({ won: null, lost: null });
   // Ids already played, so a Subject is not repeated until the pool is used up.
   const playedRef = useRef(new Set<string>());
+  const roundWasWarmUp = useRef(false);
   const [round, setRound] = useState<Round<Song, number> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { stats, record, syncFailed, synced } = useStats();
+  const { stats, record, syncFailed, synced, topicPlayed, guest } = useStats(topicId);
+  const warmUp = useWarmUp(topicId, savedTier, topicPlayed, guest);
   const { engine, state } = useAudioEngine();
   const { lang, t } = useI18n();
   const progress = useCallback(() => engine.progress(), [engine]);
@@ -109,14 +112,18 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
       engine.stop();
       setError(null);
       setRoundMemes({ won: null, lost: null });
-      const song = pickSubject(songs, playedRef.current);
-      setRound(song ? createRound(song, songsTopic.ladder(song)) : null);
+      const active = warmUp.active;
+      const next = active
+        ? warmUpRound(warmUpSubjects(inFacet), playedRef.current, songsTopic.ladder)
+        : (() => { const song = pickSubject(songs, playedRef.current); return song ? createRound(song, songsTopic.ladder(song)) : null; })();
+      roundWasWarmUp.current = active && next !== null;
+      setRound(next);
     },
-    [songs, engine],
+    [songs, inFacet, engine, warmUp.active],
   );
 
   // A new pool (tier or genre changed) starts a new round.
-  useEffect(() => newRound(), [newRound]);
+  useEffect(() => { if (prefsReady && warmUp.ready && (!round || round.status === 'playing')) newRound(); }, [newRound, prefsReady, warmUp.ready]);
 
   // Sign every asset for this Round together; the client refreshes stale URLs
   // when an uncached Stage is eventually fetched.
@@ -177,6 +184,7 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
       setRound(next);
       if (!before || before.status !== 'playing') return;
       if (next.status !== 'playing') {
+        warmUp.finish(next.status === 'won', roundWasWarmUp.current);
         record({
           topic: topicId,
           subjectId: next.subject.id,
@@ -189,7 +197,7 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
         void playClip(next.subject, currentClue(next));
       }
     },
-    [round, record, genre, playClip, topicId],
+    [round, record, genre, playClip, topicId, warmUp.finish],
   );
 
   // Warm the next stage so revealing it feels immediate.

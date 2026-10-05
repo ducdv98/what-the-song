@@ -8,6 +8,7 @@ import { PeopleGame } from './PeopleGame';
 import { MenuProvider } from './GameMenu';
 
 const recorded = vi.hoisted(() => vi.fn());
+const history = vi.hoisted(() => ({ played: 1 }));
 vi.mock('@/lib/assets/urls', () => ({ assetUrls: { resolve: vi.fn(async (path: string) => path) } }));
 vi.mock('@/lib/assets/memes', async (importOriginal) => ({
   ...await importOriginal<typeof import('@/lib/assets/memes')>(),
@@ -15,17 +16,35 @@ vi.mock('@/lib/assets/memes', async (importOriginal) => ({
 }));
 vi.mock('./useStats', () => ({ useStats: () => ({
   stats: { played: 0, won: 0, lost: 0, currentStreak: 0, bestStreak: 0 },
-  record: recorded, syncFailed: false, synced: 0,
+  record: recorded, syncFailed: false, synced: 0, topicPlayed: history.played, guest: true,
 }) }));
 vi.mock('./Leaderboard', () => ({ Leaderboard: () => null }));
 vi.mock('./StreakBar', () => ({ StreakBar: () => null }));
 
-afterEach(() => { cleanup(); recorded.mockClear(); localStorage.clear(); });
+afterEach(() => { cleanup(); recorded.mockClear(); localStorage.clear(); history.played = 1; });
 
 const person: Person = {
   id: 'test-person', name: 'Ca Sĩ Test', aliases: ['Test Singer'], field: 'Ca sĩ',
   tier: 'easy', photo: 'portrait.jpg', sourceUrl: 'https://example.com/source',
 };
+
+test('a guest gets three middle-Stage Warm-up Rounds and resumes at the next Round after reload', async () => {
+  history.played = 0;
+  const view = render(<I18nProvider><PeopleGame catalogue={[person]} /></I18nProvider>);
+  await waitFor(() => assert.equal(screen.getByTestId('reveal-photo').getAttribute('data-fraction'), '0.6'));
+  fireEvent.click(screen.getByRole('button', { name: /bỏ qua|give up/i }));
+  assert.equal(recorded.mock.calls.length, 1);
+  assert.equal(recorded.mock.calls[0]?.[0]?.score, 0);
+  view.unmount();
+
+  render(<I18nProvider><PeopleGame catalogue={[person]} /></I18nProvider>);
+  await waitFor(() => assert.equal(screen.getByTestId('reveal-photo').getAttribute('data-fraction'), '0.6'));
+  for (let i = 0; i < 2; i++) {
+    fireEvent.click(screen.getByRole('button', { name: /bỏ qua|give up/i }));
+    fireEvent.click(screen.getByRole('button', { name: /next|tiếp|again|lại/i }));
+  }
+  await waitFor(() => assert.equal(screen.getByTestId('reveal-photo').getAttribute('data-fraction'), '0.15'));
+});
 
 test('Reveal more opens the next Stage; a matching Guess records the People Score and shows no Credit', async () => {
   render(<I18nProvider><PeopleGame catalogue={[person]} /></I18nProvider>);

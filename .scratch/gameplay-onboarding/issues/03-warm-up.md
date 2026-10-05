@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: resolved
 
 # Warm-up Rounds for new players
 

@@ -22,7 +22,7 @@ vi.mock('@/lib/assets/memes', async (importOriginal) => {
 vi.mock('@/lib/assets/urls', () => ({ assetUrls: { resolve: vi.fn(async (path: string, force?: boolean) => force ? `${path}?retry=1` : path) } }));
 vi.mock('./useStats', () => ({ useStats: () => ({
   stats: { played: 0, won: 0, lost: 0, currentStreak: 0, bestStreak: 0 },
-  record: vi.fn(), syncFailed: false, synced: 0,
+  record: vi.fn(), syncFailed: false, synced: 0, topicPlayed: 1, guest: true,
 }) }));
 vi.mock('./useAudioEngine', () => {
   const engine = { stop: vi.fn(), progress: () => 0, prefetch: vi.fn(), play: vi.fn() };

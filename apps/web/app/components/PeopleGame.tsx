@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   createRound, currentClue, filterByTier, pickSubject, giveUp, isLastStage, scoreForStep,
-  revealMore, submitGuess, tierCounts, tierOf, type Round, type TierSlug,
+  revealMore, submitGuess, tierCounts, tierOf, warmUpRound, warmUpSubjects, type Round, type TierSlug,
 } from '@wts/core';
 import { peopleTopic, matchGuess, type Person, type Reveal } from '@wts/topic-people';
 import { assetUrls } from '@/lib/assets/urls';
@@ -20,6 +20,7 @@ import { StreakBar } from './StreakBar';
 import { TierChips } from './TierChips';
 import { useI18n } from './I18nProvider';
 import { useStats } from './useStats';
+import { useWarmUp } from './useWarmUp';
 
 export function PeopleGame({ catalogue }: { catalogue: Person[] }) {
   const [field, setField] = useState<string | null>(null);
@@ -28,11 +29,13 @@ export function PeopleGame({ catalogue }: { catalogue: Person[] }) {
   const [prefsReady, setPrefsReady] = useState(false);
   // Ids already played, so a Subject is not repeated until the pool is used up.
   const playedRef = useRef(new Set<string>());
+  const roundWasWarmUp = useRef(false);
   const [round, setRound] = useState<Round<Person, Reveal> | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [roundMemes, setRoundMemes] = useState<Record<MemeOutcome, { meme: Meme; url: string } | null>>({ won: null, lost: null });
   const [error, setError] = useState<string | null>(null);
-  const { stats, record, syncFailed, synced } = useStats();
+  const { stats, record, syncFailed, synced, topicPlayed, guest } = useStats('people');
+  const warmUp = useWarmUp('people', savedTier, topicPlayed, guest);
   const { lang, t } = useI18n();
   const facet = peopleTopic.facets![0];
 
@@ -55,11 +58,15 @@ export function PeopleGame({ catalogue }: { catalogue: Person[] }) {
     setError(null);
     setPhotoUrl(null);
     setRoundMemes({ won: null, lost: null });
-    const person = pickSubject(people, playedRef.current);
-    setRound(person ? createRound(person, peopleTopic.ladder(person)) : null);
-  }, [people]);
+    const active = warmUp.active;
+    const next = active
+      ? warmUpRound(warmUpSubjects(inField), playedRef.current, peopleTopic.ladder)
+      : (() => { const person = pickSubject(people, playedRef.current); return person ? createRound(person, peopleTopic.ladder(person)) : null; })();
+    roundWasWarmUp.current = active && next !== null;
+    setRound(next);
+  }, [people, inField, warmUp.active]);
 
-  useEffect(() => newRound(), [newRound]);
+  useEffect(() => { if (prefsReady && warmUp.ready && (!round || round.status === 'playing')) newRound(); }, [newRound, prefsReady, warmUp.ready]);
 
   useEffect(() => {
     if (!round || !prefsReady) return;
@@ -93,6 +100,7 @@ export function PeopleGame({ catalogue }: { catalogue: Person[] }) {
     const before = round;
     setRound(next);
     if (!before || before.status !== 'playing' || next.status === 'playing') return;
+    warmUp.finish(next.status === 'won', roundWasWarmUp.current);
     record({
       topic: 'people', subjectId: next.subject.id, won: next.status === 'won',
       score: next.status === 'won' ? next.score : 0,
