@@ -73,7 +73,7 @@ Ending a Round as lost at once, on any Stage, so the player sees the Subject bef
 _Avoid_: skip, surrender
 
 **Warm-up**:
-The first Rounds of a player with no history in a Topic, made easier so they win early: only easy-Tier Subjects, opened at a later Stage than the first. It ends after the player's first win or three Rounds, whichever comes first. A player who has saved a Tier or has recorded Rounds in that Topic never gets one.
+The first Rounds of a player with no prior history in a Topic, made easier so they win early: easy-Tier Subjects (also medium when the Topic has fewer than ten easy Subjects), opened at a later Stage than the first. It ends after the player's first win or three Rounds, whichever comes first. Progress is kept per player and Topic so recorded Warm-up Rounds can continue after a reload. A player who has saved a Tier or recorded Rounds before starting Warm-up never gets one.
 
 **Match**:
 A Guess counts as the Subject when it names the Subject's title or name, or one of its aliases; each Topic decides what that means. For Songs, the rule is this: it names the Song's title or one of its aliases, tolerant of diacritics and tone placement: both sides are reduced to accent-free words and compared, so "nơi này co anh" and "noi nay co anh" both Match "Nơi Này Có Anh". Typo tolerance and IME-off typing (Telex tail keys such as "cuar") do not Match. Matching is judged against the Round's own Song only, so two Songs sharing a title are not told apart.

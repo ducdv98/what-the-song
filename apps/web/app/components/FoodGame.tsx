@@ -36,8 +36,8 @@ export function FoodGame({ catalogue }: { catalogue: Dish[] }) {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [roundMemes, setRoundMemes] = useState<Record<MemeOutcome, { meme: Meme; url: string } | null>>({ won: null, lost: null });
   const [error, setError] = useState<string | null>(null);
-  const { stats, record, syncFailed, synced, topicPlayed, guest } = useStats('food');
-  const warmUp = useWarmUp('food', savedTier, topicPlayed, guest);
+  const { stats, record, syncFailed, synced, topicPlayed, userId } = useStats('food');
+  const warmUp = useWarmUp('food', savedTier, topicPlayed, userId);
   const { lang, t } = useI18n();
   const facet = foodTopic.facets![0];
 
@@ -62,11 +62,11 @@ export function FoodGame({ catalogue }: { catalogue: Dish[] }) {
     setRoundMemes({ won: null, lost: null });
     const active = warmUp.active;
     const next = active
-      ? warmUpRound(warmUpSubjects(inRegion), playedRef.current, foodTopic.ladder)
+      ? warmUpRound(warmUpSubjects(catalogue, inRegion), playedRef.current, foodTopic.ladder)
       : (() => { const dish = pickSubject(dishes, playedRef.current); return dish ? createRound(dish, foodTopic.ladder(dish)) : null; })();
     roundWasWarmUp.current = active && next !== null;
     setRound(next);
-  }, [dishes, inRegion, warmUp.active]);
+  }, [dishes, catalogue, inRegion, warmUp.active]);
 
   useEffect(() => { if (prefsReady && warmUp.ready && (!round || round.status === 'playing')) newRound(); }, [newRound, prefsReady, warmUp.ready]);
 

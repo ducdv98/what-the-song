@@ -11,17 +11,21 @@ export interface WarmUpProgress {
 }
 
 export function warmUpEligible(savedTier: string | null, topicPlayed: number, progress: WarmUpProgress | null): boolean {
-  if (savedTier !== null || topicPlayed > 0) return false;
-  return progress === null || (progress.warmUp && !progress.won && progress.rounds < 3);
+  if (savedTier !== null) return false;
+  if (progress === null) return topicPlayed === 0;
+  return progress.warmUp && !progress.won && progress.rounds < 3 && topicPlayed <= progress.rounds;
 }
 
-/** Use medium Subjects only when the selected pool has fewer than ten easy Subjects. */
-export function warmUpSubjects<S extends Subject>(subjects: readonly S[]): S[] {
+/** Decide medium eligibility from the whole Topic, then honour the Facet when it has eligible Subjects. */
+export function warmUpSubjects<S extends Subject>(subjects: readonly S[], inFacet: readonly S[] = subjects): S[] {
   const easy = subjects.filter((subject) => tierOf(subject) === 'easy');
-  return easy.length >= 10 ? easy : subjects.filter((subject) => {
+  const eligible = easy.length >= 10 ? easy : subjects.filter((subject) => {
     const tier = tierOf(subject);
     return tier === 'easy' || tier === 'medium';
   });
+  const eligibleIds = new Set(eligible.map((subject) => subject.id));
+  const filtered = inFacet.filter((subject) => eligibleIds.has(subject.id));
+  return filtered.length > 0 ? filtered : eligible;
 }
 
 export function warmUpRound<S extends Subject, C>(

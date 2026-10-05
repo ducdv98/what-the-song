@@ -72,8 +72,8 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
   const [round, setRound] = useState<Round<Song, number> | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { stats, record, syncFailed, synced, topicPlayed, guest } = useStats(topicId);
-  const warmUp = useWarmUp(topicId, savedTier, topicPlayed, guest);
+  const { stats, record, syncFailed, synced, topicPlayed, userId } = useStats(topicId);
+  const warmUp = useWarmUp(topicId, savedTier, topicPlayed, userId);
   const { engine, state } = useAudioEngine();
   const { lang, t } = useI18n();
   const progress = useCallback(() => engine.progress(), [engine]);
@@ -116,12 +116,12 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
       setRoundMemes({ won: null, lost: null });
       const active = warmUp.active;
       const next = active
-        ? warmUpRound(warmUpSubjects(inFacet), playedRef.current, songsTopic.ladder)
+        ? warmUpRound(warmUpSubjects(allSongs, inFacet), playedRef.current, songsTopic.ladder)
         : (() => { const song = pickSubject(songs, playedRef.current); return song ? createRound(song, songsTopic.ladder(song)) : null; })();
       roundWasWarmUp.current = active && next !== null;
       setRound(next);
     },
-    [songs, inFacet, engine, warmUp.active],
+    [songs, allSongs, inFacet, engine, warmUp.active],
   );
 
   // A new pool (tier or genre changed) starts a new round.

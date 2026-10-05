@@ -85,5 +85,5 @@ export function useStats(topic?: string) {
     [stats, userId, sessionLost],
   );
 
-  return { stats, record, syncFailed, synced, topicPlayed, guest: userId === null };
+  return { stats, record, syncFailed, synced, topicPlayed, userId };
 }

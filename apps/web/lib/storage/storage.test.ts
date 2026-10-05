@@ -117,7 +117,7 @@ describe('prefs', () => {
   });
 });
 
-test('guest Warm-up progress survives reload per Topic and rejects malformed data', () => {
+test('Warm-up progress survives reload per Topic and player and rejects malformed data', () => {
   const store = new Map<string, string>();
   const g = globalThis as Record<string, unknown>;
   g.localStorage = {
@@ -128,6 +128,11 @@ test('guest Warm-up progress survives reload per Topic and rejects malformed dat
     saveWarmUp('people', { rounds: 1, won: false, warmUp: true });
     assert.deepEqual(loadWarmUp('people'), { rounds: 1, won: false, warmUp: true });
     assert.equal(loadWarmUp('food'), null);
+    assert.equal(loadWarmUp('people', 'player-1'), null);
+    saveWarmUp('people', { rounds: 2, won: false, warmUp: true }, 'player-1');
+    assert.deepEqual(loadWarmUp('people', 'player-1'), { rounds: 2, won: false, warmUp: true });
+    assert.equal(loadWarmUp('people', 'player-2'), null);
+    assert.deepEqual(loadWarmUp('people'), { rounds: 1, won: false, warmUp: true });
     store.set('what-the-song:warm-up:food:v1', '{"rounds":-1,"won":false,"warmUp":true}');
     assert.equal(loadWarmUp('food'), null);
   } finally {

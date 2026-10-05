@@ -1,10 +1,11 @@
 import type { WarmUpProgress } from '@wts/core';
 
-const key = (topic: string) => `what-the-song:warm-up:${topic}:v1`;
+const key = (topic: string, userId: string | null) =>
+  `what-the-song:warm-up:${topic}:v1${userId === null ? '' : `:user:${encodeURIComponent(userId)}`}`;
 
-export function loadWarmUp(topic: string): WarmUpProgress | null {
+export function loadWarmUp(topic: string, userId: string | null = null): WarmUpProgress | null {
   try {
-    const raw = localStorage.getItem(key(topic));
+    const raw = localStorage.getItem(key(topic, userId));
     if (!raw) return null;
     const value: unknown = JSON.parse(raw);
     if (typeof value !== 'object' || value === null) return null;
@@ -17,9 +18,9 @@ export function loadWarmUp(topic: string): WarmUpProgress | null {
   }
 }
 
-export function saveWarmUp(topic: string, progress: WarmUpProgress): void {
+export function saveWarmUp(topic: string, progress: WarmUpProgress, userId: string | null = null): void {
   try {
-    localStorage.setItem(key(topic), JSON.stringify(progress));
+    localStorage.setItem(key(topic, userId), JSON.stringify(progress));
   } catch {
     // A blocked browser store must not prevent playing.
   }

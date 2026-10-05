@@ -13,6 +13,8 @@ describe('Warm-up', () => {
     const start = { rounds: 0, won: false, warmUp: true };
     const afterLoss = finishWarmUp(start, false);
     assert.equal(warmUpEligible(null, 0, afterLoss), true);
+    assert.equal(warmUpEligible(null, 1, afterLoss), true);
+    assert.equal(warmUpEligible(null, 2, afterLoss), false);
     assert.equal(warmUpEligible(null, 0, finishWarmUp(afterLoss, true)), false);
     assert.equal(warmUpEligible(null, 0, finishWarmUp(finishWarmUp(afterLoss, false), false)), false);
     assert.equal(warmUpEligible(null, 0, { ...start, warmUp: false }), false);
@@ -23,6 +25,14 @@ describe('Warm-up', () => {
     assert.deepEqual(warmUpSubjects([...subjects('easy', 10), ...medium]).length, 10);
     assert.deepEqual(warmUpSubjects([...subjects('easy', 9), ...medium]).length, 12);
     assert.deepEqual(warmUpSubjects(subjects('hard', 3)), []);
+  });
+
+  it('uses the whole Topic to decide whether medium is allowed and escapes a facet without easy Subjects', () => {
+    const easy = subjects('easy', 10);
+    const medium = subjects('medium', 2);
+    const catalogue = [...easy, ...medium];
+    assert.deepEqual(warmUpSubjects(catalogue, medium).map((s) => s.id), easy.map((s) => s.id));
+    assert.deepEqual(warmUpSubjects(catalogue, [easy[0]!, medium[0]!]).map((s) => s.id), [easy[0]!.id]);
   });
 
   it('opens at the middle Stage and keeps the actual Stage Score within API bounds', () => {
