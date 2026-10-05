@@ -25,7 +25,7 @@ Set `SITE_URL` to the public HTTP(S) origin when building the static web app, fo
 
 ### Current product constraints
 
-The game already has a variable, per-song clip ladder, up to five stages. The default ladder is 0.1, 0.5, 2, 8, and 16 seconds, but the interface must read the actual stages. There is no suggestion list ([ADR-0001](docs/adr/0001-free-text-guesses.md)): the player types the title and the Guess action submits it; an empty answer action is Skip or Give up at the final stage. The result replaces the round and offers replay, share, and next round. Keep this behavior unless a later task explicitly changes it.
+The game already has a variable, per-song clip ladder, up to five stages. The default ladder is 0.1, 0.5, 2, 8, and 16 seconds, but the interface must read the actual stages. There is no suggestion list ([ADR-0001](docs/adr/0001-free-text-guesses.md)): the player types the title and Guess submits nonempty text. Reveal more opens the next Stage at a Score cost, and Give up ends the Round at any Stage. Enter on an empty answer does nothing. The result replaces the round and offers replay, share, and next round. Keep this behavior unless a later task explicitly changes it.
 
 The existing app uses Next.js, CSS, React, and browser audio. The catalogue and cover assets are generated outside the repository. The redesign should remain workable with no cover, no playable songs, guest mode, account errors, and no leaderboard connection.
 
@@ -58,7 +58,7 @@ The gig poster concept, layout, and palette are design decisions for this app. T
 
 1. Current listening action and duration.
 2. Revealed stage and the cost of moving to the next clue.
-3. Answer field and Skip, Guess, or Give up action.
+3. Answer field and separate Guess, Reveal more, and Give up actions.
 4. Difficulty and genre context.
 5. Streak, account, menu, and leaderboard.
 
@@ -143,7 +143,8 @@ genre / difficulty context
 ║ [0.1][0.5][2][8][16]              ║
 ║ [  PLAY  ]     0.1s               ║
 ╚════════════════════════════════════╝
-[ Song or artist... ][ Skip / Guess ]
+[ Song title... ][ Guess ]
+[ Reveal more · next clue cost ][ Give up ]
 streak · best
 ~~~
 
@@ -169,8 +170,8 @@ The drawer is the “back of the flyer”: how to play, genre, stats, leaderboar
 | Reveal strip | One segment per actual stage, labeled with duration. Future stages are neutral; current is ink filled or strongly outlined; unlocked history uses coral. | On unlock, mark the new stage and show its actual duration. A brief 180–240ms transition is enough. The strip is informational, not a seek control. |
 | Difficulty choices | Be Vietnam Pro labels, full names, and selected ink treatment. | Available, selected, focus, and unavailable states differ by text/shape as well as color. Zero-song tier stays understandable. |
 | Genre picker | In the drawer, grouped or searchable when the 20-genre catalogue is populated. | The chosen genre appears in the round context. Selection can start a new round under current behavior; do not silently imply the current song merely changed label. |
-| Guess field | 48px or taller, ink border on cream, visible label. | Free text, no suggestion list. A wrong guess is echoed under the field with no "close" signal. Enter submits. |
-| Changing action | A single companion button labelled Skip, Guess, or Give up. | Guess uses ink fill or coral fill with ink text; Skip is neutral; Give up uses dark red text and a strong outline. The label communicates the action without icon decoding. |
+| Guess field | 48px or taller, ink border on cream, visible label. | Free text, no suggestion list. A wrong guess is echoed under the field with no "close" signal. Enter submits only nonempty text. |
+| Round actions | Guess sits beside the answer field; Reveal more and Give up have separate buttons below. | Guess uses ink fill and requires text. Reveal more shows the next Stage and its Score cost, and disappears on the last Stage. Give up is visually quiet but available on every Stage and ends the Round as lost. |
 | Result cover | 160–176px square, only after round resolves. | Missing art becomes a typographic print tile using song initials. Keep title and artist as text outside the image. |
 | Result stamp | Bold outcome word plus check/cross shape. | Correct, wrong, and give up are distinct in words and color. Animate only on entry; no ongoing pulse. |
 | Next / Try again | Highest priority result action, full width on phone if space is tight. | Visible at 200% zoom with scrolling. Disabled only during actual transition. |
@@ -181,7 +182,7 @@ The drawer is the “back of the flyer”: how to play, genre, stats, leaderboar
 
 ### Voice
 
-Short, lively, and clear. Gig poster energy belongs in headings and visual rhythm. Functional copy remains plain: the player should immediately understand Play, Skip, Guess, Give up, Listen again, Share, and Next song. Keep the existing Vietnamese and English message catalogue as the source of functional strings. New text gets both translations in the same change.
+Short, lively, and clear. Gig poster energy belongs in headings and visual rhythm. Functional copy remains plain: the player should immediately understand Play, Reveal more, Guess, Give up, Listen again, Share, and Next song. Keep the existing Vietnamese and English message catalogue as the source of functional strings. New text gets both translations in the same change.
 
 Use natural Vietnamese casing, for example “Đoán bài hát”, “Bỏ qua”, and “Bài tiếp”. Do not apply CSS uppercase to Vietnamese body labels or song metadata. The English marketing style “HEAR IT. NAME IT.” from the preview is optional on desktop; its Vietnamese version should be written as natural copy, not a literal shout.
 
@@ -240,7 +241,7 @@ Separate primitive palette values from semantic roles. Components should ask for
 | apps/web/app/page.tsx | Mobile-first header and editorial desktop composition; loading and empty states. |
 | apps/web/app/components/Game.tsx | Round composition and the position of filters, stage, play, guess, and result. Preserve game logic. |
 | Timeline.tsx and PlayButton.tsx | Actual stage strip and primary playback affordance, including state text and accessible names. |
-| GuessBar.tsx and ResultCard.tsx | Answer form, suggestion list, result poster, art fallback, replay, share, and next action. |
+| GuessBar.tsx and ResultCard.tsx | Answer form, separate Round actions, result poster, art fallback, replay, share, and next action. |
 | TierChips.tsx and PillRow.tsx | Available, selected, unavailable, and responsive choices. |
 | GameMenu.tsx, StreakBar.tsx, Leaderboard.tsx | Secondary information in the flyer language. |
 | AuthDialog.tsx, AccountBar.tsx, GuestNotice.tsx | Dialog and account affordances in the new visual system. |

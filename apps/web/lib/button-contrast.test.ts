@@ -49,7 +49,7 @@ type Control = {
 
 const controls: Control[] = [
   { name: 'Guess', classes: ['action-btn', 'action-btn--guess'], surface: '--cream-100' },
-  { name: 'Skip', classes: ['action-btn'], surface: '--cream-100' },
+  { name: 'Reveal more', classes: ['action-btn', 'action-btn--reveal'], surface: '--cream-100' },
   { name: 'Give up', classes: ['action-btn', 'action-btn--giveup'], surface: '--cream-100' },
   { name: 'pill', classes: ['pill'], surface: '--cream-100' },
   { name: 'muted pill', classes: ['pill', 'pill--muted'], surface: '--cream-100' },

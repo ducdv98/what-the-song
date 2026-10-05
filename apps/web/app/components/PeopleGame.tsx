@@ -155,12 +155,11 @@ export function PeopleGame({ catalogue }: { catalogue: Person[] }) {
               lastStage={isLastStage(round)}
               lastWrong={[...round.attempts].reverse().find((attempt) => attempt.kind === 'guess' && attempt.quality === 'none')?.text}
               onGuess={(guess) => apply(submitGuess(round, guess, (text, person) => matchGuess(text, person) ? 'exact' : 'none'))}
-              onSkip={() => apply(revealMore(round))}
+              onRevealMore={() => apply(revealMore(round))}
+              revealCost={nextReveal ? t('people.revealCost', { percent: Math.round(nextReveal.fraction * 100), points: scoreForStep(round.stageIndex + 1, round.stages.length, tierOf(round.subject)) }) : undefined}
               onGiveUp={() => apply(giveUp(round))}
             />
-            <p className="answer-hint">{nextReveal
-              ? t('people.skipCost', { percent: Math.round(nextReveal.fraction * 100), points: scoreForStep(round.stageIndex + 1, round.stages.length, tierOf(round.subject)) })
-              : t('people.finalHint')}</p>
+            {!nextReveal && <p className="answer-hint">{t('people.finalHint')}</p>}
           </div>
         </>
       )}

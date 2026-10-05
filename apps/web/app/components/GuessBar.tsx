@@ -3,21 +3,16 @@
 import { useState } from 'react';
 import { useI18n } from './I18nProvider';
 
-export type RoundAction = 'skip' | 'guess' | 'giveup';
-
 /**
- * Free-text answer box plus the one action button beside it.
- *
- * There is no suggestion list (docs/adr/0001-free-text-guesses.md): the player
- * types the title from memory. With text in the box the button is Guess;
- * empty, it is Skip, or Give up on the last stage. Enter does whatever the
- * button does. A wrong guess is echoed back so a typo is easy to spot.
+ * Free-text Guess with separate Reveal more and Give up actions.
+ * Enter only submits a nonempty Guess. A wrong guess is echoed back.
  */
 export function GuessBar({
   lastStage,
   lastWrong,
+  revealCost,
   onGuess,
-  onSkip,
+  onRevealMore,
   onGiveUp,
   topic = 'songs',
 }: {
@@ -25,8 +20,9 @@ export function GuessBar({
   lastStage: boolean;
   /** The text of the previous wrong guess on this round, if any. */
   lastWrong?: string;
+  revealCost?: string;
   onGuess: (text: string) => void;
-  onSkip: () => void;
+  onRevealMore: () => void;
   onGiveUp: () => void;
 }) {
   const { t } = useI18n();
@@ -35,12 +31,9 @@ export function GuessBar({
   const answerHint = topic === 'food' ? t('food.answerHint') : topic === 'people' ? t('people.answerHint') : t('round.answerHint');
   const [text, setText] = useState('');
 
-  const action: RoundAction = text.trim() ? 'guess' : lastStage ? 'giveup' : 'skip';
-
-  function act() {
-    if (action === 'guess') onGuess(text);
-    else if (action === 'giveup') onGiveUp();
-    else onSkip();
+  function guess() {
+    if (!text.trim()) return;
+    onGuess(text);
     setText('');
   }
 
@@ -62,7 +55,7 @@ export function GuessBar({
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
-                act();
+                guess();
               }
             }}
             aria-describedby="guess-help"
@@ -71,20 +64,22 @@ export function GuessBar({
 
         <button
           type="button"
-          className={`action-btn${action === 'guess' ? ' action-btn--guess' : action === 'giveup' ? ' action-btn--giveup' : ''}`}
-          onClick={act}
-          data-action={action}
+          className="action-btn action-btn--guess"
+          onClick={guess}
+          disabled={!text.trim()}
         >
-          {action !== 'guess' && (
-            <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M5 5v14l10-7z M17 5h2v14h-2z" fill="currentColor" />
-            </svg>
-          )}
-          {action === 'guess'
-            ? t('round.guess')
-            : action === 'giveup'
-              ? t('round.giveUp')
-              : t('round.skip')}
+          {t('round.guess')}
+        </button>
+      </div>
+      <div className="guess-secondary-actions">
+        {!lastStage && (
+          <button type="button" className="action-btn action-btn--reveal" onClick={onRevealMore}>
+            <span>{t('round.revealMore')}</span>
+            {revealCost && <span className="reveal-cost">{revealCost}</span>}
+          </button>
+        )}
+        <button type="button" className="action-btn action-btn--giveup" onClick={onGiveUp}>
+          {t('round.giveUp')}
         </button>
       </div>
       <p

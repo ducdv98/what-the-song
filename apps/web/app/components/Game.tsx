@@ -275,7 +275,7 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
         <>
           <section
             key={`${round.subject.id}-${round.stageIndex}`}
-            className={`play-card round-card${round.attempts[round.stageIndex - 1]?.kind === 'reveal' ? ' round-card--skip' : ''}`}
+            className={`play-card round-card${round.attempts[round.stageIndex - 1]?.kind === 'reveal' ? ' round-card--reveal' : ''}`}
             aria-labelledby="round-title"
           >
             <div className="card-masthead">
@@ -332,21 +332,18 @@ export function Game({ catalogue, topicId }: { catalogue: Song[]; topicId: Topic
                   .find((a) => a.kind === 'guess' && a.quality === 'none')?.text
               }
               onGuess={(text: string) => apply(submitGuess(round, text, matchGuess))}
-              onSkip={() => apply(revealMore(round))}
-              onGiveUp={() => apply(giveUp(round))}
-            />
-            <p className="answer-hint">
-              {nextSeconds !== undefined
-                ? t('round.skipCost', {
+              onRevealMore={() => apply(revealMore(round))}
+              revealCost={nextSeconds !== undefined ? t('round.revealCost', {
                     seconds: formatSeconds(nextSeconds),
                     points: scoreForStep(
                       round.stageIndex + 1,
                       round.stages.length,
                       tierOf(round.subject),
                     ),
-                  })
-                : t('round.finalHint')}
-            </p>
+                  }) : undefined}
+              onGiveUp={() => apply(giveUp(round))}
+            />
+            {nextSeconds === undefined && <p className="answer-hint">{t('round.finalHint')}</p>}
           </div>
         </>
       )}

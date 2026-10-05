@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: resolved
 
 # UI: Give up and Reveal more buttons
 

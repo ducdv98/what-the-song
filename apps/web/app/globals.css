@@ -593,10 +593,10 @@ button:disabled {
   padding: 26px;
   box-shadow: 10px 10px 0 var(--ink-900);
 }
-.round-card--skip {
-  animation: skip-reveal 260ms ease-out both;
+.round-card--reveal {
+  animation: stage-reveal 260ms ease-out both;
 }
-@keyframes skip-reveal {
+@keyframes stage-reveal {
   from {
     opacity: 0.75;
     transform: translateX(10px);
@@ -718,7 +718,7 @@ button:disabled {
   background: var(--yellow-300);
   color: var(--ink-900);
 }
-.round-card--skip .stage-marker--current {
+.round-card--reveal .stage-marker--current {
   animation: clue-ink 260ms ease-out both;
 }
 @keyframes clue-ink {
@@ -825,6 +825,21 @@ button:disabled {
   gap: 8px;
   position: relative;
 }
+.guess-secondary-actions {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.action-btn--reveal {
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  text-align: center;
+}
+.reveal-cost {
+  font: var(--t-small);
+  color: var(--text-muted);
+}
 .guess-field {
   flex: 1;
   min-width: 0;
@@ -874,7 +889,9 @@ button:disabled {
   color: var(--cream-100);
 }
 .action-btn--giveup {
-  color: var(--text-negative);
+  border-color: var(--text-muted);
+  color: var(--text-muted);
+  background: transparent;
 }
 .action-btn:focus-visible,
 .action-btn:active:not(:disabled) {
@@ -883,7 +900,7 @@ button:disabled {
 }
 .action-btn--giveup:focus-visible,
 .action-btn--giveup:active:not(:disabled) {
-  color: var(--text-negative);
+  color: var(--ink-900);
 }
 .action-btn--guess:focus-visible,
 .action-btn--guess:active:not(:disabled) {
@@ -896,7 +913,7 @@ button:disabled {
     color: var(--ink-900);
   }
   .action-btn--giveup:hover:not(:disabled) {
-    color: var(--text-negative);
+    color: var(--ink-900);
   }
   .action-btn--guess:hover:not(:disabled) {
     background: var(--color-control-dark-hover);
@@ -1243,7 +1260,7 @@ button:disabled {
   border: 2px solid var(--ink-900);
   font: var(--t-small-bold);
 }
-.history-stage[data-kind='skip'] {
+.history-stage[data-kind='reveal'] {
   background: var(--ink-900);
   color: var(--cream-100);
 }

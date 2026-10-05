@@ -11,7 +11,7 @@ import { formatSeconds } from './PlayButton';
 import { useI18n } from './I18nProvider';
 import { FoodCredit } from './FoodCredit';
 
-/** Spoiler-free history: wrong, skipped, correct, and not reached. */
+/** Spoiler-free history: wrong, revealed, correct, and not reached. */
 export function shareSquares(round: Round<Song, number> | Round<Dish, Zoom> | Round<Person, Reveal>): string {
   return round.stages
     .map((_, i) => {
@@ -176,13 +176,13 @@ export function ResultCard({
           const kind = !attempt
             ? 'unreached'
             : attempt.kind === 'reveal'
-              ? 'skip'
+              ? 'reveal'
               : attempt.quality === 'none'
                 ? 'wrong'
                 : 'correct';
           const outcome = t(
-            kind === 'skip'
-              ? 'result.skipped'
+            kind === 'reveal'
+              ? 'result.revealed'
               : kind === 'wrong'
                 ? 'result.wrong'
                 : kind === 'correct'
@@ -203,7 +203,7 @@ export function ResultCard({
               title={`${stageLabel} · ${outcome}`}
             >
               <span aria-hidden="true">
-                {kind === 'skip'
+                {kind === 'reveal'
                   ? '–'
                   : kind === 'wrong'
                     ? '×'

@@ -105,11 +105,7 @@ describe.each(['songs', 'food'] as const)('%s result', (topic) => {
   test('a lost Round shows its lost Meme', async () => {
     start(topic);
     await waitFor(() => expect(screen.getByRole('textbox')).toBeTruthy());
-    const steps = topic === 'songs' ? 1 : 5;
-    for (let index = 0; index < steps; index++) {
-      const action = screen.getByRole('button', { name: index === steps - 1 ? /give up|bỏ cuộc/i : /skip|bỏ qua/i });
-      fireEvent.click(action);
-    }
+    fireEvent.click(screen.getByRole('button', { name: /give up|bỏ qua/i }));
     const dialog = await screen.findByRole('dialog', { name: /meme|ảnh vui/i });
     expect(dialog.querySelector('img')?.getAttribute('src')).toContain('bbbbbbbbbbbbbbbbbbbbbbbb.webp');
     expect(screen.getByTestId('result').getAttribute('data-status')).toBe('lost');

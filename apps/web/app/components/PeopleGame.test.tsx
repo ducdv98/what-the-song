@@ -27,11 +27,11 @@ const person: Person = {
   tier: 'easy', photo: 'portrait.jpg', sourceUrl: 'https://example.com/source',
 };
 
-test('Skip reveals the next Stage; a matching Guess records the People Score and shows no Credit', async () => {
+test('Reveal more opens the next Stage; a matching Guess records the People Score and shows no Credit', async () => {
   render(<I18nProvider><PeopleGame catalogue={[person]} /></I18nProvider>);
   await waitFor(() => assert.ok(screen.getByRole('textbox')));
   assert.equal(screen.getByTestId('reveal-photo').getAttribute('data-fraction'), '0.15');
-  fireEvent.click(screen.getByRole('button', { name: /skip|bỏ qua/i }));
+  fireEvent.click(screen.getByRole('button', { name: /reveal more|gợi ý thêm/i }));
   assert.equal(screen.getByTestId('reveal-photo').getAttribute('data-fraction'), '0.35');
   fireEvent.change(screen.getByRole('textbox'), { target: { value: 'Test Singer' } });
   fireEvent.click(screen.getByRole('button', { name: /guess|đoán/i }));
@@ -60,4 +60,16 @@ test('the Field Facet filters People with Vietnamese and English labels', async 
   fireEvent.click(screen.getByRole('button', { name: /guess/i }));
   assert.equal(recorded.mock.calls[0]?.[0]?.subjectId, 'actor');
   assert.equal(recorded.mock.calls[0]?.[0]?.facet, 'dien-vien');
+});
+
+test('Give up on the first People Stage ends the Round and shows the Person', async () => {
+  render(<I18nProvider><PeopleGame catalogue={[person]} /></I18nProvider>);
+  await waitFor(() => assert.ok(screen.getByRole('textbox')));
+  assert.ok(screen.getByRole('button', { name: /gợi ý thêm|reveal more/i }));
+  fireEvent.click(screen.getByRole('button', { name: /bỏ qua|give up/i }));
+  const result = screen.getByTestId('result');
+  assert.equal(result.getAttribute('data-status'), 'lost');
+  assert.match(result.textContent ?? '', /Ca Sĩ Test/);
+  assert.match(result.textContent ?? '', /0 điểm|0 points/);
+  assert.equal(recorded.mock.calls[0]?.[0]?.won, false);
 });

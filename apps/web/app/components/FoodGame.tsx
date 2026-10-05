@@ -155,12 +155,11 @@ export function FoodGame({ catalogue }: { catalogue: Dish[] }) {
               lastStage={isLastStage(round)}
               lastWrong={[...round.attempts].reverse().find((attempt) => attempt.kind === 'guess' && attempt.quality === 'none')?.text}
               onGuess={(guess) => apply(submitGuess(round, guess, (text, dish) => matchGuess(text, dish) ? 'exact' : 'none'))}
-              onSkip={() => apply(revealMore(round))}
+              onRevealMore={() => apply(revealMore(round))}
+              revealCost={nextZoom ? t('food.revealCost', { percent: Math.round(nextZoom.fraction * 100), points: scoreForStep(round.stageIndex + 1, round.stages.length, tierOf(round.subject)) }) : undefined}
               onGiveUp={() => apply(giveUp(round))}
             />
-            <p className="answer-hint">{nextZoom
-              ? t('food.skipCost', { percent: Math.round(nextZoom.fraction * 100), points: scoreForStep(round.stageIndex + 1, round.stages.length, tierOf(round.subject)) })
-              : t('food.finalHint')}</p>
+            {!nextZoom && <p className="answer-hint">{t('food.finalHint')}</p>}
           </div>
         </>
       )}
